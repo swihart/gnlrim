@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 # gnlrim
 
-The goal of gnlrim is to ...
+The goal of gnlrim is to have a freestanding, smaller footprint instance of `repeated::gnlmix()`.
 
 ## Example
 
