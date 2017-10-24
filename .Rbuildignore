@@ -1,7 +1,5 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^.*\.Rproj$
-^\.Rproj\.user$
 README.md
 QEE2.out
 ^\.travis\.yml$
@@ -14,3 +12,5 @@ changes.txt
 ^\.gitignore$
 cmcre.r
 cmcre.Rd
+^README\.Rmd$
+^README-.*\.png$
