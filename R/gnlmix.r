@@ -33,19 +33,19 @@
 
 
 ##' Generalized Nonlinear Regression with a Random Parameter
-##' 
+##'
 ##' \code{gnlmix} fits user-specified nonlinear regression equations to one or
 ##' both parameters of the common one and two parameter distributions. One
 ##' parameter of the location regression is random with some specified mixing
 ##' distribution.
-##' 
+##'
 ##' It is recommended that initial estimates for \code{pmu} and \code{pshape}
 ##' be obtained from \code{gnlr}.
-##' 
+##'
 ##' These nonlinear regression models must be supplied as formulae where
 ##' parameters are unknowns. (See \code{\link[rmutil]{finterp}}.)
-##' 
-##' 
+##'
+##'
 ##' @param y A response vector of uncensored data, a two column matrix for
 ##' binomial data, or an object of class, \code{response} (created by
 ##' \code{\link[rmutil]{restovec}}) or \code{repeated} (created by
@@ -126,7 +126,19 @@
 ### \code{\link[gnlm]{nlr}}, \code{\link[stats]{nls}}.
 ##' @keywords models
 ##' @examples
-##' 
+##'
+##' dose <- c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8)
+##' y <- c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
+##'       1.900681, 17.425948,  4.503345,  2.691792,  5.731100, 10.534971,
+##'       11.220260,  6.968932,  4.094357, 16.393806, 14.656584,  8.786133,
+##'       20.972267, 17.178012)
+##' id <- rep(1:4, each=5)
+##'
+##' gnlmix(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
+##'        pshape=3.44, pmix=2.3)
+##'
+##' \dontrun{
+##' ## from repeated::gnlmix
 ##' dose <- c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8)
 ##' #y <- rgamma(20,shape=2+0.3*dose,scale=2)+rep(rnorm(4,0,4),rep(5,4))
 ##' y <- c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
@@ -135,21 +147,21 @@
 ##'       20.972267, 17.178012)
 ##' resp <- restovec(matrix(y, nrow=4, byrow=TRUE), name="y")
 ##' reps <- rmna(resp, tvcov=tvctomat(matrix(dose, nrow=4, byrow=TRUE), name="dose"))
-##' 
+##'
 ##' # same linear normal model with random normal intercept fitted four ways
 ##' # compare with growth::elliptic(reps, model=~dose, preg=c(0,0.6), pre=4)
 ##' glmm(y~dose, nest=individuals, data=reps)
 ##' gnlmm(reps, mu=~dose, pmu=c(8.7,0.25), psh=3.5, psd=3)
 ##' gnlmix(reps, mu=~a+b*dose+rand, random="rand", pmu=c(8.7,0.25),
 ##' 	pshape=3.44, pmix=2.3)
-##' \dontrun{
+##'
 ##' # gamma model with log link and random normal intercept fitted three ways
 ##' glmm(y~dose, family=Gamma(link=log), nest=individuals, data=reps, points=8)
 ##' gnlmm(reps, distribution="gamma", mu=~exp(a+b*dose), pmu=c(2,0.03),
 ##' 	psh=1, psd=0.3)
 ##' gnlmix(reps, distribution="gamma", mu=~exp(a+b*dose+rand), random="rand",
 ##' 	pmu=c(2,0.04), pshape=1, pmix=-2)
-##' 
+##'
 ##' # gamma model with log link and random gamma mixtures
 ##' gnlmix(reps, distribution="gamma", mixture="gamma",
 ##' 	mu=~exp(a*rand+b*dose), random="rand", pmu=c(2,0.04),
@@ -159,10 +171,10 @@
 ##' 	pshape=1.24, pmix=2.5)
 ##' }
 ##' @export gnlmix
-##' @importFrom graphics par plot 
+##' @importFrom graphics par plot
 ##' @importFrom stats as.formula dbeta dbinom dcauchy dexp dgamma dlogis dnbinom dnorm dpois dt dweibull gaussian glm glm.control model.frame model.matrix na.fail nlm pbeta pcauchy pexp pgamma pgeom plogis pnbinom pnorm ppois pt pweibull qnorm summary.glm terms uniroot update.formula
-##' @import rmutil
-##' @useDynLib repeated
+##'
+##' @useDynLib gnlrim
 gnlmix <- function(y=NULL, distribution="normal", mixture="normal",
 	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
 	pmu=NULL, pshape=NULL, pmix=NULL, delta=1, common=FALSE,
@@ -181,7 +193,7 @@ int1 <- function(ff, aa, bb)
 		max=as.integer(steps),
 		err=integer(1),
 		res=double(nnest),
-		PACKAGE="repeated")$res
+		PACKAGE="gnlrim")$res
 inta <- function(f){
 	ff <- function(x) f(1/x)/(x*x)
 	int1(ff,neg1,zero)+int1(f,neg1,pos1)+int1(ff,zero,pos1)}

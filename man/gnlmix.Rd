@@ -128,6 +128,18 @@ parameters are unknowns. (See \code{\link[rmutil]{finterp}}.)
 \examples{
 
 dose <- c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8)
+y <- c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
+      1.900681, 17.425948,  4.503345,  2.691792,  5.731100, 10.534971,
+      11.220260,  6.968932,  4.094357, 16.393806, 14.656584,  8.786133,
+      20.972267, 17.178012)
+id <- rep(1:4, each=5)
+
+gnlmix(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
+       pshape=3.44, pmix=2.3)
+
+\dontrun{
+## from repeated::gnlmix
+dose <- c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8)
 #y <- rgamma(20,shape=2+0.3*dose,scale=2)+rep(rnorm(4,0,4),rep(5,4))
 y <- c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
        1.900681, 17.425948,  4.503345,  2.691792,  5.731100, 10.534971,
@@ -142,7 +154,7 @@ glmm(y~dose, nest=individuals, data=reps)
 gnlmm(reps, mu=~dose, pmu=c(8.7,0.25), psh=3.5, psd=3)
 gnlmix(reps, mu=~a+b*dose+rand, random="rand", pmu=c(8.7,0.25),
 	pshape=3.44, pmix=2.3)
-\dontrun{
+
 # gamma model with log link and random normal intercept fitted three ways
 glmm(y~dose, family=Gamma(link=log), nest=individuals, data=reps, points=8)
 gnlmm(reps, distribution="gamma", mu=~exp(a+b*dose), pmu=c(2,0.03),
