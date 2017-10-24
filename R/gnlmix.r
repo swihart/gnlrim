@@ -171,10 +171,10 @@
 ##' 	pshape=1.24, pmix=2.5)
 ##' }
 ##' @export gnlmix
-##' @importFrom graphics par plot
-##' @importFrom stats as.formula dbeta dbinom dcauchy dexp dgamma dlogis dnbinom dnorm dpois dt dweibull gaussian glm glm.control model.frame model.matrix na.fail nlm pbeta pcauchy pexp pgamma pgeom plogis pnbinom pnorm ppois pt pweibull qnorm summary.glm terms uniroot update.formula
+##' @importFrom graphics lines par plot points
+##' @importFrom stats as.formula dbeta dbinom dcauchy deriv dexp dgamma dlogis dnbinom dnorm dpois dt dweibull gaussian glm glm.control model.frame model.matrix model.response na.fail nlm pbeta pcauchy pexp pgamma pgeom plogis pnbinom pnorm ppois pt pweibull qnorm summary.glm terms uniroot update.formula
 ##'
-##' @useDynLib gnlrim
+##' @useDynLib gnlrim, .registration = TRUE
 gnlmix <- function(y=NULL, distribution="normal", mixture="normal",
 	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
 	pmu=NULL, pshape=NULL, pmix=NULL, delta=1, common=FALSE,
@@ -570,32 +570,32 @@ if(!censor)fcn <- switch(distribution,
 		t <- s*m
 		u <- s*(1-m)
 		exp(lbeta(y[,1]+t,y[,2]+u)-lbeta(t,u)+lchoose(nn,y[,1]))},
-	"double binomial"=function(p,r)
-		exp(.C("ddb",as.integer(y[,1]),as.integer(nn),
-			as.double(mu1(p,r)),as.double(exp(sh1(p))),
-			as.integer(n),as.double(wt),res=double(n),
-			#DUP=FALSE,
-			PACKAGE="repeated")$res),
-	"mult binomial"=function(p,r)
-		exp(.C("dmb",as.integer(y[,1]),as.integer(nn),
-			as.double(mu1(p,r)),as.double(exp(sh1(p))),
-			as.integer(n),as.double(wt),res=double(n),
-			#DUP=FALSE,
-			PACKAGE="repeated")$res),
-	Poisson=function(p,r)dpois(y,mu1(p,r)),
-	"negative binomial"=function(p,r)dnbinom(y,exp(sh1(p)),mu1(p,r)),
-	"double Poisson"=function(p,r)
-		exp(.C("ddp",as.integer(y),as.integer(my),
-			as.double(mu1(p,r)),as.double(exp(sh1(p))),
-			as.integer(n),as.double(wt),res=double(n),
-			#DUP=FALSE,
-			PACKAGE="repeated")$res),
-	"mult Poisson"=function(p,r)
-		exp(.C("dmp",as.integer(y),as.integer(my),
-			as.double(mu1(p,r)),as.double(exp(sh1(p))),
-			as.integer(n),as.double(wt),res=double(n),
-			#DUP=FALSE,
-			PACKAGE="repeated")$res),
+	# "double binomial"=function(p,r)
+	# 	exp(.C("ddb",as.integer(y[,1]),as.integer(nn),
+	# 		as.double(mu1(p,r)),as.double(exp(sh1(p))),
+	# 		as.integer(n),as.double(wt),res=double(n),
+	# 		#DUP=FALSE,
+	# 		PACKAGE="repeated")$res),
+	# "mult binomial"=function(p,r)
+	# 	exp(.C("dmb",as.integer(y[,1]),as.integer(nn),
+	# 		as.double(mu1(p,r)),as.double(exp(sh1(p))),
+	# 		as.integer(n),as.double(wt),res=double(n),
+	# 		#DUP=FALSE,
+	# 		PACKAGE="repeated")$res),
+	# Poisson=function(p,r)dpois(y,mu1(p,r)),
+	# "negative binomial"=function(p,r)dnbinom(y,exp(sh1(p)),mu1(p,r)),
+	# "double Poisson"=function(p,r)
+	# 	exp(.C("ddp",as.integer(y),as.integer(my),
+	# 		as.double(mu1(p,r)),as.double(exp(sh1(p))),
+	# 		as.integer(n),as.double(wt),res=double(n),
+	# 		#DUP=FALSE,
+	# 		PACKAGE="repeated")$res),
+	# "mult Poisson"=function(p,r)
+	# 	exp(.C("dmp",as.integer(y),as.integer(my),
+	# 		as.double(mu1(p,r)),as.double(exp(sh1(p))),
+	# 		as.integer(n),as.double(wt),res=double(n),
+	# 		#DUP=FALSE,
+	# 		PACKAGE="repeated")$res),
 	"gamma count"=function(p,r) {
 		m <- mu1(p,r)
 		s <- exp(sh1(p))
