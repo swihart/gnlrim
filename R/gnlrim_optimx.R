@@ -19,7 +19,7 @@
 #
 #  SYNOPSIS
 #
-#     gnlmix(y=NULL, distribution="normal", mixture="normal",
+#     gnlrim_optimx(y=NULL, distribution="normal", mixture="normal",
 #	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
 #	pmu=NULL, pshape=NULL, pmix=NULL, delta=1, common=FALSE,
 #	envir=parent.frame(), print.level=0, typsize=abs(p),
@@ -35,7 +35,7 @@
 
 ##' Generalized Nonlinear Regression with a Random Parameter
 ##'
-##' \code{gnlmix} fits user-specified nonlinear regression equations to one or
+##' \code{gnlrim_optimx} fits user-specified nonlinear regression equations to one or
 ##' both parameters of the common one and two parameter distributions. One
 ##' parameter of the location regression is random with some specified mixing
 ##' distribution.
@@ -135,7 +135,7 @@
 ##'       20.972267, 17.178012)
 ##' id <- rep(1:4, each=5)
 ##'
-##' gnlmix(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
+##' gnlrim_optimx(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
 ##'        pshape=3.44, pmix=2.3)
 ##'
 ##' \dontrun{
@@ -171,12 +171,13 @@
 ##' 	mu=~exp(a+b*dose)*rand, random="rand", pmu=c(2,0.04),
 ##' 	pshape=1.24, pmix=2.5)
 ##' }
-##' @export gnlmix
+##' @export gnlrim_optimx
+##' @import optimx
 ##' @importFrom graphics lines par plot points
 ##' @importFrom stats as.formula dbeta dbinom dcauchy deriv dexp dgamma dlogis dnbinom dnorm dpois dt dweibull gaussian glm glm.control model.frame model.matrix model.response na.fail nlm pbeta pcauchy pexp pgamma pgeom plogis pnbinom pnorm ppois pt pweibull qnorm summary.glm terms uniroot update.formula
 ##'
 ##' @useDynLib gnlrim, .registration = TRUE
-gnlmix <- function(y=NULL, distribution="normal", mixture="normal",
+gnlrim_optimx <- function(y=NULL, distribution="normal", mixture="normal",
 	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
 	pmu=NULL, pshape=NULL, pmix=NULL, delta=1, common=FALSE,
 	envir=parent.frame(), print.level=0, typsize=abs(p),
@@ -768,12 +769,33 @@ tmp <- like(p)
 if(is.na(tmp)||abs(tmp)==Inf)
 	stop("Likelihood returns Inf or NAs: invalid initial values, wrong model, or probabilities too small to calculate")
 if(fscale==1)fscale <- tmp
-z0 <- nlm(like,p=p,hessian=TRUE,print.level=print.level,typsize=typsize,
-	ndigit=ndigit,gradtol=gradtol,stepmax=stepmax,steptol=steptol,
-	iterlim=iterlim,fscale=fscale)
+## z0 <- nlm(like,p=p,hessian=TRUE,print.level=print.level,typsize=typsize,
+## 	ndigit=ndigit,gradtol=gradtol,stepmax=stepmax,steptol=steptol,
+## 	iterlim=iterlim,fscale=fscale)
+z0 <- optimx(fn=like,
+             par=p,
+             hessian=TRUE, ## not `hess`
+             method=c("nlminb"),
+             itnmax=iterlim,
+             control = list(
+               # for nlm:
+               print.level=print.level,
+               typsize=typsize,
+               ndigit=ndigit,
+               gradtol=gradtol,
+               stepmax=stepmax,
+               steptol=steptol,
+               #iterlim=iterlim, # preferred as itnmax above
+               fscale=fscale,
+               # for nlminb:
+#               trace=trace,
+               step.max=stepmax
+               # ... any other nlminb args
+             )
+             )
 z0
 ## #
-## # Calculate fitted values and raw residuals
+## # calculate fitted values and raw residuals
 ## #
 ## fitted.values <- if(distribution=="binomial"||distribution=="beta binomial"||
 ## 	distribution=="double binomial"||distribution=="mult binomial")
