@@ -14,3 +14,4 @@ cmcre.r
 cmcre.Rd
 ^README\.Rmd$
 ^README-.*\.png$
+scratch_testing.R

@@ -22,8 +22,14 @@ that object in \code{envir} and give the name of the response variable to
 be used here.}
 
 \item{distribution}{The distribution for the response: binomial, beta
-binomial, double binomial, mult(iplicative) binomial, Poisson, negative
-binomial, double Poisson, mult(iplicative) Poisson, gamma count, Consul
+binomial,
+(removed: double binomial, use \code{repeated::gnlmix()}),
+(removed: mult(iplicative) binomial, use \code{repeated::gnlmix()}),
+Poisson, negative
+binomial,
+(removed: double Poisson, use \code{repeated::gnlmix()}),
+(removed: mult(iplicative) Poisson, use \code{repeated::gnlmix()}),
+gamma count, Consul
 generalized Poisson, logarithmic series, geometric, normal, inverse Gauss,
 logistic, exponential, gamma, Weibull, extreme value, Cauchy, Pareto,
 Laplace, Levy, beta, simplex, or two-sided power. (For definitions of

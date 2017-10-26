@@ -9,8 +9,8 @@ gnlrim(y = NULL, distribution = "normal", mixture = "normal",
   pmu = NULL, pshape = NULL, pmix = NULL, delta = 1, common = FALSE,
   envir = parent.frame(), print.level = 0, typsize = abs(p),
   ndigit = 10, gradtol = 1e-05, stepmax = 10 * sqrt(p \%*\% p),
-  steptol = 1e-05, iterlim = 100, fscale = 1, eps = 1e-04, points = 5,
-  steps = 10)
+  steptol = 1e-05, iterlim = 100, fscale = 1, eps = 1e-04, trace = 0,
+  method = "nlminb", ooo = FALSE, points = 5, steps = 10)
 }
 \arguments{
 \item{y}{A response vector of uncensored data, a two column matrix for
@@ -22,8 +22,14 @@ that object in \code{envir} and give the name of the response variable to
 be used here.}
 
 \item{distribution}{The distribution for the response: binomial, beta
-binomial, double binomial, mult(iplicative) binomial, Poisson, negative
-binomial, double Poisson, mult(iplicative) Poisson, gamma count, Consul
+binomial,
+(removed: double binomial, use \code{repeated::gnlmix()}),
+(removed: mult(iplicative) binomial, use \code{repeated::gnlmix()}),
+Poisson, negative
+binomial,
+(removed: double Poisson, use \code{repeated::gnlmix()}),
+(removed: mult(iplicative) Poisson, use \code{repeated::gnlmix()}),
+gamma count, Consul
 generalized Poisson, logarithmic series, geometric, normal, inverse Gauss,
 logistic, exponential, gamma, Weibull, extreme value, Cauchy, Pareto,
 Laplace, Levy, beta, simplex, or two-sided power. (For definitions of
@@ -95,11 +101,25 @@ class \code{repeated}, it is used as the environment.}
 
 \item{steptol}{Arguments for nlm.}
 
-\item{iterlim}{Arguments for nlm.}
+\item{iterlim}{Arguments for optimx (itnmax).}
 
 \item{fscale}{Arguments for nlm.}
 
 \item{eps}{Precision of the Romberg integration.}
+
+\item{trace}{Arguments for nlminb.}
+
+\item{method}{Arguments for optimx -- a string denoting which
+optimization to use.  Accommodate vector of strings, however
+traditional \code{repeated::gnlmix()} output will be computed
+only for first element if argument \code{ooo=FALSE}. Defaults
+to "nlminb", whereas original gnlmix used "nlm".}
+
+\item{ooo}{*o*ptimx *o*utput *o*nly.  Default is FALSE, which
+means that the traditional \code{repeated::gnlmix()} output
+for the first element of \code{method} will be returned.  If
+TRUE, then only optmix output for the elements of
+\code{method} are returned.}
 
 \item{points}{For the Romberg integration, the number of extrapolation
 points so that 2*points is the order of integration, by default set to 5;
@@ -109,8 +129,10 @@ points=2 is Simpson's rule.}
 default set to 10.}
 }
 \value{
-A list of class \code{gnlm} is returned that contains all of the
-relevant information calculated, including error codes.
+If \code{ooo=TRUE}, A list of class \code{gnlm} is
+    returned that contains all of the relevant information
+    calculated, including error codes.  If \code{ooo=FALSE}, then
+    just the optimx output.
 }
 \description{
 \code{gnlrim} fits user-specified nonlinear regression equations to one or
@@ -123,7 +145,7 @@ It is recommended that initial estimates for \code{pmu} and \code{pshape}
 be obtained from \code{gnlr}.
 
 These nonlinear regression models must be supplied as formulae where
-parameters are unknowns. (See \code{\link[rmutil]{finterp}}.)
+parameters are unknowns. (See \code{finterp}.)
 }
 \examples{
 
@@ -172,6 +194,6 @@ gnlmix(reps, distribution="gamma", mixture="gamma",
 }
 }
 \author{
-J.K. Lindsey
+Bruce Swihart and J.K. Lindsey
 }
 \keyword{models}

@@ -55,8 +55,14 @@
 ##' that object in \code{envir} and give the name of the response variable to
 ##' be used here.
 ##' @param distribution The distribution for the response: binomial, beta
-##' binomial, double binomial, mult(iplicative) binomial, Poisson, negative
-##' binomial, double Poisson, mult(iplicative) Poisson, gamma count, Consul
+##' binomial,
+##' (removed: double binomial, use \code{repeated::gnlmix()}),
+##' (removed: mult(iplicative) binomial, use \code{repeated::gnlmix()}),
+##' Poisson, negative
+##' binomial,
+##' (removed: double Poisson, use \code{repeated::gnlmix()}),
+##' (removed: mult(iplicative) Poisson, use \code{repeated::gnlmix()}),
+##' gamma count, Consul
 ##' generalized Poisson, logarithmic series, geometric, normal, inverse Gauss,
 ##' logistic, exponential, gamma, Weibull, extreme value, Cauchy, Pareto,
 ##' Laplace, Levy, beta, simplex, or two-sided power. (For definitions of
@@ -583,8 +589,8 @@ if(!censor)fcn <- switch(distribution,
 	# 		as.integer(n),as.double(wt),res=double(n),
 	# 		#DUP=FALSE,
 	# 		PACKAGE="repeated")$res),
-	# Poisson=function(p,r)dpois(y,mu1(p,r)),
-	# "negative binomial"=function(p,r)dnbinom(y,exp(sh1(p)),mu1(p,r)),
+        Poisson=function(p,r)dpois(y,mu1(p,r)),
+	"negative binomial"=function(p,r)dnbinom(y,exp(sh1(p)),mu1(p,r)),
 	# "double Poisson"=function(p,r)
 	# 	exp(.C("ddp",as.integer(y),as.integer(my),
 	# 		as.double(mu1(p,r)),as.double(exp(sh1(p))),
@@ -771,65 +777,64 @@ if(fscale==1)fscale <- tmp
 z0 <- nlm(like,p=p,hessian=TRUE,print.level=print.level,typsize=typsize,
 	ndigit=ndigit,gradtol=gradtol,stepmax=stepmax,steptol=steptol,
 	iterlim=iterlim,fscale=fscale)
-z0
-## #
-## # Calculate fitted values and raw residuals
-## #
-## fitted.values <- if(distribution=="binomial"||distribution=="beta binomial"||
-## 	distribution=="double binomial"||distribution=="mult binomial")
-## 		as.vector((y[,1]+y[,2])*mu1(z0$estimate,0))
-## 	else as.vector(mu1(z0$estimate,0))
-## residuals <- if(distribution=="binomial"||distribution=="beta binomial"||
-## 	distribution=="double binomial"||distribution=="mult binomial")
-## 		y[,1]-fitted.values
-## 	else y-fitted.values
-## #
-## # calculate se's
-## #
-## if(np==0)cov <- NULL
-## else if(np==1)cov <- 1/z0$hessian
-## else {
-## 	a <- if(any(is.na(z0$hessian))||any(abs(z0$hessian)==Inf))0
-## 		else qr(z0$hessian)$rank
-## 	if(a==np)cov <- solve(z0$hessian)
-## 	else cov <- matrix(NA,ncol=np,nrow=np)}
-## se <- sqrt(diag(cov))
-## #
-## # return appropriate attributes on functions
-## #
-## if(!is.null(mu2))mu1 <- mu2
-## if(!is.null(sh2))sh1 <- sh2
-## if(!is.null(lin1a))lin1 <- lin1a
-## if(!is.null(lin2a))lin2 <- lin2a
-## z1 <- list(
-## 	call=call,
-## 	delta=delta,
-## 	distribution=distribution,
-## 	mixture=mixture,
-## 	likefn=like,
-## 	mu=mu1,
-## 	shape=sh1,
-## 	mix=NULL,
-## 	censor=censor,
-## 	linear=list(lin1,lin2),
-## 	linmodel=list(lin1model,lin2model),
-## 	common=common,
-## 	maxlike=z0$minimum,
-## 	fitted.values=fitted.values,
-## 	residuals=residuals,
-## 	aic=z0$minimum+np,
-## 	df=n-np,
-## 	coefficients=z0$estimate,
-## 	npl=npl,
-## 	npm=1,
-## 	nps=nps,
-## 	npf=0,
-## 	se=se,
-## 	cov=cov,
-## 	corr=cov/(se%o%se),
-## 	gradient=z0$gradient,
-## 	iterations=z0$iterations,
-## 	code=z0$code)
-## class(z1) <- "gnlm"
-## return(z1)
+#
+# Calculate fitted values and raw residuals
+#
+fitted.values <- if(distribution=="binomial"||distribution=="beta binomial"||
+	distribution=="double binomial"||distribution=="mult binomial")
+		as.vector((y[,1]+y[,2])*mu1(z0$estimate,0))
+	else as.vector(mu1(z0$estimate,0))
+residuals <- if(distribution=="binomial"||distribution=="beta binomial"||
+	distribution=="double binomial"||distribution=="mult binomial")
+		y[,1]-fitted.values
+	else y-fitted.values
+#
+# calculate se's
+#
+if(np==0)cov <- NULL
+else if(np==1)cov <- 1/z0$hessian
+else {
+	a <- if(any(is.na(z0$hessian))||any(abs(z0$hessian)==Inf))0
+		else qr(z0$hessian)$rank
+	if(a==np)cov <- solve(z0$hessian)
+	else cov <- matrix(NA,ncol=np,nrow=np)}
+se <- sqrt(diag(cov))
+#
+# return appropriate attributes on functions
+#
+if(!is.null(mu2))mu1 <- mu2
+if(!is.null(sh2))sh1 <- sh2
+if(!is.null(lin1a))lin1 <- lin1a
+if(!is.null(lin2a))lin2 <- lin2a
+z1 <- list(
+	call=call,
+	delta=delta,
+	distribution=distribution,
+	mixture=mixture,
+	likefn=like,
+	mu=mu1,
+	shape=sh1,
+	mix=NULL,
+	censor=censor,
+	linear=list(lin1,lin2),
+	linmodel=list(lin1model,lin2model),
+	common=common,
+	maxlike=z0$minimum,
+	fitted.values=fitted.values,
+	residuals=residuals,
+	aic=z0$minimum+np,
+	df=n-np,
+	coefficients=z0$estimate,
+	npl=npl,
+	npm=1,
+	nps=nps,
+	npf=0,
+	se=se,
+	cov=cov,
+	corr=cov/(se%o%se),
+	gradient=z0$gradient,
+	iterations=z0$iterations,
+	code=z0$code)
+class(z1) <- "gnlm"
+return(z1)
 }

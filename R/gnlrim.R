@@ -1,38 +1,3 @@
-#  Originally from:
-#
-#  repeated : A Library of Repeated Measurements Models
-#  Copyright (C) 2000, 2001, 2002 J.K. Lindsey
-#
-#  This program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public Licence as published by
-#  the Free Software Foundation; either version 2 of the Licence, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public Licence for more details.
-#
-#  You should have received a copy of the GNU General Public Licence
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-#
-#  SYNOPSIS
-#
-#     gnlrim(y=NULL, distribution="normal", mixture="normal",
-#	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
-#	pmu=NULL, pshape=NULL, pmix=NULL, delta=1, common=FALSE,
-#	envir=parent.frame(), print.level=0, typsize=abs(p),
-#	ndigit=10, gradtol=0.00001, stepmax=10*sqrt(p%*%p), steptol=0.00001,
-#	iterlim=100, fscale=1, eps=1.0e-4, points=5, steps=10)
-#
-#  DESCRIPTION
-#
-#    A function to fit nonlinear regression models with one arbitrary
-#  random parameter
-
-
-
 ##' Generalized Nonlinear Regression with a Random Parameter
 ##'
 ##' \code{gnlrim} fits user-specified nonlinear regression equations to one or
@@ -44,7 +9,7 @@
 ##' be obtained from \code{gnlr}.
 ##'
 ##' These nonlinear regression models must be supplied as formulae where
-##' parameters are unknowns. (See \code{\link[rmutil]{finterp}}.)
+##' parameters are unknowns. (See \code{finterp}.)
 ##'
 ##'
 ##' @param y A response vector of uncensored data, a two column matrix for
@@ -55,8 +20,14 @@
 ##' that object in \code{envir} and give the name of the response variable to
 ##' be used here.
 ##' @param distribution The distribution for the response: binomial, beta
-##' binomial, double binomial, mult(iplicative) binomial, Poisson, negative
-##' binomial, double Poisson, mult(iplicative) Poisson, gamma count, Consul
+##' binomial,
+##' (removed: double binomial, use \code{repeated::gnlmix()}),
+##' (removed: mult(iplicative) binomial, use \code{repeated::gnlmix()}),
+##' Poisson, negative
+##' binomial,
+##' (removed: double Poisson, use \code{repeated::gnlmix()}),
+##' (removed: mult(iplicative) Poisson, use \code{repeated::gnlmix()}),
+##' gamma count, Consul
 ##' generalized Poisson, logarithmic series, geometric, normal, inverse Gauss,
 ##' logistic, exponential, gamma, Weibull, extreme value, Cauchy, Pareto,
 ##' Laplace, Levy, beta, simplex, or two-sided power. (For definitions of
@@ -115,11 +86,24 @@
 ##' @param gradtol Arguments for nlm.
 ##' @param stepmax Arguments for nlm.
 ##' @param steptol Arguments for nlm.
-##' @param iterlim Arguments for nlm.
+##' @param iterlim Arguments for optimx (itnmax).
 ##' @param fscale Arguments for nlm.
-##' @return A list of class \code{gnlm} is returned that contains all of the
-##' relevant information calculated, including error codes.
-##' @author J.K. Lindsey
+##' @param trace Arguments for nlminb.
+##' @param method Arguments for optimx -- a string denoting which
+##'     optimization to use.  Accommodate vector of strings, however
+##'     traditional \code{repeated::gnlmix()} output will be computed
+##'     only for first element if argument \code{ooo=FALSE}. Defaults
+##'     to "nlminb", whereas original gnlmix used "nlm".
+##' @param ooo *o*ptimx *o*utput *o*nly.  Default is FALSE, which
+##'     means that the traditional \code{repeated::gnlmix()} output
+##'     for the first element of \code{method} will be returned.  If
+##'     TRUE, then only optmix output for the elements of
+##'     \code{method} are returned.
+##' @return If \code{ooo=TRUE}, A list of class \code{gnlm} is
+##'     returned that contains all of the relevant information
+##'     calculated, including error codes.  If \code{ooo=FALSE}, then
+##'     just the optimx output.
+##' @author Bruce Swihart and J.K. Lindsey
 ### @seealso \code{\link[growth]{carma}}, \code{\link[rmutil]{finterp}},
 ### \code{\link[growth]{elliptic}}, \code{\link[repeated]{glmm}},
 ### \code{\link[repeated]{gnlmm}}, \code{\link[gnlm]{gnlr}},
@@ -182,7 +166,8 @@ gnlrim <- function(y=NULL, distribution="normal", mixture="normal",
 	pmu=NULL, pshape=NULL, pmix=NULL, delta=1, common=FALSE,
 	envir=parent.frame(), print.level=0, typsize=abs(p),
 	ndigit=10, gradtol=0.00001, stepmax=10*sqrt(p%*%p), steptol=0.00001,
-	iterlim=100, fscale=1, eps=1.0e-4, points=5, steps=10){
+	iterlim=100, fscale=1, eps=1.0e-4, trace=0, method="nlminb", ooo=FALSE,
+        points=5, steps=10){
 
 int1 <- function(ff, aa, bb)
 	.C("romberg",
@@ -584,8 +569,8 @@ if(!censor)fcn <- switch(distribution,
 	# 		as.integer(n),as.double(wt),res=double(n),
 	# 		#DUP=FALSE,
 	# 		PACKAGE="repeated")$res),
-	# Poisson=function(p,r)dpois(y,mu1(p,r)),
-	# "negative binomial"=function(p,r)dnbinom(y,exp(sh1(p)),mu1(p,r)),
+        Poisson=function(p,r)dpois(y,mu1(p,r)),
+        "negative binomial"=function(p,r)dnbinom(y,exp(sh1(p)),mu1(p,r)),
 	# "double Poisson"=function(p,r)
 	# 	exp(.C("ddp",as.integer(y),as.integer(my),
 	# 		as.double(mu1(p,r)),as.double(exp(sh1(p))),
@@ -772,10 +757,10 @@ if(fscale==1)fscale <- tmp
 ## z0 <- nlm(like,p=p,hessian=TRUE,print.level=print.level,typsize=typsize,
 ## 	ndigit=ndigit,gradtol=gradtol,stepmax=stepmax,steptol=steptol,
 ## 	iterlim=iterlim,fscale=fscale)
-z0 <- optimx(fn=like,
+zAll <- optimx(fn=like,
              par=p,
              hessian=TRUE, ## not `hess`
-             method=c("nlminb"),
+             method=method,
              itnmax=iterlim,
              control = list(
                # for nlm:
@@ -788,70 +773,84 @@ z0 <- optimx(fn=like,
                #iterlim=iterlim, # preferred as itnmax above
                fscale=fscale,
                # for nlminb:
-#               trace=trace,
+               trace=trace,
                step.max=stepmax
                # ... any other nlminb args
              )
              )
-z0
-## #
-## # calculate fitted values and raw residuals
-## #
-## fitted.values <- if(distribution=="binomial"||distribution=="beta binomial"||
-## 	distribution=="double binomial"||distribution=="mult binomial")
-## 		as.vector((y[,1]+y[,2])*mu1(z0$estimate,0))
-## 	else as.vector(mu1(z0$estimate,0))
-## residuals <- if(distribution=="binomial"||distribution=="beta binomial"||
-## 	distribution=="double binomial"||distribution=="mult binomial")
-## 		y[,1]-fitted.values
-## 	else y-fitted.values
-## #
-## # calculate se's
-## #
-## if(np==0)cov <- NULL
-## else if(np==1)cov <- 1/z0$hessian
-## else {
-## 	a <- if(any(is.na(z0$hessian))||any(abs(z0$hessian)==Inf))0
-## 		else qr(z0$hessian)$rank
-## 	if(a==np)cov <- solve(z0$hessian)
-## 	else cov <- matrix(NA,ncol=np,nrow=np)}
-## se <- sqrt(diag(cov))
-## #
-## # return appropriate attributes on functions
-## #
-## if(!is.null(mu2))mu1 <- mu2
-## if(!is.null(sh2))sh1 <- sh2
-## if(!is.null(lin1a))lin1 <- lin1a
-## if(!is.null(lin2a))lin2 <- lin2a
-## z1 <- list(
-## 	call=call,
-## 	delta=delta,
-## 	distribution=distribution,
-## 	mixture=mixture,
-## 	likefn=like,
-## 	mu=mu1,
-## 	shape=sh1,
-## 	mix=NULL,
-## 	censor=censor,
-## 	linear=list(lin1,lin2),
-## 	linmodel=list(lin1model,lin2model),
-## 	common=common,
-## 	maxlike=z0$minimum,
-## 	fitted.values=fitted.values,
-## 	residuals=residuals,
-## 	aic=z0$minimum+np,
-## 	df=n-np,
-## 	coefficients=z0$estimate,
-## 	npl=npl,
-## 	npm=1,
-## 	nps=nps,
-## 	npf=0,
-## 	se=se,
-## 	cov=cov,
-## 	corr=cov/(se%o%se),
-## 	gradient=z0$gradient,
-## 	iterations=z0$iterations,
-## 	code=z0$code)
-## class(z1) <- "gnlm"
-## return(z1)
+if(ooo){
+    zAll
+}else{
+    ## extract 1st one for traditional repeated::gnlmix() output
+    ## `z0` is legacy.
+    z0 <- list(estimate   =      zAll[1, 1:attr(zAll, "npar")],
+               minimum    =      zAll$value[1]                ,
+               hessian    = attr(zAll, "details")[1,]$nhatend ,
+               gradient   = attr(zAll, "details")[1,]$ngatend ,
+               iterations =      zAll$niter[1]                ,
+               code       =      zAll$convcode[1]
+               )
+
+
+#
+# calculate fitted values and raw residuals
+#
+fitted.values <- if(distribution=="binomial"||distribution=="beta binomial"||
+	distribution=="double binomial"||distribution=="mult binomial")
+		as.vector((y[,1]+y[,2])*mu1(z0$estimate,0))
+	else as.vector(mu1(z0$estimate,0))
+residuals <- if(distribution=="binomial"||distribution=="beta binomial"||
+	distribution=="double binomial"||distribution=="mult binomial")
+		y[,1]-fitted.values
+	else y-fitted.values
+#
+# calculate se's
+#
+if(np==0)cov <- NULL
+else if(np==1)cov <- 1/z0$hessian
+else {
+	a <- if(any(is.na(z0$hessian))||any(abs(z0$hessian)==Inf))0
+		else qr(z0$hessian)$rank
+	if(a==np)cov <- solve(z0$hessian)
+	else cov <- matrix(NA,ncol=np,nrow=np)}
+se <- sqrt(diag(cov))
+#
+# return appropriate attributes on functions
+#
+if(!is.null(mu2))mu1 <- mu2
+if(!is.null(sh2))sh1 <- sh2
+if(!is.null(lin1a))lin1 <- lin1a
+if(!is.null(lin2a))lin2 <- lin2a
+z1 <- list(
+	call=call,
+	delta=delta,
+	distribution=distribution,
+	mixture=mixture,
+	likefn=like,
+	mu=mu1,
+	shape=sh1,
+	mix=NULL,
+	censor=censor,
+	linear=list(lin1,lin2),
+	linmodel=list(lin1model,lin2model),
+	common=common,
+	maxlike=z0$minimum,
+	fitted.values=fitted.values,
+	residuals=residuals,
+	aic=z0$minimum+np,
+	df=n-np,
+	coefficients=as.numeric(z0$estimate),
+	npl=npl,
+	npm=1,
+	nps=nps,
+	npf=0,
+	se=as.numeric(se),
+	cov=cov,
+	corr=cov/(se%o%se),
+	gradient=z0$gradient,
+	iterations=z0$iterations,
+	code=z0$code)
+class(z1) <- "gnlm"
+    return(z1)
+}
 }
