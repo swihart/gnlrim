@@ -2,7 +2,6 @@
 
 export(gnlmix)
 export(gnlrim)
-export(gnlrim_optimx)
 import(optimx)
 importFrom(graphics,lines)
 importFrom(graphics,par)
