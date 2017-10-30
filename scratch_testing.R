@@ -35,6 +35,7 @@ fit_both[1, 1:attr(fit_both, "npar")]
 
 fit_both <- gnlrim(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
                    pshape=3.44, pmix=2.3, method=c("nlminb","nlm"))
+fit_both
 rmutil::print.gnlm(fit_both)
 fit_both
 
@@ -44,4 +45,8 @@ fit_gnlmix <- gnlmix(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.2
 ## hessian extraction (1st row or by name):
 rmutil::print.gnlm(fit_gnlmix)
 
+fit_nlm$fitted.values
+fit_gnlmix$fitted.values
 
+fit_nlm$residuals
+fit_gnlmix$residuals

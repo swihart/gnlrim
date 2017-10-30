@@ -797,8 +797,8 @@ if(ooo){
 #
 fitted.values <- if(distribution=="binomial"||distribution=="beta binomial"||
 	distribution=="double binomial"||distribution=="mult binomial")
-		as.vector((y[,1]+y[,2])*mu1(z0$estimate,0))
-	else as.vector(mu1(z0$estimate,0))
+		as.vector((y[,1]+y[,2])*mu1(as.numeric(z0$estimate),0))
+	else as.vector(mu1(as.numeric(z0$estimate),0))
 residuals <- if(distribution=="binomial"||distribution=="beta binomial"||
 	distribution=="double binomial"||distribution=="mult binomial")
 		y[,1]-fitted.values
