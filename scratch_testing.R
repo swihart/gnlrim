@@ -7,9 +7,11 @@ id <- rep(1:4, each=5)
 
 fit_nlminb <- gnlrim(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
                             pshape=3.44, pmix=2.3, trace=1)
-## hessian extraction (1st row or by name):
-attr(fit_nlminb, "details")[1,]$nhatend
-attr(fit_nlminb, "details")["nlminb",]$nhatend
+fit_nlminb$coefficients
+
+fit_nlminb_bounds <- gnlrim(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
+                     pshape=3.44, pmix=2.3, trace=1, p_lowb=c(8,.2,3,2), p_uppb=c(9,.3,4,3))
+fit_nlminb_bounds$coefficients
 
 
 

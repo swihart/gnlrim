@@ -99,6 +99,12 @@
 ##'     for the first element of \code{method} will be returned.  If
 ##'     TRUE, then only optmix output for the elements of
 ##'     \code{method} are returned.
+##' @param p_uppb Argument to nlminb / optimx for the \code{method}'s
+##' that are constrained optimization.  Upper bounds on parameters.
+##' Defaults to Inf.  Can be a vector.
+##' @param p_lowb Argument to nlminb / optimx for the \code{method}'s
+##' that are constrained optimization.  Lower bounds on parameters.
+##' Defaults to -Inf.  Can be a vector.
 ##' @return If \code{ooo=TRUE}, A list of class \code{gnlm} is
 ##'     returned that contains all of the relevant information
 ##'     calculated, including error codes.  If \code{ooo=FALSE}, then
@@ -167,6 +173,7 @@ gnlrim <- function(y=NULL, distribution="normal", mixture="normal",
 	envir=parent.frame(), print.level=0, typsize=abs(p),
 	ndigit=10, gradtol=0.00001, stepmax=10*sqrt(p%*%p), steptol=0.00001,
 	iterlim=100, fscale=1, eps=1.0e-4, trace=0, method="nlminb", ooo=FALSE,
+	p_lowb = -Inf, p_uppb = Inf,
         points=5, steps=10){
 
 int1 <- function(ff, aa, bb)
@@ -762,6 +769,8 @@ zAll <- optimx(fn=like,
              hessian=TRUE, ## not `hess`
              method=method,
              itnmax=iterlim,
+             lower=p_lowb,
+             upper=p_uppb,
              control = list(
                # for nlm:
                print.level=print.level,

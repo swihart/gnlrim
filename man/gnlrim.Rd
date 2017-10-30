@@ -10,7 +10,8 @@ gnlrim(y = NULL, distribution = "normal", mixture = "normal",
   envir = parent.frame(), print.level = 0, typsize = abs(p),
   ndigit = 10, gradtol = 1e-05, stepmax = 10 * sqrt(p \%*\% p),
   steptol = 1e-05, iterlim = 100, fscale = 1, eps = 1e-04, trace = 0,
-  method = "nlminb", ooo = FALSE, points = 5, steps = 10)
+  method = "nlminb", ooo = FALSE, p_lowb = -Inf, p_uppb = Inf,
+  points = 5, steps = 10)
 }
 \arguments{
 \item{y}{A response vector of uncensored data, a two column matrix for
@@ -120,6 +121,14 @@ means that the traditional \code{repeated::gnlmix()} output
 for the first element of \code{method} will be returned.  If
 TRUE, then only optmix output for the elements of
 \code{method} are returned.}
+
+\item{p_lowb}{Argument to nlminb / optimx for the \code{method}'s
+that are constrained optimization.  Lower bounds on parameters.
+Defaults to -Inf.  Can be a vector.}
+
+\item{p_uppb}{Argument to nlminb / optimx for the \code{method}'s
+that are constrained optimization.  Upper bounds on parameters.
+Defaults to Inf.  Can be a vector.}
 
 \item{points}{For the Romberg integration, the number of extrapolation
 points so that 2*points is the order of integration, by default set to 5;
