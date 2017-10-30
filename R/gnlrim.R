@@ -32,7 +32,8 @@
 ##' logistic, exponential, gamma, Weibull, extreme value, Cauchy, Pareto,
 ##' Laplace, Levy, beta, simplex, or two-sided power. (For definitions of
 ##' distributions, see the corresponding [dpqr]distribution help.)
-##' @param mixture The mixing distribution for the random parameter: logit-bridge, normal,
+##' @param mixture The mixing distribution for the random parameter: logit-bridge-var,
+##' logit-bridge-phi, normal,
 ##' Cauchy, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
 ##' beta, simplex, or two-sided power. The first five have zero location
 ##' parameter, the next three have unit location parameter, and the last two
@@ -59,8 +60,9 @@
 ##' must be supplied either in their order of appearance in the expression or
 ##' in a named list.
 ##' @param pmix Initial estimate for the untransformed (not logarithm) of the dispersion parameter
-##' of the mixing distribution.  For \code{mixture="normal"} and \code{mixture="logit-bridge"}  this is the variance,
-##' otherwise it is the scale.
+##' of the mixing distribution.  For \code{mixture="normal"} and \code{mixture="logit-bridge-var"}  this is the variance.
+##' For \code{mixture="logit-bridge-phi"}  this is the attenuation factor phi.
+##' Otherwise it is the scale.
 ##' @param delta Scalar or vector giving the unit of measurement (always one
 ##' for discrete data) for each response value, set to unity by default. For
 ##' example, if a response is measured to two decimals, \code{delta=0.01}. If
@@ -211,7 +213,7 @@ shp <- distribution!="binomial"&&distribution!="Poisson"&&
 #
 # check mixture
 #
-mixture <- match.arg(mixture,c("logit-bridge","normal","logistic","Cauchy","Laplace",
+mixture <- match.arg(mixture,c("logit-bridge-var","logit-bridge-phi","normal","logistic","Cauchy","Laplace",
 	"gamma","inverse gamma","inverse Gauss","Weibull","Levy","beta",
 	"simplex","two-sided power"))
 #
@@ -745,7 +747,8 @@ else fcn <- switch(distribution,
 #  I changed normal to sqrt(p)
 #  The rest I naively changed p->log(p) and exp(p)->p
 mix <- switch(mixture,
-              "logit-bridge" = function(p, r) bridgedist::dbridge(r, 1/sqrt(1+3/pi^2*p)),
+              "logit-bridge-var" = function(p, r) bridgedist::dbridge(r, 1/sqrt(1+3/pi^2*p)),
+              "logit-bridge-phi" = function(p, r) bridgedist::dbridge(r, p),
               normal=function(p,r) dnorm(r,0,sqrt(p)),
               logistic=function(p,r) dlogis(r,0,p*sqrt(3)/pi),
               Cauchy=function(p,r) dcauchy(r,0,p),
@@ -771,7 +774,7 @@ mix <- switch(mixture,
 #
 # combine to create the appropriate likelihood function
 #
-if(mixture=="logit-bridge"||mixture=="normal"||mixture=="logistic"||mixture=="Cauchy"||mixture=="Laplace")
+if(mixture=="logit-bridge-var"||mixture=="logit-bridge-phi"||mixture=="normal"||mixture=="logistic"||mixture=="Cauchy"||mixture=="Laplace")
 	like <- function(p){
 		fn <- function(r)
 			mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
