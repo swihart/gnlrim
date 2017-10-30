@@ -10,7 +10,7 @@ fit_nlminb <- gnlrim(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.2
 fit_nlminb$coefficients
 
 fit_nlminb_bounds <- gnlrim(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
-                     pshape=3.44, pmix=2.3, trace=1, p_lowb=c(8,.2,3,2), p_uppb=c(9,.3,4,3))
+                     pshape=3.44, pmix=8, trace=1, p_lowb=c(8,.2,3,8), p_uppb=c(9,.3,4,10))
 fit_nlminb_bounds$coefficients
 
 

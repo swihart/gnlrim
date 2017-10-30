@@ -70,8 +70,9 @@ named list.}
 must be supplied either in their order of appearance in the expression or
 in a named list.}
 
-\item{pmix}{Initial estimate for the logarithm of the dispersion parameter
-of the mixing distribution.}
+\item{pmix}{Initial estimate for the untransformed (not logarithm) of the dispersion parameter
+of the mixing distribution.  For \code{mixture="normal"} this is the variance,
+otherwise it is the scale.}
 
 \item{delta}{Scalar or vector giving the unit of measurement (always one
 for discrete data) for each response value, set to unity by default. For

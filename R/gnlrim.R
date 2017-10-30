@@ -58,8 +58,9 @@
 ##' @param pshape Vector of initial estimates for the shape parameters. These
 ##' must be supplied either in their order of appearance in the expression or
 ##' in a named list.
-##' @param pmix Initial estimate for the logarithm of the dispersion parameter
-##' of the mixing distribution.
+##' @param pmix Initial estimate for the untransformed (not logarithm) of the dispersion parameter
+##' of the mixing distribution.  For \code{mixture="normal"} this is the variance,
+##' otherwise it is the scale.
 ##' @param delta Scalar or vector giving the unit of measurement (always one
 ##' for discrete data) for each response value, set to unity by default. For
 ##' example, if a response is measured to two decimals, \code{delta=0.01}. If
@@ -713,29 +714,59 @@ else fcn <- switch(distribution,
 #
 # set up mixing distribution
 #
+## below is the mix-switch for log(dispersion)
+## we are commenting out in gnlrim bc we have
+## p_uppb and p_lowb.  See chunk below.
+# mix <- switch(mixture,
+#         normal=function(p,r) dnorm(r,0,exp(p/2)),
+# 	logistic=function(p,r) dlogis(r,0,exp(p)*sqrt(3)/pi),
+# 	Cauchy=function(p,r) dcauchy(r,0,exp(p)),
+#         Laplace=function(p,r) {
+# 		tmp <- exp(p)
+# 		exp(-abs(r)/tmp)/(2*tmp)},
+# 	gamma=function(p,r) {
+# 		tmp <- exp(p)
+# 		dgamma(r,tmp,scale=1/tmp)},
+# 	"inverse gamma"=function(p,r) {
+# 		tmp <- exp(p)
+# 		dgamma(1/r,tmp,scale=1/tmp)/r^2},
+#         "inverse Gauss"=function(p,r)
+#         	exp(-((r-1)^2/(r*exp(p))+p+log(2*pi*r^3))/2),
+# 	Weibull=function(p,r) dweibull(r,exp(p),1),
+# 	beta=function(p,r) {
+# 		tmp <- 0.5*exp(p)
+# 		dbeta(r,tmp,tmp)},
+#         simplex=function(p,r) exp(-(((r-0.5)/0.25)^2/(r*(1-r)*exp(p))+
+# 			p+3*log(r*(1-r))/2+log(2*pi)/2)),
+# 	"two-sided power"=function(p,r)
+# 		p*exp((p-1)*ifelse(r<0.5,log(r/0.5),log((1-r)/0.5))))
+#
+## New mix-switch: with p_uppb and p_lowb we try untransformed dispersion:
+#  I changed normal to sqrt(p)
+#  The rest I naively changed p->log(p) and exp(p)->p
 mix <- switch(mixture,
-        normal=function(p,r) dnorm(r,0,exp(p/2)),
-	logistic=function(p,r) dlogis(r,0,exp(p)*sqrt(3)/pi),
-	Cauchy=function(p,r) dcauchy(r,0,exp(p)),
-        Laplace=function(p,r) {
-		tmp <- exp(p)
-		exp(-abs(r)/tmp)/(2*tmp)},
-	gamma=function(p,r) {
-		tmp <- exp(p)
-		dgamma(r,tmp,scale=1/tmp)},
-	"inverse gamma"=function(p,r) {
-		tmp <- exp(p)
-		dgamma(1/r,tmp,scale=1/tmp)/r^2},
-        "inverse Gauss"=function(p,r)
-        	exp(-((r-1)^2/(r*exp(p))+p+log(2*pi*r^3))/2),
-	Weibull=function(p,r) dweibull(r,exp(p),1),
-	beta=function(p,r) {
-		tmp <- 0.5*exp(p)
-		dbeta(r,tmp,tmp)},
-        simplex=function(p,r) exp(-(((r-0.5)/0.25)^2/(r*(1-r)*exp(p))+
-			p+3*log(r*(1-r))/2+log(2*pi)/2)),
-	"two-sided power"=function(p,r)
-		p*exp((p-1)*ifelse(r<0.5,log(r/0.5),log((1-r)/0.5))))
+              normal=function(p,r) dnorm(r,0,sqrt(p)),
+              logistic=function(p,r) dlogis(r,0,p*sqrt(3)/pi),
+              Cauchy=function(p,r) dcauchy(r,0,p),
+              Laplace=function(p,r) {
+                tmp <- p
+                exp(-abs(r)/tmp)/(2*tmp)},
+              gamma=function(p,r) {
+                tmp <- p
+                dgamma(r,tmp,scale=1/tmp)},
+              "inverse gamma"=function(p,r) {
+                tmp <- p
+                dgamma(1/r,tmp,scale=1/tmp)/r^2},
+              "inverse Gauss"=function(p,r)
+                exp(-((r-1)^2/(r*p)+log(p)+log(2*pi*r^3))/2),
+              Weibull=function(p,r) dweibull(r,p,1),
+              beta=function(p,r) {
+                tmp <- 0.5*p
+                dbeta(r,tmp,tmp)},
+              simplex=function(p,r) exp(-(((r-0.5)/0.25)^2/(r*(1-r)*p)+
+                                            log(p)+3*log(r*(1-r))/2+log(2*pi)/2)),
+              "two-sided power"=function(p,r)
+                log(p)*exp((log(p)-1)*ifelse(r<0.5,log(r/0.5),log((1-r)/0.5))))
 #
 # combine to create the appropriate likelihood function
 #
