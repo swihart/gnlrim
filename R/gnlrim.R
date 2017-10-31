@@ -33,9 +33,9 @@
 ##' Laplace, Levy, beta, simplex, or two-sided power. (For definitions of
 ##' distributions, see the corresponding [dpqr]distribution help.)
 ##' @param mixture The mixing distribution for the random parameter: logit-bridge-var,
-##' logit-bridge-phi, normal,
-##' Cauchy, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
-##' beta, simplex, or two-sided power. The first five have zero location
+##' logit-bridge-phi, normal-var (default), normal-phi,
+##' Cauchy-scl, Cauchy-phi, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
+##' beta, simplex, or two-sided power. The first eight have zero location
 ##' parameter, the next three have unit location parameter, and the last two
 ##' have location parameter set to 0.5.
 ##' @param random The name of the random parameter in the \code{mu} formula.
@@ -59,10 +59,13 @@
 ##' @param pshape Vector of initial estimates for the shape parameters. These
 ##' must be supplied either in their order of appearance in the expression or
 ##' in a named list.
-##' @param pmix Initial estimate for the untransformed (not logarithm) of the dispersion parameter
-##' of the mixing distribution.  For \code{mixture="normal"} and \code{mixture="logit-bridge-var"}  this is the variance.
-##' For \code{mixture="logit-bridge-phi"}  this is the attenuation factor phi.
-##' Otherwise it is the scale.
+##' @param pmix Initial estimate for the untransformed (not logarithm)
+##'     of the dispersion parameter of the mixing distribution.  For
+##'     \code{mixture="normal-var"} and
+##'     \code{mixture="logit-bridge-var"} this is the variance.  For
+##'     \code{mixture="normal-phi"} and \code{mixture="Cauchy-phi"} and
+##'     \code{mixture="logit-bridge-phi"} this is the attenuation
+##'     factor phi.  Otherwise it is the scale.
 ##' @param delta Scalar or vector giving the unit of measurement (always one
 ##' for discrete data) for each response value, set to unity by default. For
 ##' example, if a response is measured to two decimals, \code{delta=0.01}. If
@@ -170,7 +173,7 @@
 ##' @importFrom stats as.formula dbeta dbinom dcauchy deriv dexp dgamma dlogis dnbinom dnorm dpois dt dweibull gaussian glm glm.control model.frame model.matrix model.response na.fail nlm pbeta pcauchy pexp pgamma pgeom plogis pnbinom pnorm ppois pt pweibull qnorm summary.glm terms uniroot update.formula
 ##'
 ##' @useDynLib gnlrim, .registration = TRUE
-gnlrim <- function(y=NULL, distribution="normal", mixture="normal",
+gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
 	pmu=NULL, pshape=NULL, pmix=NULL, delta=1, common=FALSE,
 	envir=parent.frame(), print.level=0, typsize=abs(p),
@@ -213,7 +216,10 @@ shp <- distribution!="binomial"&&distribution!="Poisson"&&
 #
 # check mixture
 #
-mixture <- match.arg(mixture,c("logit-bridge-var","logit-bridge-phi","normal","logistic","Cauchy","Laplace",
+    mixture <- match.arg(mixture,c("logit-bridge-var","logit-bridge-phi",
+                                   "normal-var","normal-phi",
+                                   "Cauchy-scl","Cauchy-phi",
+                                   "logistic","Laplace",
 	"gamma","inverse gamma","inverse Gauss","Weibull","Levy","beta",
 	"simplex","two-sided power"))
 #
@@ -749,9 +755,11 @@ else fcn <- switch(distribution,
 mix <- switch(mixture,
               "logit-bridge-var" = function(p, r) bridgedist::dbridge(r, 1/sqrt(1+3/pi^2*p)),
               "logit-bridge-phi" = function(p, r) bridgedist::dbridge(r, p),
-              normal=function(p,r) dnorm(r,0,sqrt(p)),
+              "normal-var"=function(p,r) dnorm(r,0,sqrt(p)),
+              "normal-phi"=function(p,r) dnorm(r,0,sqrt(p^(-2)-1)),
               logistic=function(p,r) dlogis(r,0,p*sqrt(3)/pi),
-              Cauchy=function(p,r) dcauchy(r,0,p),
+              "Cauchy-scl"=function(p,r) dcauchy(r,0,p),
+              "Cauchy-phi"  =function(p,r) dcauchy(r,0,p^(-1)-1),
               Laplace=function(p,r) {
                 tmp <- p
                 exp(-abs(r)/tmp)/(2*tmp)},
@@ -774,7 +782,7 @@ mix <- switch(mixture,
 #
 # combine to create the appropriate likelihood function
 #
-if(mixture=="logit-bridge-var"||mixture=="logit-bridge-phi"||mixture=="normal"||mixture=="logistic"||mixture=="Cauchy"||mixture=="Laplace")
+if(mixture=="logit-bridge-var"||mixture=="logit-bridge-phi"||mixture=="normal-var"||mixture=="normal-phi"||mixture=="logistic"||mixture=="Cauchy-scl"||mixture=="Cauchy-phi"||mixture=="Laplace")
 	like <- function(p){
 		fn <- function(r)
 			mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
@@ -799,7 +807,37 @@ if(fscale==1)fscale <- tmp
 ## z0 <- nlm(like,p=p,hessian=TRUE,print.level=print.level,typsize=typsize,
 ## 	ndigit=ndigit,gradtol=gradtol,stepmax=stepmax,steptol=steptol,
 ## 	iterlim=iterlim,fscale=fscale)
-zAll <- optimx(fn=like,
+
+#
+## separate optimx calls because I'm tired of warnings about ignoring arguments for nlm when using nlminb
+#
+
+if( length(method) == 1 & method[1]=="nlminb"){
+    zAll <- optimx(fn=like,
+             par=p,
+             hessian=TRUE, ## not `hess`
+             method=method,
+             itnmax=iterlim,
+             lower=p_lowb,
+             upper=p_uppb,
+             control = list(
+               # for nlm:
+               #print.level=print.level,
+               #typsize=typsize,
+               #ndigit=ndigit,
+               #gradtol=gradtol,
+               #stepmax=stepmax,
+               #steptol=steptol,
+               #iterlim=iterlim, # preferred as itnmax above
+               #fscale=fscale,
+               # for nlminb:
+               trace=trace,
+               step.max=stepmax
+               # ... any other nlminb args
+             )
+             )
+    }else{
+    zAll <- optimx(fn=like,
              par=p,
              hessian=TRUE, ## not `hess`
              method=method,
@@ -822,6 +860,8 @@ zAll <- optimx(fn=like,
                # ... any other nlminb args
              )
              )
+
+    }
 if(ooo){
     zAll
 }else{

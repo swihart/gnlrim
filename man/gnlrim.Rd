@@ -4,7 +4,7 @@
 \alias{gnlrim}
 \title{Generalized Nonlinear Regression with a Random Parameter}
 \usage{
-gnlrim(y = NULL, distribution = "normal", mixture = "normal",
+gnlrim(y = NULL, distribution = "normal", mixture = "normal-var",
   random = NULL, nest = NULL, mu = NULL, shape = NULL, linear = NULL,
   pmu = NULL, pshape = NULL, pmix = NULL, delta = 1, common = FALSE,
   envir = parent.frame(), print.level = 0, typsize = abs(p),
@@ -37,9 +37,9 @@ Laplace, Levy, beta, simplex, or two-sided power. (For definitions of
 distributions, see the corresponding [dpqr]distribution help.)}
 
 \item{mixture}{The mixing distribution for the random parameter: logit-bridge-var,
-logit-bridge-phi, normal,
-Cauchy, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
-beta, simplex, or two-sided power. The first five have zero location
+logit-bridge-phi, normal-var (default), normal-phi,
+Cauchy-scl, Cauchy-phi, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
+beta, simplex, or two-sided power. The first eight have zero location
 parameter, the next three have unit location parameter, and the last two
 have location parameter set to 0.5.}
 
@@ -71,10 +71,13 @@ named list.}
 must be supplied either in their order of appearance in the expression or
 in a named list.}
 
-\item{pmix}{Initial estimate for the untransformed (not logarithm) of the dispersion parameter
-of the mixing distribution.  For \code{mixture="normal"} and \code{mixture="logit-bridge-var"}  this is the variance.
-For \code{mixture="logit-bridge-phi"}  this is the attenuation factor phi.
-Otherwise it is the scale.}
+\item{pmix}{Initial estimate for the untransformed (not logarithm)
+of the dispersion parameter of the mixing distribution.  For
+\code{mixture="normal-var"} and
+\code{mixture="logit-bridge-var"} this is the variance.  For
+\code{mixture="normal-phi"} and \code{mixture="Cauchy-phi"} and
+\code{mixture="logit-bridge-phi"} this is the attenuation
+factor phi.  Otherwise it is the scale.}
 
 \item{delta}{Scalar or vector giving the unit of measurement (always one
 for discrete data) for each response value, set to unity by default. For
