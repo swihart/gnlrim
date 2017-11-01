@@ -4,15 +4,26 @@ output:
     variant: markdown_github
 ---
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
+<!-- README.md is generated from README.Rmd. Please edit the .Rmd -->
 [![Travis-CI Build Status](https://travis-ci.org/swihart/gnlrim.svg?branch=master)](https://travis-ci.org/swihart/gnlrim)
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include=FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   fig.path = "README-"
 )
+library(gnlrim)
+dose <- c(c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8), 3+c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8))
+y_01 <- rep(as.numeric(c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
+                         1.900681, 17.425948,  4.503345,  2.691792,  5.731100, 10.534971,
+                         11.220260,  6.968932,  4.094357, 16.393806, 14.656584,  8.786133,
+                         20.972267, 17.178012) > 4),2)
+id <- rep(1:8, each=5)
+
+y_cbind = cbind(y_01, 1-y_01)
+
+
 ```
 
 # gnlrim
@@ -32,4 +43,43 @@ This is a basic example which shows you how to solve a common problem:
 
 ```{r example}
 ## basic example code
+```
+
+## Errors and Their (Potential) Fixes
+
+```
+   Likelihood returns Inf or NAs: invalid initial values, wrong model, or probabilities too small to calculate
+```
+
+This is sometimes due to not using a named lists for `pmu` and `pmix`.
+
+```{r ERR1}
+## without named lists for `pmu` and `pmix`:
+# fit_PPN_err <- gnlrim(y=y_cbind,
+#                       mu=~pnorm(a+b*dose+rand),
+#                       pmu=c(0,0),
+#                       pmix=0.5,
+#                       p_uppb = c(Inf ,  Inf,   1-1e-5),
+#                       p_lowb = c(-Inf, -Inf,   0+1e-5),
+#                       distribution="binomial",
+#                       nest=id,
+#                       random="rand",
+#                       mixture="normal-phi")
+# Error in gnlrim(y = y_cbind, mu = ~pnorm(a + b * dose + rand), pmu = c(0,  : 
+#   Likelihood returns Inf or NAs: invalid initial values, wrong model, or probabilities too small to calculate
+
+## with named lists for `pmu` and `pmix`:
+fit_PPN_fix <- gnlrim(y=y_cbind,
+                      mu=~pnorm(a+b*dose+rand),
+                      pmu=c(a=0,b=0),
+                      pmix=c(phi=0.5),
+                      p_uppb = c(Inf ,  Inf,   1-1e-5),
+                      p_lowb = c(-Inf, -Inf,   0+1e-5),
+                      distribution="binomial",
+                      nest=id,
+                      random="rand",
+                      mixture="normal-phi")
+## a, b, phi:
+fit_PPN_fix$coeff
+
 ```

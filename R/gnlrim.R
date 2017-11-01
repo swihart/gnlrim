@@ -236,9 +236,17 @@ if(common&&!is.null(linear))
 #
 # count number of parameters
 #
-npl <- length(pmu)
-nps <- length(pshape)
-np <- npl+nps+1
+# npl <- length(pmu)
+# nps <- length(pshape)
+# np <- npl+nps+1
+#
+## Bruce edit:
+pmu_only <- pmu[! names(pmu) %in% names(pmix)]
+ npl_only <- length(pmu_only)
+ npl <- length(pmu)
+ nps <- length(pshape)
+ npm <- length(pmix)
+ np <- npl_only+nps+npm
 #
 # check if a data object is being supplied
 #
@@ -431,7 +439,8 @@ if(common){
 	nlp <- length(unique(c(attr(mu1,"parameters"),attr(sh1,"parameters"))))
 	if(nlp!=npl)stop(paste("with a common parameter model, pmu should contain",nlp,"estimates"))}
 if(is.null(pmix))stop("a value must be supplied for pmix")
-p <- c(pmu,pshape,pmix)
+##p <- c(pmu,pshape,pmix)
+p <- c(pmu_only,pshape,pmix) ## BRUCE edit see issue#6 gnlrim
 #
 # if data object supplied, find response information in it
 #
@@ -925,7 +934,7 @@ z1 <- list(
 	df=n-np,
 	coefficients=as.numeric(z0$estimate),
 	npl=npl,
-	npm=1,
+	npm=npm,
 	nps=nps,
 	npf=0,
 	se=as.numeric(se),
