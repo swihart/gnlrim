@@ -38,8 +38,8 @@ distributions, see the corresponding [dpqr]distribution help.)}
 
 \item{mixture}{The mixing distribution for the random parameter: logit-bridge-var,
 logit-bridge-phi, normal-var (default), normal-phi,
-Cauchy-scl, Cauchy-phi, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
-beta, simplex, or two-sided power. The first eight have zero location
+Cauchy-scl, Cauchy-phi, stabledist-subgauss-scl, stabledist-subgauss-phi, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
+beta, simplex, or two-sided power. The first ten have zero location
 parameter, the next three have unit location parameter, and the last two
 have location parameter set to 0.5.}
 
@@ -64,7 +64,7 @@ linear part of the regression function for the location parameter or list
 of two such expressions for the location and/or shape parameters.}
 
 \item{pmu}{Vector of initial estimates for the location parameters. These
-must be supplied either in their order of appearance in the formula or in a
+must be supplied in their order of appearance in the formula as a
 named list.}
 
 \item{pshape}{Vector of initial estimates for the shape parameters. These
@@ -75,9 +75,14 @@ in a named list.}
 of the dispersion parameter of the mixing distribution.  For
 \code{mixture="normal-var"} and
 \code{mixture="logit-bridge-var"} this is the variance.  For
-\code{mixture="normal-phi"} and \code{mixture="Cauchy-phi"} and
+\code{mixture="normal-phi"},
+\code{mixture="Cauchy-phi"},
+\code{mixture="stabledist-subgauss-phi"}, and
 \code{mixture="logit-bridge-phi"} this is the attenuation
-factor phi.  Otherwise it is the scale.}
+factor phi.  Otherwise it is the scale.  The last element must be the scale
+of the random intercept (`mixture`) distribution,
+if a parameter from \code{mu} is needed for the \code{mixture} distribution
+then it must be listed in `pmix` as well.}
 
 \item{delta}{Scalar or vector giving the unit of measurement (always one
 for discrete data) for each response value, set to unity by default. For
@@ -171,7 +176,7 @@ y <- c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
       20.972267, 17.178012)
 id <- rep(1:4, each=5)
 
-gnlrim(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
+gnlrim(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(a=8.7,b=0.25),
        pshape=3.44, pmix=2.3)
 
 \dontrun{

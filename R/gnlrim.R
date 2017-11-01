@@ -34,8 +34,8 @@
 ##' distributions, see the corresponding [dpqr]distribution help.)
 ##' @param mixture The mixing distribution for the random parameter: logit-bridge-var,
 ##' logit-bridge-phi, normal-var (default), normal-phi,
-##' Cauchy-scl, Cauchy-phi, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
-##' beta, simplex, or two-sided power. The first eight have zero location
+##' Cauchy-scl, Cauchy-phi, stabledist-subgauss-scl, stabledist-subgauss-phi, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
+##' beta, simplex, or two-sided power. The first ten have zero location
 ##' parameter, the next three have unit location parameter, and the last two
 ##' have location parameter set to 0.5.
 ##' @param random The name of the random parameter in the \code{mu} formula.
@@ -54,7 +54,7 @@
 ##' linear part of the regression function for the location parameter or list
 ##' of two such expressions for the location and/or shape parameters.
 ##' @param pmu Vector of initial estimates for the location parameters. These
-##' must be supplied either in their order of appearance in the formula or in a
+##' must be supplied in their order of appearance in the formula as a
 ##' named list.
 ##' @param pshape Vector of initial estimates for the shape parameters. These
 ##' must be supplied either in their order of appearance in the expression or
@@ -63,9 +63,14 @@
 ##'     of the dispersion parameter of the mixing distribution.  For
 ##'     \code{mixture="normal-var"} and
 ##'     \code{mixture="logit-bridge-var"} this is the variance.  For
-##'     \code{mixture="normal-phi"} and \code{mixture="Cauchy-phi"} and
+##'     \code{mixture="normal-phi"},
+##'     \code{mixture="Cauchy-phi"},
+##'     \code{mixture="stabledist-subgauss-phi"}, and
 ##'     \code{mixture="logit-bridge-phi"} this is the attenuation
-##'     factor phi.  Otherwise it is the scale.
+##'     factor phi.  Otherwise it is the scale.  The last element must be the scale
+##'     of the random intercept (`mixture`) distribution,
+##'     if a parameter from \code{mu} is needed for the \code{mixture} distribution
+##'     then it must be listed in `pmix` as well.
 ##' @param delta Scalar or vector giving the unit of measurement (always one
 ##' for discrete data) for each response value, set to unity by default. For
 ##' example, if a response is measured to two decimals, \code{delta=0.01}. If
@@ -131,7 +136,7 @@
 ##'       20.972267, 17.178012)
 ##' id <- rep(1:4, each=5)
 ##'
-##' gnlrim(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(8.7,0.25),
+##' gnlrim(y, mu=~a+b*dose+rand, random="rand", nest=id, pmu=c(a=8.7,b=0.25),
 ##'        pshape=3.44, pmix=2.3)
 ##'
 ##' \dontrun{
@@ -171,7 +176,7 @@
 ##' @import optimx
 ##' @importFrom graphics lines par plot points
 ##' @importFrom stats as.formula dbeta dbinom dcauchy deriv dexp dgamma dlogis dnbinom dnorm dpois dt dweibull gaussian glm glm.control model.frame model.matrix model.response na.fail nlm pbeta pcauchy pexp pgamma pgeom plogis pnbinom pnorm ppois pt pweibull qnorm summary.glm terms uniroot update.formula
-##'
+##' @importFrom stabledist dstable pstable qstable
 ##' @useDynLib gnlrim, .registration = TRUE
 gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
@@ -219,6 +224,7 @@ shp <- distribution!="binomial"&&distribution!="Poisson"&&
     mixture <- match.arg(mixture,c("logit-bridge-var","logit-bridge-phi",
                                    "normal-var","normal-phi",
                                    "Cauchy-scl","Cauchy-phi",
+                                   "stabledist-subgauss-scl","stabledist-subgauss-phi",
                                    "logistic","Laplace",
 	"gamma","inverse gamma","inverse Gauss","Weibull","Levy","beta",
 	"simplex","two-sided power"))
@@ -769,6 +775,8 @@ mix <- switch(mixture,
               logistic=function(p,r) dlogis(r,0,p*sqrt(3)/pi),
               "Cauchy-scl"=function(p,r) dcauchy(r,0,p),
               "Cauchy-phi"  =function(p,r) dcauchy(r,0,p^(-1)-1),
+              "stabledist-subgauss-scl"  =function(a,p,r) stabledist::dstable(r,a,0,p       ,0),
+              "stabledist-subgauss-phi"  =function(a,p,r) stabledist::dstable(r,a,0,(p^(-a)-1)^(1/a),0),
               Laplace=function(p,r) {
                 tmp <- p
                 exp(-abs(r)/tmp)/(2*tmp)},
@@ -792,20 +800,25 @@ mix <- switch(mixture,
 # combine to create the appropriate likelihood function
 #
 if(mixture=="logit-bridge-var"||mixture=="logit-bridge-phi"||mixture=="normal-var"||mixture=="normal-phi"||mixture=="logistic"||mixture=="Cauchy-scl"||mixture=="Cauchy-phi"||mixture=="Laplace")
-	like <- function(p){
-		fn <- function(r)
-			mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
-		-sum(log(inta(fn)))}
+  like <- function(p){
+    fn <- function(r)
+      mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
+    -sum(log(inta(fn)))}
+else if(mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi")
+  like <- function(p){
+    fn <- function(r)
+      mix(p[np-1],p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
+    -sum(log(inta(fn)))}
 else if(mixture=="gamma"||mixture=="inverse gamma"||mixture=="inverse Gauss"||
-	mixture=="Weibull")
-	like <- function(p){
-		fn <- function(r)
-			mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
-		-sum(log(intb(fn)))}
+        mixture=="Weibull")
+  like <- function(p){
+    fn <- function(r)
+      mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
+    -sum(log(intb(fn)))}
 else like <- function(p){
-		fn <- function(r)
-			mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
-		-sum(log(int1(fn,0,1)))}
+  fn <- function(r)
+    mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
+  -sum(log(int1(fn,0,1)))}
 #
 # check that the likelihood returns an appropriate value and optimize
 #
