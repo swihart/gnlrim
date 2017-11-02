@@ -912,13 +912,72 @@ residuals <- if(distribution=="binomial"||distribution=="beta binomial"||
 #
 # calculate se's
 #
+# if(np==0)cov <- NULL
+# else if(np==1)cov <- 1/z0$hessian
+# else {
+#   a <- if(any(is.na(z0$hessian))||any(abs(z0$hessian)==Inf))0
+#   else qr(z0$hessian)$rank
+#   if(a==np)cov <- solve(z0$hessian)
+#   else cov <- matrix(NA,ncol=np,nrow=np)}
+# se <- sqrt(diag(cov))
+#
+# calculate se's
+# BRUCE edit split/combine 0 rows columns
+# to accommodate held-constant parameters
+#
 if(np==0)cov <- NULL
 else if(np==1)cov <- 1/z0$hessian
 else {
-	a <- if(any(is.na(z0$hessian))||any(abs(z0$hessian)==Inf))0
-		else qr(z0$hessian)$rank
-	if(a==np)cov <- solve(z0$hessian)
-	else cov <- matrix(NA,ncol=np,nrow=np)}
+  ## identify 0 rows/cols aka parameters held constant
+  rows0_logic <- apply(z0$hessian, 1, function(w) all(w==0))
+  cols0_logic <- apply(z0$hessian, 2, function(w) all(w==0))
+  a <- if(any(is.na(z0$hessian))||any(abs(z0$hessian)==Inf))0
+  else qr(z0$hessian)$rank
+  ## a!=np if hess collinear or if 0-rows-columns
+  ## from holding parameter constant.
+  ## if a!=np due to holding constant,
+  ## I still want to calculate cov on
+  ## other parameters (invert subset of hessian)
+  if(a==np | ((a!=np)&any(rows0_logic)&any(cols0_logic)&(sum(rows0_logic)==sum(cols0_logic))  )  ){
+    ## replace this one line --
+    #  cov <- solve(z0$hessian)
+    ## with all the following:
+
+    ## strategy:  make data.frame with named columns
+    ## and this way we can reorder things after subsetting
+    hesser <- z0$hessian
+    hesser.df <- as.data.frame(hesser)
+    colnames(hesser.df) <- row.names(hesser.df) <- names(z0$estimate)
+
+    ## subset to those parameters estimated/optimized
+    hesser.df_no_0 <- hesser.df[!rows0_logic, !cols0_logic]
+    ## get covariance for those parameters estimated/optimized
+    cov_no_0 <- solve(hesser.df_no_0)
+
+
+    ## put 0s back in
+    ## that is, we did not invert the hessian for the
+    ## parameters held constant but we still want
+    ## all the output tools to work
+    ## so we reconstruct the cov with 0s by padding
+    ## the bottom and right of cov_no_0 with zeroes
+    ## and then naming the padded cols/rows the
+    ## name of the parameter(s) held constant
+    ## and then reorganize rows and cols to get at original ordering
+    cov_out_of_order <-
+      cbind(
+        rbind(cov_no_0, matrix(0, nrow=sum(rows0_logic), ncol=ncol(cov_no_0))),
+        matrix(0, nrow=sum(rows0_logic)+nrow(cov_no_0), ncol=sum(rows0_logic)))
+
+    colnames(cov_out_of_order) <- c(colnames(cov_no_0), colnames(hesser.df)[cols0_logic])
+    rownames(cov_out_of_order) <- c(rownames(cov_no_0), rownames(hesser.df)[rows0_logic])
+
+    ## put back in order, and make a matrix
+    cov_cols_in_order <- cov_out_of_order[,colnames(hesser.df)]
+    cov_rows_and_cols_in_order <- cov_cols_in_order[rownames(hesser.df),]
+
+    cov <- as.matrix(cov_rows_and_cols_in_order)
+  }else cov <- matrix(NA,ncol=np,nrow=np)}
 se <- sqrt(diag(cov))
 #
 # return appropriate attributes on functions
