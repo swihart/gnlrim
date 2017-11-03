@@ -34,8 +34,10 @@
 ##' distributions, see the corresponding [dpqr]distribution help.)
 ##' @param mixture The mixing distribution for the random parameter: logit-bridge-var,
 ##' logit-bridge-phi, normal-var (default), normal-phi,
-##' Cauchy-scl, Cauchy-phi, stabledist-subgauss-scl, stabledist-subgauss-phi, logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
-##' beta, simplex, or two-sided power. The first ten have zero location
+##' Cauchy-scl, Cauchy-phi, stabledist-subgauss-scl, stabledist-subgauss-phi,
+##' libstableR-subgauss-scl, libstableR-subgauss-phi,
+##' logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
+##' beta, simplex, or two-sided power. The first twelve have zero location
 ##' parameter, the next three have unit location parameter, and the last two
 ##' have location parameter set to 0.5.
 ##' @param random The name of the random parameter in the \code{mu} formula.
@@ -65,7 +67,8 @@
 ##'     \code{mixture="logit-bridge-var"} this is the variance.  For
 ##'     \code{mixture="normal-phi"},
 ##'     \code{mixture="Cauchy-phi"},
-##'     \code{mixture="stabledist-subgauss-phi"}, and
+##'     \code{mixture="stabledist-subgauss-phi"},
+##'     \code{mixture="libstableR-subgauss-phi"}, and
 ##'     \code{mixture="logit-bridge-phi"} this is the attenuation
 ##'     factor phi.  Otherwise it is the scale.  The last element must be the scale
 ##'     of the random intercept (`mixture`) distribution,
@@ -177,6 +180,7 @@
 ##' @importFrom graphics lines par plot points
 ##' @importFrom stats as.formula dbeta dbinom dcauchy deriv dexp dgamma dlogis dnbinom dnorm dpois dt dweibull gaussian glm glm.control model.frame model.matrix model.response na.fail nlm pbeta pcauchy pexp pgamma pgeom plogis pnbinom pnorm ppois pt pweibull qnorm summary.glm terms uniroot update.formula
 ##' @importFrom stabledist dstable pstable qstable
+##' @importFrom libstableR stable_pdf stable_cdf stable_q
 ##' @useDynLib gnlrim, .registration = TRUE
 gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
@@ -225,6 +229,7 @@ shp <- distribution!="binomial"&&distribution!="Poisson"&&
                                    "normal-var","normal-phi",
                                    "Cauchy-scl","Cauchy-phi",
                                    "stabledist-subgauss-scl","stabledist-subgauss-phi",
+                                   "libstableR-subgauss-scl","libstableR-subgauss-phi",
                                    "logistic","Laplace",
 	"gamma","inverse gamma","inverse Gauss","Weibull","Levy","beta",
 	"simplex","two-sided power"))
@@ -777,6 +782,10 @@ mix <- switch(mixture,
               "Cauchy-phi"  =function(p,r) dcauchy(r,0,p^(-1)-1),
               "stabledist-subgauss-scl"  =function(a,p,r) stabledist::dstable(r,a,0,p       ,0),
               "stabledist-subgauss-phi"  =function(a,p,r) stabledist::dstable(r,a,0,(p^(-a)-1)^(1/a),0),
+
+              "libstableR-subgauss-scl"  =function(a,p,r) libstableR::stable_pdf(r,c(a,0,p       ,0)),
+              "libstableR-subgauss-phi"  =function(a,p,r) libstableR::stable_pdf(r,c(a,0,(p^(-a)-1)^(1/a),0)),
+
               Laplace=function(p,r) {
                 tmp <- p
                 exp(-abs(r)/tmp)/(2*tmp)},
@@ -804,7 +813,7 @@ if(mixture=="logit-bridge-var"||mixture=="logit-bridge-phi"||mixture=="normal-va
     fn <- function(r)
       mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
     -sum(log(inta(fn)))}
-else if(mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi")
+else if(mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi"||mixture=="libstableR-subgauss-scl"||mixture=="libstableR-subgauss-phi")
   like <- function(p){
     fn <- function(r)
       mix(p[np-1],p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
