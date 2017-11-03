@@ -8,6 +8,8 @@ Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
 License: GPL-2
 Imports: 
+  Rcpp (>= 0.12.9),		
+  RcppGSL,
   optimx,
   bridgedist,
   stabledist,
