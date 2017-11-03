@@ -19,7 +19,7 @@ before_install:
   - ./run.sh bootstrap
 
 install:
-  - ./run.sh install_aptget r-cran-rcpp r-cran-inline r-cran-pinp libgsl0-dev r-cran-runit r-cran-optimx r-cran-bridgedist r-cran-stabledist r-cran-libstableR
+  - ./run.sh install_aptget r-cran-rcpp r-cran-inline r-cran-pinp libgsl0-dev r-cran-runit r-cran-optimx r-cran-bridgedist r-cran-stabledist r-cran-libstabler
 
 script:
   - ./run.sh run_tests
