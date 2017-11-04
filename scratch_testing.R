@@ -7,23 +7,59 @@ y <- c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
        20.972267, 17.178012)
 id <- rep(1:4, each=5)
 
-
+## fit with lmer
 lmer_fit <- lme4::lmer(y~dose + (1|id), REML=FALSE)
-lmer_fit
 
+## fit with gnlrim
 gnlrim_fit <-
 gnlrim(y,
        mu=~a+b*dose+rand,
        random="rand",
        nest=id,
        pmu=c(a=8.7,b=0.25),
-       pshape = c(shape=1), ## also known as residuals
-       pmix=c(var=3.809^2),
-       p_uppb = c(10,  1, 5, 3.809^3),
+       pshape = c(shape=1),
+       pmix=c(var=3.0938^2),
+       p_uppb = c(10,  1, 5, 3.0938^3),
        p_lowb = c( 5, -1, 0, 0)
        )
-gnlrim_fit
 
+## show fits are the same:
+## intercept (a) slope (b)
+summary(lmer_fit)$coeff[,1]
+gnlrim_fit$coeff[1:2]
+
+## Residuals standard deviation
+## sigma_epsilon = 5.58
+summary(lmer_fit)$varcor
+sqrt(exp(gnlrim_fit$coeff[3]))
+
+## random effects standard deviation
+## sigma_id = 3.0938
+summary(lmer_fit)$varcor
+sqrt(gnlrim_fit$coeff[4])
+
+## likelihood
+summary(lmer_fit)$logLik
+-gnlrim_fit$maxlike
+
+## Take same model but hold
+## random effects standard deviation
+## sigma_id   :=  9
+## sigma^2_id := 81
+gnlrim_fit2 <-
+  gnlrim(y,
+         mu=~a+b*dose+rand,
+         random="rand",
+         nest=id,
+         pmu=c(a=8.7,b=0.25),
+         pshape = c(shape=1),
+         pmix=c(var=9^2),
+         p_uppb = c(10,  1, 5, 9^2),
+         p_lowb = c( 5, -1, 0, 9^2)
+  )
+
+gnlrim_fit2$coeff
+gnlrim_fit2$se
 
 
 ##############################################################
