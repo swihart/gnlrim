@@ -780,11 +780,18 @@ mix <- switch(mixture,
               logistic=function(p,r) dlogis(r,0,p*sqrt(3)/pi),
               "Cauchy-scl"=function(p,r) dcauchy(r,0,p),
               "Cauchy-phi"  =function(p,r) dcauchy(r,0,p^(-1)-1),
-              "stabledist-subgauss-scl"  =function(a,p,r) stabledist::dstable(r,a,0,p       ,0),
-              "stabledist-subgauss-phi"  =function(a,p,r) stabledist::dstable(r,a,0,(p^(-a)-1)^(1/a),0),
 
-              "libstableR-subgauss-scl"  =function(a,p,r) libstableR::stable_pdf(r,c(a,0,p       ,0)),
-              "libstableR-subgauss-phi"  =function(a,p,r) libstableR::stable_pdf(r,c(a,0,(p^(-a)-1)^(1/a),0)),
+              #"stabledist-subgauss-scl"  =function(a,p,r) stabledist::dstable(r,a,0,p       ,0),
+              #"stabledist-subgauss-phi"  =function(a,p,r) stabledist::dstable(r,a,0,(p^(-a)-1)^(1/a),0),
+
+              "stabledist-subgauss-scl"  =function(a,p,r) dstable2(r,a,0,p       ,0),
+              "stabledist-subgauss-phi"  =function(a,p,r) dstable2(r,a,0,(p^(-a)-1)^(1/a),0),
+
+              #"libstableR-subgauss-scl"  =function(a,p,r) libstableR::stable_pdf(r,c(a,0,p       ,0)),
+              #"libstableR-subgauss-phi"  =function(a,p,r) libstableR::stable_pdf(r,c(a,0,(p^(-a)-1)^(1/a),0)),
+
+              "libstableR-subgauss-scl"  =function(a,p,r) stable_pdf2(r,c(a,0,p       ,0)),
+              "libstableR-subgauss-phi"  =function(a,p,r) stable_pdf2(r,c(a,0,(p^(-a)-1)^(1/a),0)),
 
               Laplace=function(p,r) {
                 tmp <- p

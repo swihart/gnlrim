@@ -98,7 +98,7 @@ fit_PPN_scl$se
 #Now try reproducing PPN with *!*stabledist*!* subgauss:
 
 fit_PPN_stabledist_scl <- gnlrim(y=y_cbind,
-                                 mu=~pstable(a+b*dose+rand, alpha, 0, 1/sqrt(2), 0),
+                                 mu=~pstable2(a+b*dose+rand, alpha, 0, 1/sqrt(2), 0),
                                  pmu=c(a=0,b=0, alpha=2),
                                  pmix=c(alpha=2, scl=1),
                                  p_uppb = c(Inf ,  Inf, 2, Inf),
@@ -106,16 +106,17 @@ fit_PPN_stabledist_scl <- gnlrim(y=y_cbind,
                                  distribution="binomial",
                                  nest=id,
                                  random="rand",
-                                 mixture="stabledist-subgauss-scl",
-                                 ooo=TRUE,
-                                 trace=1)
+                                 mixture="stabledist-subgauss-scl"#,
+                                 #ooo=TRUE,
+                                 #trace=1
+                                 )
 fit_PPN_stabledist_scl$coefficients
 fit_PPN_stabledist_scl$se
 
 #Now try reproducing PPN with **libstableR** subgauss:
 
 fit_PPN_libstableR_scl <- gnlrim(y=y_cbind,
-                                 mu=~ stable_cdf(a+b*dose+rand, c(alpha, 0, 1/sqrt(2), 0)),
+                                 mu=~ stable_cdf2(a+b*dose+rand, c(alpha, 0, 1/sqrt(2), 0)),
                                  pmu=c(a=0,b=0, alpha=2),
                                  pmix=c(alpha=2, scl=1),
                                  p_uppb = c(Inf ,  Inf, 2, Inf),
@@ -123,9 +124,9 @@ fit_PPN_libstableR_scl <- gnlrim(y=y_cbind,
                                  distribution="binomial",
                                  nest=id,
                                  random="rand",
-                                 mixture="libstableR-subgauss-scl",
-                                 ooo=TRUE,
-                                 trace=1
+                                 mixture="libstableR-subgauss-scl"#,
+                                 #ooo=TRUE,
+                                 #trace=1
                                  )
 
 ## should be 0s, not NAs.
@@ -143,31 +144,33 @@ fit_PPN_scl$se
 fit_PPN_libstableR_scl$coefficients
 fit_PPN_libstableR_scl$se
 
-## what if we made a wrapper for libstableR
-## that would take out of bound pars and force them in bounds
-## ***internally***
-stable_cdf2 <- function(x, pars, parameterization=0L, tol=1e-12){
-  libstableR::stable_cdf(x,
-                         c(min(max(pars[1],0+1e-20),2),
-                           min(max(pars[2],-1),1),
-                           min(max(pars[3],0+1e-20),Inf),
-                           pars[4]),
-                         parameterization,
-                         tol
-  )
-}
 
-stable_pdf2 <- function(x, pars, parameterization=0L, tol=1e-12){
-  libstableR::stable_pdf(x,
-                         c(min(max(pars[1],0+1e-20),2),
-                           min(max(pars[2],-1),1),
-                           min(max(pars[3],0+1e-20),Inf),
-                           pars[4]),
-                         parameterization,
-                         tol
-  )
-}
-
+# next two function are now in the package gnlrim
+# ## what if we made a wrapper for libstableR
+# ## that would take out of bound pars and force them in bounds
+# ## ***internally***
+# stable_cdf2 <- function(x, pars, parameterization=0L, tol=1e-12){
+#   libstableR::stable_cdf(x,
+#                          c(min(max(pars[1],0+1e-20),2),
+#                            min(max(pars[2],-1),1),
+#                            min(max(pars[3],0+1e-20),Inf),
+#                            pars[4]),
+#                          parameterization,
+#                          tol
+#   )
+# }
+#
+# stable_pdf2 <- function(x, pars, parameterization=0L, tol=1e-12){
+#   libstableR::stable_pdf(x,
+#                          c(min(max(pars[1],0+1e-20),2),
+#                            min(max(pars[2],-1),1),
+#                            min(max(pars[3],0+1e-20),Inf),
+#                            pars[4]),
+#                          parameterization,
+#                          tol
+#   )
+# }
+#
 
 ## alpha <= 2 is forced internally
 stable_cdf2(1, c( 2.0,0,1,0))
@@ -194,9 +197,9 @@ fit2_PPN_libstableR_scl <- gnlrim(y=y_cbind,
                                  distribution="binomial",
                                  nest=id,
                                  random="rand",
-                                 mixture="libstableR-subgauss-scl",
-                                 ooo=TRUE,
-                                 trace=1
+                                 mixture="libstableR-subgauss-scl"#,
+                                 #ooo=TRUE,
+                                 #trace=1
 )
 
 ## should be 0s, not NAs.
@@ -209,11 +212,11 @@ bonk_se <- sqrt(diag(bonk_no_na_cov))
 bonk_se
 fit_PPN_scl$se
 
-
-
 fit2_PPN_libstableR_scl$coefficients
 fit2_PPN_libstableR_scl$se
 
+fit_PPN_scl$coefficients
+fit_PPN_scl$se
 
 
 
@@ -221,11 +224,11 @@ fit2_PPN_libstableR_scl$se
 ## all the same?
 fit_PPN_scl$coefficients
 fit_PPN_stabledist_scl$coefficients
-fit_PPN_libstableR_scl$coefficients
+fit2_PPN_libstableR_scl$coefficients
 
 fit_PPN_scl$se
 fit_PPN_stabledist_scl$se
-fit_PPN_libstableR_scl$se
+fit2_PPN_libstableR_scl$se
 
 
 ##############################################################
