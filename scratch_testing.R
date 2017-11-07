@@ -33,6 +33,7 @@ fit_PPN_libstableR_scl <- gnlrim(y=y_cbind,
                                  trace=1
 )
 
+fit_PPN_libstableR_scl
 
 ##
 
