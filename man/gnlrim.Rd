@@ -9,7 +9,8 @@ gnlrim(y = NULL, distribution = "normal", mixture = "normal-var",
   pmu = NULL, pshape = NULL, pmix = NULL, delta = 1, common = FALSE,
   envir = parent.frame(), print.level = 0, typsize = abs(p),
   ndigit = 10, gradtol = 1e-05, stepmax = 10 * sqrt(p \%*\% p),
-  steptol = 1e-05, iterlim = 100, fscale = 1, eps = 1e-04, trace = 0,
+  steptol = 1e-05, iterlim = 100, compute_hessian = TRUE,
+  compute_kkt = TRUE, fscale = 1, eps = 1e-04, trace = 0,
   method = "nlminb", ooo = FALSE, p_lowb = -Inf, p_uppb = Inf,
   points = 5, steps = 10)
 }
@@ -117,6 +118,20 @@ class \code{repeated}, it is used as the environment.}
 \item{steptol}{Arguments for nlm.}
 
 \item{iterlim}{Arguments for optimx (itnmax).}
+
+\item{compute_hessian}{Argument (logical) \code{hessian} for
+optimx. Defaults TRUE.  FALSE should only be when
+\code{ooo=TRUE}.  To optimize with \code{method=="nlminb"}
+without computing the hessian, do so with the following
+settings:
+\code{ooo=TRUE, compute_hessian=FALSE, compute_kkt=FALSE}.}
+
+\item{compute_kkt}{Argument (logical) \code{kkt} for
+optimx (control()). Defaults TRUE.  FALSE should only be when
+\code{ooo=TRUE}.  To optimize with \code{method=="nlminb"}
+without computing the hessian, do so with the following
+settings:
+\code{ooo=TRUE, compute_hessian=FALSE, compute_kkt=FALSE}.}
 
 \item{fscale}{Arguments for nlm.}
 

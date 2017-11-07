@@ -101,6 +101,18 @@
 ##' @param stepmax Arguments for nlm.
 ##' @param steptol Arguments for nlm.
 ##' @param iterlim Arguments for optimx (itnmax).
+##' @param compute_hessian Argument (logical) \code{hessian} for
+##' optimx. Defaults TRUE.  FALSE should only be when
+##' \code{ooo=TRUE}.  To optimize with \code{method=="nlminb"}
+##' without computing the hessian, do so with the following
+##' settings:
+##' \code{ooo=TRUE, compute_hessian=FALSE, compute_kkt=FALSE}.
+##' @param compute_kkt Argument (logical) \code{kkt} for
+##' optimx (control()). Defaults TRUE.  FALSE should only be when
+##' \code{ooo=TRUE}.  To optimize with \code{method=="nlminb"}
+##' without computing the hessian, do so with the following
+##' settings:
+##' \code{ooo=TRUE, compute_hessian=FALSE, compute_kkt=FALSE}.
 ##' @param fscale Arguments for nlm.
 ##' @param trace Arguments for nlminb.
 ##' @param method Arguments for optimx -- a string denoting which
@@ -187,7 +199,8 @@ gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	pmu=NULL, pshape=NULL, pmix=NULL, delta=1, common=FALSE,
 	envir=parent.frame(), print.level=0, typsize=abs(p),
 	ndigit=10, gradtol=0.00001, stepmax=10*sqrt(p%*%p), steptol=0.00001,
-	iterlim=100, fscale=1, eps=1.0e-4, trace=0, method="nlminb", ooo=FALSE,
+	iterlim=100, compute_hessian=TRUE, compute_kkt=TRUE,
+	fscale=1, eps=1.0e-4, trace=0, method="nlminb", ooo=FALSE,
 	p_lowb = -Inf, p_uppb = Inf,
         points=5, steps=10){
 
@@ -853,12 +866,13 @@ if(fscale==1)fscale <- tmp
 if( length(method) == 1 & method[1]=="nlminb"){
     zAll <- optimx(fn=like,
              par=p,
-             hessian=TRUE, ## not `hess`
+             hessian=compute_hessian, ## not `hess`
              method=method,
              itnmax=iterlim,
              lower=p_lowb,
              upper=p_uppb,
              control = list(
+               kkt=compute_kkt,
                # for nlm:
                #print.level=print.level,
                #typsize=typsize,
@@ -877,12 +891,13 @@ if( length(method) == 1 & method[1]=="nlminb"){
     }else{
     zAll <- optimx(fn=like,
              par=p,
-             hessian=TRUE, ## not `hess`
+             hessian=compute_hessian, ## not `hess`
              method=method,
              itnmax=iterlim,
              lower=p_lowb,
              upper=p_uppb,
              control = list(
+               kkt=compute_kkt,
                # for nlm:
                print.level=print.level,
                typsize=typsize,
