@@ -1,3 +1,361 @@
+##############################################################
+##############################################################
+##############################################################
+## this section tests conditional vs. marginal inference
+## hint:  definitely need to name pmu and pmix starting values:
+## more specifically trying to get this to work
+## when using libstableR-subgauss-phi
+##############################################################
+##############################################################
+##############################################################
+
+dose <- c(c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8), 3+c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8))
+y_01 <- rep(as.numeric(c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
+                         1.900681, 17.425948,  4.503345,  2.691792,  5.731100, 10.534971,
+                         11.220260,  6.968932,  4.094357, 16.393806, 14.656584,  8.786133,
+                         20.972267, 17.178012) > 4),2)
+id <- rep(1:8, each=5)
+
+y_cbind = cbind(y_01, 1-y_01)
+
+
+
+## this example shows it is the exact same model -- just different parameterization
+## one is condition coefficients
+## the other is marginal (but assumes the scales are 1 when you specify phi -- this is hardcoded currently)
+cond_PPN_phi <- gnlrim(y=y_cbind,
+                       mu=~pnorm( a_cond+b_cond*dose+rand),
+                       pmu=c(a_cond=0,b_cond=0),
+                       pmix=c(phi=0.5),
+                       p_uppb = c(Inf ,  Inf, 1-1e-5),
+                       p_lowb = c(-Inf, -Inf, 0+1e-5),
+                       distribution="binomial",
+                       nest=id,
+                       random="rand",
+                       mixture="normal-phi")
+
+
+
+
+marg_PPN_phi <- gnlrim(y=y_cbind,
+                       mu=~pnorm( (a_marg+b_marg*dose)/phi+rand),
+                       pmu=c(a_marg=0,b_marg=0,phi=0.5),
+                       pmix=c(phi=0.5),
+                       p_uppb = c(Inf ,  Inf,   1-1e-5),
+                       p_lowb = c(-Inf, -Inf,   0+1e-5),
+                       distribution="binomial",
+                       nest=id,
+                       random="rand",
+                       mixture="normal-phi")
+
+
+cond_PPN_phi$coefficients
+marg_PPN_phi$coefficients
+
+## next two lines same?
+cond_PPN_phi$coefficients[1:2]*cond_PPN_phi$coefficients[3]
+marg_PPN_phi$coefficients[1:2]
+
+## next two lines same?
+marg_PPN_phi$coefficients[1:2]/marg_PPN_phi$coefficients[3]
+cond_PPN_phi$coefficients[1:2]
+
+
+## next two lines same?
+marg_PPN_phi$maxlike
+cond_PPN_phi$maxlike
+
+## next two lines same?
+sort(unique(marg_PPN_phi$fitted.values))
+sort(unique(cond_PPN_phi$fitted.values))
+
+
+## so now we start to work in stable_cdf2
+## keep in mind that the `-phi` parameterization assumes a scale of 1
+## but as a Nolan parameterized stable distribution a standard normal has a scale
+## of 1/sqrt(2)
+
+cond_PPN_phi_libstableR <- gnlrim(y=y_cbind,
+                                  mu=~stable_cdf2( a_cond+b_cond*dose+rand, c(alpha,0,1/sqrt(2),0)),
+                                  pmu=c(a_cond=0,b_cond=0,alpha=2),
+                                  pmix=c(alpha=2, phi=0.5),
+                                  p_uppb = c(Inf ,  Inf, 2, 1-1e-5),
+                                  p_lowb = c(-Inf, -Inf, 2, 0+1e-5),
+                                  distribution="binomial",
+                                  nest=id,
+                                  random="rand",
+                                  mixture="libstableR-subgauss-phi")
+
+
+
+## next two lines the same? No, because phi assumes scale=1 (this is hardcoded).
+## and to get same beta coeffs you must assume the 1/sqrt(2)
+## so not surprising that betas are the same but phi is different.
+cond_PPN_phi$coefficients
+cond_PPN_phi_libstableR$coefficients
+
+cond_PPN_phi$maxlike
+cond_PPN_phi_libstableR$maxlike
+
+
+
+marg_PPN_phi_libstableR1 <- gnlrim(y=y_cbind,
+                                   mu=~stable_cdf2( (a_marg+b_marg*dose)/phi+rand, c(alpha,0,1,0)),
+                                   pmu=c(a_marg=0,b_marg=0,phi=0.5,alpha=2),
+                                   pmix=c(alpha=2, phi=0.5),
+                                   p_uppb = c(Inf ,  Inf, 2, 1-1e-5),
+                                   p_lowb = c(-Inf, -Inf, 2, 0+1e-5),
+                                   distribution="binomial",
+                                   nest=id,
+                                   random="rand",
+                                   mixture="libstableR-subgauss-phi")
+
+
+
+## next two lines the same? No, because phi assumes scale=1
+## and to get same beta coeffs you must assume the 1/sqrt(2)
+cond_PPN_phi_libstableR1$coefficients
+marg_PPN_phi_libstableR1$coefficients
+## no agreement.
+
+##If alpha is 1?
+cond_CCC_phi_libstableR1 <- gnlrim(y=y_cbind,
+                                   mu=~stable_cdf2( a_cond+b_cond*dose+rand, c(alpha,0,1,0)),
+                                   pmu=c(a_cond=0,b_cond=0,alpha=1),
+                                   pmix=c(alpha=1, phi=0.5),
+                                   p_uppb = c(Inf ,  Inf, 1, 1-1e-5),
+                                   p_lowb = c(-Inf, -Inf, 1, 0+1e-5),
+                                   distribution="binomial",
+                                   nest=id,
+                                   random="rand",
+                                   mixture="libstableR-subgauss-phi")
+
+marg_CCC_phi_libstableR1 <- gnlrim(y=y_cbind,
+                                   mu=~stable_cdf2( (a_marg+b_marg*dose)*((1^alpha)/phi)+rand, c(alpha,0,1,0)),
+                                   pmu=c(a_marg=0,b_marg=0,alpha=1,phi=0.5),
+                                   pmix=c(alpha=1, phi=0.5),
+                                   p_uppb = c(Inf ,  Inf, 1, 1-1e-5),
+                                   p_lowb = c(-Inf, -Inf, 1, 0+1e-5),
+                                   distribution="binomial",
+                                   nest=id,
+                                   random="rand",
+                                   mixture="libstableR-subgauss-phi",
+                                   compute_hessian=TRUE,
+                                   compute_kkt=FALSE,
+                                   trace=1)
+
+cond_CCC_phi_libstableR1$coefficients
+marg_CCC_phi_libstableR1$coefficients
+marg_CCC_phi_libstableR1$se
+
+cond_CCC_phi_libstableR1$maxlike
+marg_CCC_phi_libstableR1$maxlike
+
+
+
+## no agreement.  I'm coming to the realization that `mixture=blah-blah-phi` should only be used when
+## marginal coefficients and phi (explicitly) appear in the `mu` statement.  Furthermore, the
+## parameters have to be listed correctly in `pmu` and `pmix`.  That is, the order of pmu must
+## match the order the parameters appear in `mu`.  This means you might have to do a `1^alpha/phi` trick
+## as opposed to `1/phi` because phi has to be last in pmix and pmu.
+
+
+## observe these models that use `-scl` in a phi configuration in `mu`:
+
+cond_PPN_var <- gnlrim(y=y_cbind,
+                       mu=~pnorm( a_cond+b_cond*dose+rand),
+                       pmu=c(a_cond=0,b_cond=0),
+                       pmix=c(var=0.5),
+                       p_uppb = c(Inf ,  Inf, Inf),
+                       p_lowb = c(-Inf, -Inf, 0+1e-5),
+                       distribution="binomial",
+                       nest=id,
+                       random="rand",
+                       mixture="normal-var")
+
+
+
+
+marg_PPN_var <- gnlrim(y=y_cbind,
+                       mu=~pnorm( (a_marg+b_marg*dose)*sqrt(1+var)+rand),
+                       pmu=c(a_marg=0,b_marg=0,var=0.5),
+                       pmix=c(var=0.5),
+                       p_uppb = c(Inf ,  Inf,   Inf),
+                       p_lowb = c(-Inf, -Inf,   0+1e-5),
+                       distribution="binomial",
+                       nest=id,
+                       random="rand",
+                       mixture="normal-var")
+
+
+cond_PPN_var$coefficients
+marg_PPN_var$coefficients
+
+## next two lines same?
+cond_PPN_var$coefficients[1:2]*1/sqrt(1+cond_PPN_var$coefficients[3])
+marg_PPN_var$coefficients[1:2]
+
+## next two lines same?
+marg_PPN_phi$coefficients[1:2]*sqrt(1+marg_PPN_var$coefficients[3])
+cond_PPN_phi$coefficients[1:2]
+
+
+## next two lines same?
+marg_PPN_var$maxlike
+cond_PPN_var$maxlike
+
+## next two lines same?
+sort(unique(marg_PPN_var$fitted.values))
+sort(unique(cond_PPN_var$fitted.values))
+
+
+## so now we start to work in stable_cdf2
+## keep in mind that the `-phi` parameterization assumes a scale of 1
+## but as a Nolan parameterized stable distribution a standard normal has a scale
+## of 1/sqrt(2)
+
+cond_PPN_scl_libstableR <- gnlrim(y=y_cbind,
+                                  mu=~stable_cdf2( a_cond+b_cond*dose+rand, c(alpha,0,1/sqrt(2),0)),
+                                  pmu=c(a_cond=0,b_cond=0,alpha=2),
+                                  pmix=c(alpha=2, scl=0.5),
+                                  p_uppb = c(Inf ,  Inf, 2, Inf),
+                                  p_lowb = c(-Inf, -Inf, 2, 0+1e-5),
+                                  distribution="binomial",
+                                  nest=id,
+                                  random="rand",
+                                  mixture="libstableR-subgauss-scl")
+
+
+
+## next two lines the same? Yes!
+c(cond_PPN_var$coefficients[1:2], 2, cond_PPN_var$coefficients[3],
+  sqrt(cond_PPN_var$coefficients[3]/2))
+
+c(cond_PPN_scl_libstableR$coefficients[1:3],
+  2*cond_PPN_scl_libstableR$coefficients[4]^2 ,
+  cond_PPN_scl_libstableR$coefficients[4])
+
+## can we do marginal with libstableR?
+## YES!, if we are sure to make sure to have alpha appear before scl in the `mu` statement
+marg_PPN_scl_libstableR <- gnlrim(y=y_cbind,
+                                  mu=~stable_cdf2( (a_marg+b_marg*dose)*sqrt((1/sqrt(2))^alpha+scl^2)/(1/sqrt(2)) +rand, c(alpha,0,1/sqrt(2),0)),
+                                  pmu=c(a_marg=0,b_marg=0,alpha=2, scl=0.5),
+                                  pmix=c(alpha=2, scl=0.5),
+                                  p_uppb = c(Inf ,  Inf, 2, Inf),
+                                  p_lowb = c(-Inf, -Inf, 2, 0+1e-5),
+                                  distribution="binomial",
+                                  nest=id,
+                                  random="rand",
+                                  mixture="libstableR-subgauss-scl")
+
+## next two lines the same? Yes!
+marg_PPN_scl_libstableR$coefficients[1:2] * sqrt((1/sqrt(2))^2+marg_PPN_scl_libstableR$coefficients[4]^2)/(1/sqrt(2))
+
+c(cond_PPN_var$coefficients[1:2], 2, cond_PPN_var$coefficients[3],
+  sqrt(cond_PPN_var$coefficients[3]/2))
+
+
+cond_PPN_var$maxlike
+marg_PPN_var$maxlike
+marg_PPN_scl_libstableR$maxlike
+cond_PPN_scl_libstableR$maxlike
+
+
+
+## see some models fit for Cauchy-Cauchy-Cauchy:
+
+## and now for phi:
+cond_fit_CCC_phi <- gnlrim(y=y_cbind,
+                           mu=~pcauchy(a_cond+b_cond*dose+rand),
+                           pmu=c(a_cond=0,b_cond=0),
+                           pmix=c(phi=0.5),
+                           p_uppb = c(Inf ,  Inf,   1-1e-5),
+                           p_lowb = c(-Inf, -Inf,   0+1e-5),
+                           distribution="binomial",
+                           nest=id,
+                           random="rand",
+                           mixture="Cauchy-phi")
+cond_fit_CCC_phi$coefficients
+cond_fit_CCC_phi$se
+
+
+marg_fit_CCC_phi <- gnlrim(y=y_cbind,
+                           mu=~pcauchy((a_marg+b_marg*dose)/phi+rand),
+                           pmu=c(a_marg=0,b_marg=0,phi=0.5),
+                           pmix=c(phi=0.5),
+                           p_uppb = c(Inf ,  Inf,   1-1e-5),
+                           p_lowb = c(-Inf, -Inf,   0+1e-5),
+                           distribution="binomial",
+                           nest=id,
+                           random="rand",
+                           mixture="Cauchy-phi")
+marg_fit_CCC_phi$coefficients
+marg_fit_CCC_phi$se
+
+
+## next two lines same? NO.  `phi` can only be used with marginal parms and must explicitly appear in mu
+cond_fit_CCC_phi$coefficients[1:2] * cond_fit_CCC_phi$coefficients[3]
+marg_fit_CCC_phi$coefficients[1:2]
+
+
+## next two lines same? NO.  `phi` can only be used with marginal parms and must explicitly appear in mu
+marg_fit_CCC_phi$coefficients[1:2] / marg_fit_CCC_phi$coefficients[3]
+cond_fit_CCC_phi$coefficients[1:2]
+
+marg_fit_CCC_phi$maxlike
+cond_fit_CCC_phi$maxlike
+
+## note the couplets above are different.
+## now see `-scl` in a phi configuration (1/phi = 1+scl)
+
+## and now for scl:
+cond_fit_CCC_scl <- gnlrim(y=y_cbind,
+                           mu=~pcauchy(a_cond+b_cond*dose+rand),
+                           pmu=c(a_cond=0,b_cond=0),
+                           pmix=c(scl=0.5),
+                           p_uppb = c(Inf ,  Inf,   Inf),
+                           p_lowb = c(-Inf, -Inf,   0+1e-5),
+                           distribution="binomial",
+                           nest=id,
+                           random="rand",
+                           mixture="Cauchy-scl")
+cond_fit_CCC_scl$coefficients
+cond_fit_CCC_scl$se
+
+
+marg_fit_CCC_scl <- gnlrim(y=y_cbind,
+                           mu=~pcauchy((a_marg+b_marg*dose)*(1+scl)+rand),
+                           pmu=c(a_marg=0,b_marg=0,scl=0.5),
+                           pmix=c(scl=0.5),
+                           p_uppb = c(Inf ,  Inf,   Inf),
+                           p_lowb = c(-Inf, -Inf,   0+1e-5),
+                           distribution="binomial",
+                           nest=id,
+                           random="rand",
+                           mixture="Cauchy-scl")
+marg_fit_CCC_scl$coefficients
+marg_fit_CCC_scl$se
+
+
+## next two lines same?
+cond_fit_CCC_scl$coefficients[1:2] * (1/(1+cond_fit_CCC_scl$coefficients[3] ))
+marg_fit_CCC_scl$coefficients[1:2]
+
+
+## next two lines same?
+marg_fit_CCC_scl$coefficients[1:2] * (1+marg_fit_CCC_scl$coefficients[3])
+cond_fit_CCC_scl$coefficients[1:2]
+
+
+marg_fit_CCC_scl$maxlike
+cond_fit_CCC_scl$maxlike
+
+
+
+##############################################################
+##############################################################
+##############################################################
+## this section
 ## get estimates but don't calculate hessian:
 ## To optimize with method=="nlminb" without computing the hessian,
 ## do so with the following settings:
@@ -7,6 +365,10 @@
 ## to get SEs though, must get Hessian
 ## this will error if ooo=FALSE because ooo=FALSE assumes
 ## hessian was calculated and tries to invert to get covariance/SEs
+##############################################################
+##############################################################
+##############################################################
+
 dose <- c(c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8), 3+c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8))
 y_01 <- rep(as.numeric(c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
                          1.900681, 17.425948,  4.503345,  2.691792,  5.731100, 10.534971,
