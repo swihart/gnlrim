@@ -1,6 +1,156 @@
 ##############################################################
 ##############################################################
 ##############################################################
+## this section gets into using nlminb vs bobyqa vs L-BFGS-B
+## it uses the TSJYO (random identifier) dataset
+##############################################################
+##############################################################
+##############################################################
+
+sim_data_binomial <- readRDS("TSJYO_sim_data_binomial.RDS")
+attach(sim_data_binomial)
+y_cbind <- cbind(num_y1, num_y0)
+
+start.time<-Sys.time()
+gapr_marg_lbfgs <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2((a0 + a1*group)*(1^alpha)/phi + rand, c(alpha, 0, 1, 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5, phi=0.50),
+         pmix=c(alpha=1.5, phi=0.50),
+         p_uppb = c(  Inf ,  Inf, 2-1e-5,   1-1e-5),
+         p_lowb = c( -Inf, -Inf,  0+1e-5,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="L-BFGS-B"
+  )
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+lbfgs_time.taken <- time.taken
+time.taken
+
+start.time<-Sys.time()
+gapr_marg_bobyqa <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2((a0 + a1*group)*(1^alpha)/phi + rand, c(alpha, 0, 1, 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5, phi=0.50),
+         pmix=c(alpha=1.5, phi=0.50),
+         p_uppb = c(  Inf ,  Inf, 2-1e-5,   1-1e-5),
+         p_lowb = c( -Inf, -Inf,  0+1e-5,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="bobyqa"
+  )
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+bobyqa_time.taken <- time.taken
+time.taken
+# Warning messages:
+#   1: In (function (npt = min(n + 2L, 2L * n), rhobeg = NA, rhoend = NA,  :
+#                      unused control arguments ignored
+#                    2: In commonArgs(par, fn, control, environment()) :
+#                      maxfun < 10 * length(par)^2 is not recommended.
+
+start.time<-Sys.time()
+gapr_marg_nlminb <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2((a0 + a1*group)*(1^alpha)/phi + rand, c(alpha, 0, 1, 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5, phi=0.50),
+         pmix=c(alpha=1.5, phi=0.50),
+         p_uppb = c(  Inf ,  Inf, 2-1e-5,   1-1e-5),
+         p_lowb = c( -Inf, -Inf,  0+1e-5,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+nlminb_time.taken <- time.taken
+time.taken
+
+rbind(gapr_marg_nlminb,gapr_marg_bobyqa,gapr_marg_lbfgs)
+
+readRDS("TSJYO_summary_table1.RDS")[5:7,]
+
+## now rerun bobyqa since we added new options:
+start.time<-Sys.time()
+gapr_marg_bobyqa2 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2((a0 + a1*group)*(1^alpha)/phi + rand, c(alpha, 0, 1, 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5, phi=0.50),
+         pmix=c(alpha=1.5, phi=0.50),
+         p_uppb = c(  Inf ,  Inf, 2-1e-5,   1-1e-5),
+         p_lowb = c( -Inf, -Inf,  0+1e-5,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="bobyqa",
+         maxfun.bobyqa=1e5,
+         npt.bobyqa=6
+  )
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+bobyqa2_time.taken <- time.taken
+time.taken
+
+## now rerun nlminb since we added new options
+start.time<-Sys.time()
+gapr_marg_nlminb2 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2((a0 + a1*group)*(1^alpha)/phi + rand, c(alpha, 0, 1, 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5, phi=0.50),
+         pmix=c(alpha=1.5, phi=0.50),
+         p_uppb = c(  Inf ,  Inf, 2-1e-5,   1-1e-5),
+         p_lowb = c( -Inf, -Inf,  1.15,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb",
+         abs.tol.nlminb=1e-20,#0,#1e-20, ## 1e-20,
+         xf.tol.nlminb=2.2e-14, ##2.2e-14,
+         x.tol.nlminb=1.5e-8, ##1.5e-8,
+         rel.tol.nlminb=1e-10, ##1e-10,
+  )
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+nlminb_time.taken <- time.taken
+time.taken
+
+##############################################################
+##############################################################
+##############################################################
 ## this section tests conditional vs. marginal inference
 ## hint:  definitely need to name pmu and pmix starting values:
 ## more specifically trying to get this to work

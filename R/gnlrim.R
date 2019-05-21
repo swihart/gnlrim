@@ -115,6 +115,12 @@
 ##' \code{ooo=TRUE, compute_hessian=FALSE, compute_kkt=FALSE}.
 ##' @param fscale Arguments for nlm.
 ##' @param trace Arguments for nlminb.
+##' @param maxfun.bobyqa Argument for bobyqa
+##' @param npt.bobyqa Argument for bobyqa
+##' @param abs.tol.nlminb Argument for nlminb.  Default 1e-20  assumes known nonnegative function. Set to 0 if you don't know if function is nonnegative.
+##' @param xf.tol.nlminb  Argument for nlminb. Default is 2.2e-14
+##' @param x.tol.nlminb Argument for nlminb. Default is 1.5e-8
+##' @param rel.tol.nlminb Argument for nlminb. Default is 1e-10
 ##' @param method Arguments for optimx -- a string denoting which
 ##'     optimization to use.  Accommodate vector of strings, however
 ##'     traditional \code{repeated::gnlmix()} output will be computed
@@ -200,7 +206,12 @@ gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	envir=parent.frame(), print.level=0, typsize=abs(p),
 	ndigit=10, gradtol=0.00001, stepmax=10*sqrt(p%*%p), steptol=0.00001,
 	iterlim=100, compute_hessian=TRUE, compute_kkt=TRUE,
-	fscale=1, eps=1.0e-4, trace=0, method="nlminb", ooo=FALSE,
+	fscale=1, eps=1.0e-4, trace=0, maxfun.bobyqa=1e4, npt.bobyqa=min(p*2, p+2),
+  abs.tol.nlminb=1e-20,
+  xf.tol.nlminb=2.2e-14,
+  x.tol.nlminb=1.5e-8,
+	rel.tol.nlminb=1e-10,
+	method="nlminb", ooo=FALSE,
 	p_lowb = -Inf, p_uppb = Inf,
         points=5, steps=10){
 
@@ -884,10 +895,44 @@ if( length(method) == 1 & method[1]=="nlminb"){
                #fscale=fscale,
                # for nlminb:
                trace=trace,
-               step.max=stepmax
+               step.max=stepmax,
+               abs.tol = abs.tol.nlminb, ## use this if known nonnegative function
+               xf.tol = xf.tol.nlminb, ## default is 2.2e-14
+               x.tol=x.tol.nlminb, ## default is 1.5e-8
+               rel.tol=rel.tol.nlminb ##default is 1e-10
                # ... any other nlminb args
              )
              )
+} else if ( length(method) == 1 & method[1]=="bobyqa"){
+  print("here"); print(maxfun.bobyqa); print(npt.bobyqa)
+  zAll <- optimx(fn=like,
+                 par=p,
+                 hessian=compute_hessian, ## not `hess`
+                 method=method,
+                 itnmax=iterlim,
+                 lower=p_lowb,
+                 upper=p_uppb,
+                 control = list(
+                   kkt=compute_kkt,
+                   # for nlm:
+                   #print.level=print.level,
+                   #typsize=typsize,
+                   #ndigit=ndigit,
+                   #gradtol=gradtol,
+                   #stepmax=stepmax,
+                   #steptol=steptol,
+                   #iterlim=iterlim, # preferred as itnmax above
+                   #fscale=fscale,
+                   # for nlminb:
+                   trace=trace,
+                   #step.max=stepmax
+                   # ... any other nlminb args
+                   maxfun=maxfun.bobyqa,
+                   npt=npt.bobyqa
+                 )
+  )
+
+
     }else{
     zAll <- optimx(fn=like,
              par=p,

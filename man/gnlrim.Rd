@@ -5,14 +5,17 @@
 \title{Generalized Nonlinear Regression with a Random Parameter}
 \usage{
 gnlrim(y = NULL, distribution = "normal", mixture = "normal-var",
-  random = NULL, nest = NULL, mu = NULL, shape = NULL, linear = NULL,
-  pmu = NULL, pshape = NULL, pmix = NULL, delta = 1, common = FALSE,
-  envir = parent.frame(), print.level = 0, typsize = abs(p),
-  ndigit = 10, gradtol = 1e-05, stepmax = 10 * sqrt(p \%*\% p),
-  steptol = 1e-05, iterlim = 100, compute_hessian = TRUE,
-  compute_kkt = TRUE, fscale = 1, eps = 1e-04, trace = 0,
-  method = "nlminb", ooo = FALSE, p_lowb = -Inf, p_uppb = Inf,
-  points = 5, steps = 10)
+  random = NULL, nest = NULL, mu = NULL, shape = NULL,
+  linear = NULL, pmu = NULL, pshape = NULL, pmix = NULL,
+  delta = 1, common = FALSE, envir = parent.frame(),
+  print.level = 0, typsize = abs(p), ndigit = 10, gradtol = 1e-05,
+  stepmax = 10 * sqrt(p \%*\% p), steptol = 1e-05, iterlim = 100,
+  compute_hessian = TRUE, compute_kkt = TRUE, fscale = 1,
+  eps = 1e-04, trace = 0, maxfun.bobyqa = 10000, npt.bobyqa = min(p
+  * 2, p + 2), abs.tol.nlminb = 1e-20, xf.tol.nlminb = 2.2e-14,
+  x.tol.nlminb = 1.5e-08, rel.tol.nlminb = 1e-10, method = "nlminb",
+  ooo = FALSE, p_lowb = -Inf, p_uppb = Inf, points = 5,
+  steps = 10)
 }
 \arguments{
 \item{y}{A response vector of uncensored data, a two column matrix for
@@ -138,6 +141,18 @@ settings:
 \item{eps}{Precision of the Romberg integration.}
 
 \item{trace}{Arguments for nlminb.}
+
+\item{maxfun.bobyqa}{Argument for bobyqa}
+
+\item{npt.bobyqa}{Argument for bobyqa}
+
+\item{abs.tol.nlminb}{Argument for nlminb.  Default 1e-20  assumes known nonnegative function. Set to 0 if you don't know if function is nonnegative.}
+
+\item{xf.tol.nlminb}{Argument for nlminb. Default is 2.2e-14}
+
+\item{x.tol.nlminb}{Argument for nlminb. Default is 1.5e-8}
+
+\item{rel.tol.nlminb}{Argument for nlminb. Default is 1e-10}
 
 \item{method}{Arguments for optimx -- a string denoting which
 optimization to use.  Accommodate vector of strings, however
