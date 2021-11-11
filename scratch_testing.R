@@ -1,3 +1,1512 @@
+sim_mrim_data2 <- function(n1, n2, J, a0, a1, v= 6/sqrt(1.69), mrim="SSS", alpha=1.69, gamma= 1/sqrt(1.69)){
+
+  if(mrim=="PPN"){
+    G <- function(n,v){rnorm(n, s=sqrt(v))}
+    H <- function(x) pnorm(x)
+  }
+
+  if(mrim=="LLB"){
+    G <- function(n,v){rbridge(n, scale=1/sqrt(1+3/pi^2*v))}
+    H <- function(x) plogis(x)
+  }
+
+  if(mrim=="SSS"){
+    G <- function(n,v){stabledist::rstable(n, alpha, 0, v, 0, 0)}
+    H <- function(x) stabledist::pstable(x, alpha, 0, gamma, 0, 0)
+  }
+
+
+  n <- n1 + n2
+  u <- round(rep(G(n,v), each=J),2)
+
+  x <- c(rep(1, n1*J), rep(0, n2*J))
+
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round(eta + u,2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             group = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+
+
+#############3
+JJ <- 60
+a1.true <-  0.8
+a0.true <- -1
+alp.true= 1.69
+gam.g.true <- 4
+
+phi.true <- (1/sqrt(alp.true)) /( (1/sqrt(alp.true))^alp.true + (gam.g.true/sqrt(alp.true))^alp.true)^(1/alp.true)
+bm0.true <- a0.true * phi.true
+bm1.true <- a1.true * phi.true
+(p0.true <- stable_cdf2( bm0.true           , c(alp.true, 0, 1/sqrt(alp.true), 0)))
+(p1.true <- stable_cdf2( bm0.true + bm1.true, c(alp.true, 0, 1/sqrt(alp.true), 0)))
+
+(tba.true <- 100*(1-p0.true/p1.true))
+
+dputted_dat<-
+  dput(data.table::data.table(sim_mrim_data2(n1=25,n2=100,J=JJ,a0=a0.true,a1=a1.true, v = gam.g.true / sqrt(alp.true), mrim="SSS", alpha=1.69, gam=1/sqrt(1.69)))[,sum(y), by=c("id","group")])
+
+robby <- data.table::data.table(id=dputted_dat$id, group=dputted_dat$group, y1=dputted_dat$V1, y0=JJ-dputted_dat$V1); data.table::setorder(robby, group, y1, y0); robby
+
+robby[, mean(y1)  , by=group]
+robby[, median(y1), by=group]
+
+ggplot2::ggplot(robby,ggplot2::aes(x=factor(group), y=y1)) + ggplot2::geom_boxplot() + ggbeeswarm::geom_beeswarm(ggplot2::aes(color=factor(group)))
+
+dose <- robby$group
+
+y_01 <- robby$y1
+
+id <- robby$id
+
+y_cbind = cbind(y_01, JJ-y_01)
+
+cbind(id, y_cbind, dose)
+
+gapr_marg_alpha_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=1.5, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  1.90,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1.45,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb" #,
+         # abs.tol.nlminb=1e-7,#0,#1e-20, ## 1e-20,
+         # xf.tol.nlminb=2.2e-7, ##2.2e-14,
+         # x.tol.nlminb=1.5e-7, ##1.5e-8,
+         # rel.tol.nlminb=1e-7
+  )
+
+gapr_marg_alpha_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb" #,
+         # abs.tol.nlminb=1e-7,#0,#1e-20, ## 1e-20,
+         # xf.tol.nlminb=2.2e-7, ##2.2e-14,
+         # x.tol.nlminb=1.5e-7, ##1.5e-8,
+         # rel.tol.nlminb=1e-7
+  )
+
+
+## refit with confidence intervals:
+fu_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+fu_2.00_ci <-
+  fu_2.00$coefficients[2] + 1.96*c(-1,1)*fu_2.00$se[2]
+fu_2.00_ci
+
+if(fu_2.00_ci[1] <0){print("Potential WINNER:  2.00 has confidence interval that includes 0:"); fu_2.00_ci
+}
+
+
+fu_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=1.5, scl=5.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  0.1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+fu_free_ci <-
+  fu_free$coefficients[2] + 1.96*c(-1,1)*fu_free$se[2]
+fu_free_ci
+
+if(fu_free_ci[1] >0){print("Potential WINNER:  free has confidence interval that EXcludes 0:"); fu_free_ci
+}
+
+###########################################################################
+## Trying to work in the gamma_G/sqrt(A) settings for mixture. See      ###
+## if this section provides same estimates as the one immediately below.###
+##  Trying to get 11 in each quartile.
+##               ###
+##                ###
+###########################################################################
+
+library(data.table)
+JJ <- 100
+dputted_dat <-
+  structure(list(id = 1:88,
+                 group=c(c(    0, #max, group 0
+
+                               0,
+                             0,0,0,
+                           0,0,0,0,0,
+
+                               0, #75+, group 0
+                               0, #75-, group 0
+
+                               0,
+                             0,0,0,
+                           0,0,0,0,0,
+
+                               0, #50+, group 0
+                               0, #50-, group 0
+
+                               0,
+                             0,0,0,
+                           0,0,0,0,0,
+
+                               0, #25+, group 0
+                               0, #25-, group 0
+
+                               0,
+                             0,0,0,
+                           0,0,0,0,0,
+
+                               0 #min, group 0
+                 ),
+                         c(    1, #max, group 1
+
+                               1,
+                             1,1,1,
+                           1,1,1,1,1,
+
+                               1, #75+, group 1
+                               1, #75-, group 1
+
+                               1,
+                             1,1,1,
+                           1,1,1,1,1,
+
+                               1, #51+, group 1
+                               1, #51-, group 1
+
+                               1,
+                             1,1,1,
+                           1,1,1,1,1,
+
+                               1, #25+, group 1
+                               1, #25-, group 1
+
+                               1,
+                             1,1,1,
+                           1,1,1,1,1,
+
+                               1 #min, group 1
+                 )),
+              quartile=c(c(    4, #max, group 0
+
+                               4,
+                             4,4,4,
+                           4,4,4,4,4,
+
+                               4, #75+, group 0
+                               3, #75-, group 0
+
+                               3,
+                             3,3,3,
+                           3,3,3,3,3,
+
+                               3, #50+, group 0
+                               2, #50-, group 0
+
+                               2,
+                             2,2,2,
+                           2,2,2,2,2,
+
+                               2, #25+, group 0
+                               1, #25-, group 0
+
+                               1,
+                             1,1,1,
+                           1,1,1,1,1,
+
+                               1 #min, group 0
+                 ),
+                   c(    4, #max, group 1
+
+                               4,
+                             4,4,4,
+                           4,4,4,4,4,
+
+                               4, #75+, group 1
+                               3, #75-, group 1
+
+                               3,
+                             3,3,3,
+                           3,3,3,3,3,
+
+                               3, #50+, group 1
+                               2, #50-, group 1
+
+                               2,
+                             2,2,2,
+                           2,2,2,2,2,
+
+                               2, #25+, group 1
+                               1, #25-, group 1
+
+                               1,
+                             1,1,1,
+                           1,1,1,1,1,
+
+                               1 #min, group 1
+                 )),
+                 V1   =c(c(      99, #max, group 0
+
+                                 87,
+                              85,85,85,
+                           83,83,83,83,83,
+
+                                 76, #75+, group 0
+                                 74, #75-, group 0
+
+                                 67,
+                              65,65,65,
+                           63,63,63,63,63,
+
+                                 21, #50+, group 0
+                                 19, #50-, group 0
+
+                                 17,
+                              15,15,15,
+                           13,13,13,13,13,
+
+                                  11, #25+, group 0
+                                  9, #25-, group 0
+
+                                1,
+                              1,1,1,
+                           1,1,1,1,1,
+
+                                  0 #min, group 0
+                 ),
+                         c(      99, #max, group 1
+
+                           97,97,97,97,97,
+                              95,95,95,
+                                 93,
+
+                                 76, #75+, group 1
+                                 74, #75-, group 1
+
+                           c(c(67,67,67,67,67,
+                                65,65,65,
+                                   63,
+
+                               61, #50+, group 1
+                               59, #50-, group 1
+
+                           57,57,57,57,57,
+                             55,55,55,
+                               53) -7),
+
+                               11, #25+, group 1
+                                9, #25-, group 1
+
+                           7,7,7,7,7,
+                             5,5,5,
+                               3,
+
+                               0 #min, group 1
+                 ))/100))
+
+robby <- data.table::data.table(id=dputted_dat$id,
+                                group=dputted_dat$group,
+                                y1=JJ*dputted_dat$V1,
+                                y0=JJ-JJ*dputted_dat$V1,
+                                quartile=dputted_dat$quartile);
+data.table::setorder(robby, group, y1, y0); robby
+
+robby[, mean(y1)  , by=group]
+robby[, median(y1), by=group]
+
+ggplot2::ggplot(robby,ggplot2::aes(x=factor(group), y=y1)) +
+  ggplot2::geom_boxplot() +
+  ggbeeswarm::geom_beeswarm(ggplot2::aes(color=factor(quartile)))
+
+dose <- dputted_dat$group
+
+y_01 <- JJ*dputted_dat$V1
+
+id <- dputted_dat$id
+
+y_cbind = cbind(y_01, JJ-y_01)
+
+cbind(id, y_cbind, dose)
+
+gapr_marg_alpha_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.50),
+         pmix=c(alpha=1.5, scl=5.50),
+         p_uppb = c(  Inf,  Inf,  2.0,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1.0,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"#,
+         # abs.tol.nlminb=1e-7,#0,#1e-20, ## 1e-20,
+         # xf.tol.nlminb=2.2e-7, ##2.2e-14,
+         # x.tol.nlminb=1.5e-7, ##1.5e-8,
+         # rel.tol.nlminb=1e-7
+  )
+
+gapr_marg_alpha_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+gapr_marg_alpha_1.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1),
+         pmix=c(alpha=1, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  1,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+roger <-
+  rbind(gapr_marg_alpha_2.00,gapr_marg_alpha_free,gapr_marg_alpha_1.00)
+rownames(roger) <- c("alpha set at 2.00", "alpha free range", "alpha set at 1.00")
+roger
+
+a_free <- gapr_marg_alpha_free$alpha
+phi_free <- (1/sqrt(a_free)) /( (1/sqrt(a_free))^a_free + (gapr_marg_alpha_free$scl/sqrt(a_free))^a_free)^(1/a_free)
+a_2.00 <- gapr_marg_alpha_2.00$alpha
+phi_2.00 <- (1/sqrt(a_2.00)) /( (1/sqrt(a_2.00))^a_2.00 + (gapr_marg_alpha_2.00$scl/sqrt(a_2.00))^a_2.00)^(1/a_2.00)
+
+
+bm0_free <- gapr_marg_alpha_free$a0 * phi_free
+bm1_free <- gapr_marg_alpha_free$a1 * phi_free
+p0_free <- stable_cdf2( bm0_free           , c(a_free, 0, 1/sqrt(a_free), 0))
+p1_free <- stable_cdf2( bm0_free + bm1_free, c(a_free, 0, 1/sqrt(a_free), 0))
+
+bm0_2.00 <- gapr_marg_alpha_2.00$a0 * phi_2.00
+bm1_2.00 <- gapr_marg_alpha_2.00$a1 * phi_2.00
+p0_2.00 <- stable_cdf2( bm0_2.00           , c(a_2.00, 0, 1/sqrt(a_2.00), 0))
+p1_2.00 <- stable_cdf2( bm0_2.00 + bm1_2.00, c(a_2.00, 0, 1/sqrt(a_2.00), 0))
+
+## hypothetical TBAs
+100*(1-p0_free/p1_free)
+100*(1-p0_2.00/p1_2.00)
+
+### mse: a_2.00 performs better
+mean(c( (robby[group==1]$y1 - p1_free*JJ)^2, (robby[group==0]$y1 - p0_free*JJ)^2 ))
+mean(c( (robby[group==1]$y1 - p1_2.00*JJ)^2, (robby[group==0]$y1 - p0_2.00*JJ)^2 ))
+## median square error: a_free performs better
+median(c( (robby[group==1]$y1 - p1_free*JJ)^2, (robby[group==0]$y1 - p0_free*JJ)^2 ))
+median(c( (robby[group==1]$y1 - p1_2.00*JJ)^2, (robby[group==0]$y1 - p0_2.00*JJ)^2 ))
+### mean absolute error: a_free performs better
+mean(c( abs(robby[group==1]$y1 - p1_free*JJ), abs(robby[group==0]$y1 - p0_free*JJ) ))
+mean(c( abs(robby[group==1]$y1 - p1_2.00*JJ), abs(robby[group==0]$y1 - p0_2.00*JJ) ))
+## median absolute error: : a_free performs better
+median(c( abs(robby[group==1]$y1 - p1_free*JJ), abs(robby[group==0]$y1 - p0_free*JJ) ))
+median(c( abs(robby[group==1]$y1 - p1_2.00*JJ), abs(robby[group==0]$y1 - p0_2.00*JJ) ))
+
+## refit with confidence intervals:
+fu_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+fu_2.00_ci <-
+  fu_2.00$coefficients[2] + 1.96*c(-1,1)*fu_2.00$se[2]
+fu_2.00_ci
+
+## these are conditional probabilities!
+stable_cdf2(fu_2.00$coefficients[1], c(2, 0, 1/sqrt(2), 0))
+stable_cdf2(fu_2.00$coefficients[1] +fu_2.00$coefficients[2], c(2, 0, 1/sqrt(2), 0))
+## fitted values
+sort(unique(fu_2.00$fitted.values)) ## on binomial, out of 100 scale
+## MSE (conditional)
+## mean(c((robby[group==1]$y1 - 38.41672)^2, (robby[group==0]$y1 - 26.96960)^2 ))
+
+if(fu_2.00_ci[1] <0){print("Potential WINNER:  2.00 has confidence interval that includes 0:"); fu_2.00_ci
+}
+
+
+fu_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=1.5, scl=5.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  0.1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+         )
+
+fu_free_ci <-
+  fu_free$coefficients[2] + 1.96*c(-1,1)*fu_free$se[2]
+fu_free_ci
+
+## these are conditional probabilities!
+stable_cdf2(fu_free$coefficients[1], c(fu_free$coefficients[3], 0, 1/sqrt(fu_free$coefficients[3]), 0))
+stable_cdf2(fu_free$coefficients[1] +fu_free$coefficients[2], c(fu_free$coefficients[3], 0, 1/sqrt(fu_free$coefficients[3]), 0))
+## fitted values
+sort(unique(fu_free$fitted.values)) ## on binomial, out of 100 scale
+## MSE (conditional)
+#mean(c((robby[group==1]$y1 - 34.653820)^2, (robby[group==0]$y1 - 4.591598)^2 ))
+
+
+if(fu_free_ci[1] >0){print("Potential WINNER:  free has confidence interval that EXcludes 0:"); fu_free_ci
+}
+
+
+
+## next two lines same?: no.  these are the conditional probabilities * 100
+sort(unique(fu_2.00$fitted.values))
+sort(unique(fu_free$fitted.values))
+## next two lines same?: no.  these are the marginal probabilities * 100
+JJ*c(p0_2.00,p1_2.00)
+JJ*c(p0_free,p1_free)
+## hypothetical TBAs
+100*(1-p0_free/p1_free)
+100*(1-p0_2.00/p1_2.00)
+
+
+#
+#
+#   > sort(unique(fu_2.00$fitted.values))
+# [1] 26.96960 38.41672
+#   > JJ*c(p0_2.00,p1_2.00)
+# [1] 37.52979 43.93764
+# >
+#   >
+#   > sort(unique(fu_free$fitted.values))
+# [1]  4.591598 34.653820
+# > JJ*c(p0_free,p1_free)
+# [1] 20.67212 45.95814
+
+robby[, mean(y1)  , by=group]
+robby[, median(y1), by=group]
+
+ggplot2::ggplot(robby,ggplot2::aes(x=factor(group), y=y1)) + ggplot2::geom_boxplot() + ggbeeswarm::geom_beeswarm(color="blue")
+
+
+##############################################################
+##############################################################
+##############################################################
+##############################################################
+##############################################################
+###########################################################################
+## Trying to work in the gamma_G/sqrt(A) settings for mixture. See      ###
+## if this section provides same estimates as the one immediately below.###
+## A:  No, it doesn't for alpha_free                                    ###
+## A': Oh, wait, yes it does if you change starting value for scl!      ###
+###########################################################################
+
+library(data.table)
+JJ <- 100
+dputted_dat <-
+  structure(list(id = 1:48,
+                 group = c(1, 1, 1, 1, 1, 1,
+                           1,
+                           1, 1, 1, 1,
+                           1,
+                           1,
+                           1, 1, 1, 1,
+                           1,
+                           1, 1, 1, 1, 1, 1,
+                           0, 0, 0, 0, 0, 0,
+                           0,
+                           0, 0, 0, 0,
+                           0,
+                           0,
+                           0, 0, 0, 0,
+                           0,
+                           0, 0, 0, 0, 0, 0),
+                 V1 = c(1, 1, 1, 3, 3, 3,
+                        5,
+                        c(c(7, 7, 7, 9) + 30),
+                        55,
+                        59,
+                        65, 68, 78, 88,
+                        90,
+                        97, 97, 97, 99, 99, 99,
+                        1, 1, 1, 3, 3, 3,
+                        5,
+                        7, 9, 9, 9,
+                        11,
+                        13,
+                        c(c(65, 68, 78, 88) - 25),
+                        90,
+                        97, 97, 97, 99, 99, 99)/100))
+
+robby <- data.table::data.table(id=dputted_dat$id, group=dputted_dat$group, y1=JJ*dputted_dat$V1, y0=JJ-JJ*dputted_dat$V1); data.table::setorder(robby, group, y1, y0); robby
+
+robby[, mean(y1)  , by=group]
+robby[, median(y1), by=group]
+
+ggplot2::ggplot(robby,ggplot2::aes(x=factor(group), y=y1)) + ggplot2::geom_boxplot() + ggbeeswarm::geom_beeswarm(color="blue")
+
+dose <- dputted_dat$group
+
+y_01 <- JJ*dputted_dat$V1
+
+id <- dputted_dat$id
+
+y_cbind = cbind(y_01, JJ-y_01)
+
+cbind(id, y_cbind, dose)
+
+gapr_marg_alpha_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.50),
+         pmix=c(alpha=1.5, scl=5.50),
+         p_uppb = c(  Inf,  Inf,  2.0,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  0.1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"#,
+         # abs.tol.nlminb=1e-7,#0,#1e-20, ## 1e-20,
+         # xf.tol.nlminb=2.2e-7, ##2.2e-14,
+         # x.tol.nlminb=1.5e-7, ##1.5e-8,
+         # rel.tol.nlminb=1e-7
+  )
+
+gapr_marg_alpha_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+## should match _2.00 -- it does b/c _2.00's sqrt(scl) == norm_norm_norm's scl
+norm_norm_norm <-
+  gnlrim(y=y_cbind,
+         mu=~ pnorm(a0 + a1*dose + rand),
+
+         pmu=c( a0=0, a1=0),
+         pmix=c(scl=0.50),
+         p_uppb = c(  Inf,  Inf,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+gapr_marg_alpha_1.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1),
+         pmix=c(alpha=1, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  1,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+## should match _1.00
+cauchy_cauchy_cauchy <-
+  gnlrim(y=y_cbind,
+         mu=~ pcauchy(a0 + a1*dose + rand),
+
+         pmu=c( a0=0, a1=0),
+         pmix=c(scl=0.50),
+         p_uppb = c(  Inf,  Inf,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="Cauchy-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+roger <-
+  rbind(gapr_marg_alpha_2.00,gapr_marg_alpha_free,gapr_marg_alpha_1.00)
+rownames(roger) <- c("alpha set at 2.00", "alpha free range", "alpha set at 1.00")
+roger
+
+a_free <- gapr_marg_alpha_free$alpha
+phi_free <- (1/sqrt(a_free)) /( (1/sqrt(a_free))^a_free + (gapr_marg_alpha_free$scl/sqrt(a_free))^a_free)^(1/a_free)
+a_2.00 <- gapr_marg_alpha_2.00$alpha
+phi_2.00 <- (1/sqrt(a_2.00)) /( (1/sqrt(a_2.00))^a_2.00 + (gapr_marg_alpha_2.00$scl/sqrt(a_2.00))^a_2.00)^(1/a_2.00)
+
+
+bm0_free <- gapr_marg_alpha_free$a0 * phi_free
+bm1_free <- gapr_marg_alpha_free$a1 * phi_free
+p0_free <- stable_cdf2( bm0_free           , c(a_free, 0, 1/sqrt(a_free), 0))
+p1_free <- stable_cdf2( bm0_free + bm1_free, c(a_free, 0, 1/sqrt(a_free), 0))
+
+bm0_2.00 <- gapr_marg_alpha_2.00$a0 * phi_2.00
+bm1_2.00 <- gapr_marg_alpha_2.00$a1 * phi_2.00
+p0_2.00 <- stable_cdf2( bm0_2.00           , c(a_2.00, 0, 1/sqrt(a_2.00), 0))
+p1_2.00 <- stable_cdf2( bm0_2.00 + bm1_2.00, c(a_2.00, 0, 1/sqrt(a_2.00), 0))
+
+## hypothetical TBAs
+100*(1-p0_free/p1_free)
+100*(1-p0_2.00/p1_2.00)
+
+### mse: a_2.00 performs better
+mean(c( (robby[group==1]$y1 - p1_free*JJ)^2, (robby[group==0]$y1 - p0_free*JJ)^2 ))
+mean(c( (robby[group==1]$y1 - p1_2.00*JJ)^2, (robby[group==0]$y1 - p0_2.00*JJ)^2 ))
+## median square error: a_free performs better
+median(c( (robby[group==1]$y1 - p1_free*JJ)^2, (robby[group==0]$y1 - p0_free*JJ)^2 ))
+median(c( (robby[group==1]$y1 - p1_2.00*JJ)^2, (robby[group==0]$y1 - p0_2.00*JJ)^2 ))
+### mean absolute error: a_free performs better
+mean(c( abs(robby[group==1]$y1 - p1_free*JJ), abs(robby[group==0]$y1 - p0_free*JJ) ))
+mean(c( abs(robby[group==1]$y1 - p1_2.00*JJ), abs(robby[group==0]$y1 - p0_2.00*JJ) ))
+## median absolute error: : a_free performs better
+median(c( abs(robby[group==1]$y1 - p1_free*JJ), abs(robby[group==0]$y1 - p0_free*JJ) ))
+median(c( abs(robby[group==1]$y1 - p1_2.00*JJ), abs(robby[group==0]$y1 - p0_2.00*JJ) ))
+
+## refit with confidence intervals:
+fu_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+fu_2.00_ci <-
+  fu_2.00$coefficients[2] + 1.96*c(-1,1)*fu_2.00$se[2]
+fu_2.00_ci
+
+## these are conditional probabilities!
+stable_cdf2(fu_2.00$coefficients[1], c(2, 0, 1/sqrt(2), 0))
+stable_cdf2(fu_2.00$coefficients[1] +fu_2.00$coefficients[2], c(2, 0, 1/sqrt(2), 0))
+## fitted values
+sort(unique(fu_2.00$fitted.values)) ## on binomial, out of 100 scale
+## MSE (conditional)
+## mean(c((robby[group==1]$y1 - 38.41672)^2, (robby[group==0]$y1 - 26.96960)^2 ))
+
+if(fu_2.00_ci[1] <0){print("Potential WINNER:  2.00 has confidence interval that includes 0:"); fu_2.00_ci
+}
+
+
+fu_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=1.5, scl=5.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  0.1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl-over-sqrt",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+         )
+
+fu_free_ci <-
+  fu_free$coefficients[2] + 1.96*c(-1,1)*fu_free$se[2]
+fu_free_ci
+
+## these are conditional probabilities!
+stable_cdf2(fu_free$coefficients[1], c(fu_free$coefficients[3], 0, 1/sqrt(fu_free$coefficients[3]), 0))
+stable_cdf2(fu_free$coefficients[1] +fu_free$coefficients[2], c(fu_free$coefficients[3], 0, 1/sqrt(fu_free$coefficients[3]), 0))
+## fitted values
+sort(unique(fu_free$fitted.values)) ## on binomial, out of 100 scale
+## MSE (conditional)
+#mean(c((robby[group==1]$y1 - 34.653820)^2, (robby[group==0]$y1 - 4.591598)^2 ))
+
+
+if(fu_free_ci[1] >0){print("Potential WINNER:  free has confidence interval that EXcludes 0:"); fu_free_ci
+}
+
+
+
+## next two lines same?: no.  these are the conditional probabilities * 100
+sort(unique(fu_2.00$fitted.values))
+sort(unique(fu_free$fitted.values))
+## next two lines same?: no.  these are the marginal probabilities * 100
+JJ*c(p0_2.00,p1_2.00)
+JJ*c(p0_free,p1_free)
+## hypothetical TBAs
+100*(1-p0_free/p1_free)
+100*(1-p0_2.00/p1_2.00)
+
+
+#
+#
+#   > sort(unique(fu_2.00$fitted.values))
+# [1] 26.96960 38.41672
+#   > JJ*c(p0_2.00,p1_2.00)
+# [1] 37.52979 43.93764
+# >
+#   >
+#   > sort(unique(fu_free$fitted.values))
+# [1]  4.591598 34.653820
+# > JJ*c(p0_free,p1_free)
+# [1] 20.67212 45.95814
+
+robby[, mean(y1)  , by=group]
+robby[, median(y1), by=group]
+
+ggplot2::ggplot(robby,ggplot2::aes(x=factor(group), y=y1)) + ggplot2::geom_boxplot() + ggbeeswarm::geom_beeswarm(color="blue")
+
+
+##############################################################
+##############################################################
+##############################################################
+##############################################################
+##############################################################
+library(data.table)
+JJ <- 100
+dputted_dat <-
+  structure(list(id = 1:48,
+                 group = c(1, 1, 1, 1, 1, 1,
+                           1,
+                           1, 1, 1, 1,
+                           1,
+                           1,
+                           1, 1, 1, 1,
+                           1,
+                           1, 1, 1, 1, 1, 1,
+                           0, 0, 0, 0, 0, 0,
+                           0,
+                           0, 0, 0, 0,
+                           0,
+                           0,
+                           0, 0, 0, 0,
+                           0,
+                           0, 0, 0, 0, 0, 0),
+                 V1 = c(1, 1, 1, 3, 3, 3,
+                        5,
+                        c(c(7, 7, 7, 9) + 30),
+                        55,
+                        59,
+                        65, 68, 78, 88,
+                        90,
+                        97, 97, 97, 99, 99, 99,
+                        1, 1, 1, 3, 3, 3,
+                        5,
+                        5,5,5,5,#7, 9, 9, 9,
+                        5,#11,
+                        6,#13,
+                        8,13,15,66,##c(c(65, 68, 78, 88) - 25),
+                        90,
+                        97, 97, 97, 99, 99, 99)))
+
+robby <- data.table::data.table(id=dputted_dat$id, group=dputted_dat$group, y1=dputted_dat$V1, y0=JJ-dputted_dat$V1); data.table::setorder(robby, group, y1, y0); robby
+
+robby[, mean(y1)  , by=group]
+robby[, median(y1), by=group]
+
+ggplot2::ggplot(robby,ggplot2::aes(x=factor(group), y=y1)) + ggplot2::geom_boxplot() + ggbeeswarm::geom_beeswarm(color="blue")
+
+dose <- dputted_dat$group
+
+y_01 <- dputted_dat$V1
+
+id <- dputted_dat$id
+
+y_cbind = cbind(y_01, JJ-y_01)
+
+cbind(id, y_cbind, dose)
+
+gapr_marg_alpha_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=1.5, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+gapr_marg_alpha_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+gapr_marg_alpha_1.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1),
+         pmix=c(alpha=1, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  1,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+roger <-
+  rbind(gapr_marg_alpha_2.00,gapr_marg_alpha_free,gapr_marg_alpha_1.00)
+rownames(roger) <- c("alpha set at 2.00", "alpha free range", "alpha set at 1.00")
+roger
+
+a_free <- gapr_marg_alpha_free$alpha
+phi_free <- (1/sqrt(a_free)) /( (1/sqrt(a_free))^a_free + gapr_marg_alpha_free$scl^a_free)^(1/a_free)
+a_2.00 <- gapr_marg_alpha_2.00$alpha
+phi_2.00 <- (1/sqrt(a_2.00)) /( (1/sqrt(a_2.00))^a_2.00 + gapr_marg_alpha_2.00$scl^a_2.00)^(1/a_2.00)
+
+
+bm0_free <- gapr_marg_alpha_free$a0 * phi_free
+bm1_free <- gapr_marg_alpha_free$a1 * phi_free
+p0_free <- stable_cdf2( bm0_free           , c(a_free, 0, 1/sqrt(a_free), 0))
+p1_free <- stable_cdf2( bm0_free + bm1_free, c(a_free, 0, 1/sqrt(a_free), 0))
+
+bm0_2.00 <- gapr_marg_alpha_2.00$a0 * phi_2.00
+bm1_2.00 <- gapr_marg_alpha_2.00$a1 * phi_2.00
+p0_2.00 <- stable_cdf2( bm0_2.00           , c(a_2.00, 0, 1/sqrt(a_2.00), 0))
+p1_2.00 <- stable_cdf2( bm0_2.00 + bm1_2.00, c(a_2.00, 0, 1/sqrt(a_2.00), 0))
+
+## hypothetical TBAs
+100*(1-p0_free/p1_free)
+100*(1-p0_2.00/p1_2.00)
+
+### mse: a_2.00 performs better
+mean(c( (robby[group==1]$y1 - p1_free*JJ)^2, (robby[group==0]$y1 - p0_free*JJ)^2 ))
+mean(c( (robby[group==1]$y1 - p1_2.00*JJ)^2, (robby[group==0]$y1 - p0_2.00*JJ)^2 ))
+## median square error: a_free performs better
+median(c( (robby[group==1]$y1 - p1_free*JJ)^2, (robby[group==0]$y1 - p0_free*JJ)^2 ))
+median(c( (robby[group==1]$y1 - p1_2.00*JJ)^2, (robby[group==0]$y1 - p0_2.00*JJ)^2 ))
+### mean absolute error: a_free performs better
+mean(c( abs(robby[group==1]$y1 - p1_free*JJ), abs(robby[group==0]$y1 - p0_free*JJ) ))
+mean(c( abs(robby[group==1]$y1 - p1_2.00*JJ), abs(robby[group==0]$y1 - p0_2.00*JJ) ))
+## median absolute error: : a_free performs better
+median(c( abs(robby[group==1]$y1 - p1_free*JJ), abs(robby[group==0]$y1 - p0_free*JJ) ))
+median(c( abs(robby[group==1]$y1 - p1_2.00*JJ), abs(robby[group==0]$y1 - p0_2.00*JJ) ))
+
+## refit with confidence intervals:
+fu_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+fu_2.00_ci <-
+  fu_2.00$coefficients[2] + 1.96*c(-1,1)*fu_2.00$se[2]
+fu_2.00_ci
+
+## these are conditional probabilities!
+stable_cdf2(fu_2.00$coefficients[1], c(2, 0, 1/sqrt(2), 0))
+stable_cdf2(fu_2.00$coefficients[1] +fu_2.00$coefficients[2], c(2, 0, 1/sqrt(2), 0))
+## fitted values
+sort(unique(fu_2.00$fitted.values)) ## on binomial, out of 100 scale
+## MSE (conditional)
+## mean(c((robby[group==1]$y1 - 38.41672)^2, (robby[group==0]$y1 - 26.96960)^2 ))
+
+if(fu_2.00_ci[1] <0){print("Potential WINNER:  2.00 has confidence interval that includes 0:"); fu_2.00_ci
+}
+
+
+fu_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=1.5, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+fu_free_ci <-
+  fu_free$coefficients[2] + 1.96*c(-1,1)*fu_free$se[2]
+fu_free_ci
+
+## these are conditional probabilities!
+stable_cdf2(fu_free$coefficients[1], c(fu_free$coefficients[3], 0, 1/sqrt(fu_free$coefficients[3]), 0))
+stable_cdf2(fu_free$coefficients[1] +fu_free$coefficients[2], c(fu_free$coefficients[3], 0, 1/sqrt(fu_free$coefficients[3]), 0))
+## fitted values
+sort(unique(fu_free$fitted.values)) ## on binomial, out of 100 scale
+## MSE (conditional)
+#mean(c((robby[group==1]$y1 - 34.653820)^2, (robby[group==0]$y1 - 4.591598)^2 ))
+
+
+if(fu_free_ci[1] >0){print("Potential WINNER:  free has confidence interval that EXcludes 0:"); fu_free_ci
+}
+
+
+
+## next two lines same?: no.  these are the conditional probabilities * 100
+sort(unique(fu_2.00$fitted.values))
+sort(unique(fu_free$fitted.values))
+## next two lines same?: no.  these are the marginal probabilities * 100
+JJ*c(p0_2.00,p1_2.00)
+JJ*c(p0_free,p1_free)
+## hypothetical TBAs
+100*(1-p0_free/p1_free)
+100*(1-p0_2.00/p1_2.00)
+
+
+#
+#
+#   > sort(unique(fu_2.00$fitted.values))
+# [1] 26.96960 38.41672
+#   > JJ*c(p0_2.00,p1_2.00)
+# [1] 37.52979 43.93764
+# >
+#   >
+#   > sort(unique(fu_free$fitted.values))
+# [1]  4.591598 34.653820
+# > JJ*c(p0_free,p1_free)
+# [1] 20.67212 45.95814
+
+robby[, mean(y1)  , by=group]
+robby[, median(y1), by=group]
+
+ggplot2::ggplot(robby,ggplot2::aes(x=factor(group), y=y1)) + ggplot2::geom_boxplot() + ggbeeswarm::geom_beeswarm(color="blue")
+
+
+##############################################################
+##############################################################
+##############################################################
+##############################################################
+JJ <- 100
+#
+#   dput(data.table::data.table(sim_mrim_data(n1=10,n2=10,J=JJ,a0=-4,a1=3.65,v=3.42,
+#                                             mrim="SSS", alpha=1, gam=1/sqrt(1.71)))[,sum(y), by=c("id","group")])
+#
+#
+# dputted_dat <-
+# structure(list(id = 1:20, group = c(1, 1, 1, 1, 1, 1, 1, 1, 1,
+#                                     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), V1 = c(92L, 91L, 42L, 70L,
+#                                                                              3L, 99L, 59L, 62L, 2L, 20L, 5L, 2L, 1L, 9L, 6L, 1L, 1L, 2L, 5L,
+#                                                                              7L)))
+#  dataset above gave this, with significant a1 95%CI for alpha=2 and not-significant on alpha=free
+# > roger
+#                          a0       a1  alpha       scl    value fevals gevals niter convcode kkt1 kkt2
+# alpha set at 2.00 -1.907547 2.020999 2.0000 0.6818016 75.25485     17     51    13        0   NA   NA
+# alpha free range  -4.786794 5.152611 1.2611 1.2892898 69.84298     19     81    15        0   NA   NA
+# alpha set at 1.00 -8.537192 8.898735 1.0000 1.6536421 70.12491     23     70    19        0   NA   NA
+
+## try #2:
+# dput(data.table::data.table(sim_mrim_data(n1=24,n2=24,J=JJ,a0=-4,a1=3.65,v=3.42,
+#                                           mrim="SSS", alpha=1, gam=1/sqrt(1.71)))[,sum(y), by=c("id","group")])
+#
+#
+dputted_dat <-
+  structure(list(id = 1:48,
+                 group = c(1, 1, 1, 1, 1, 1, 1, 1, 1,
+                           1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                 V1 = c(5L,
+                        67L, 95L, 19L, 1L, 5L, 6L, 66L, 3L, 96L, 90L, 20L, 86L, 20L,
+                        28L, 96L, 1L, 37L, 64L, 89L, 44L, 4L, 11L, 85L, 100L, 3L, 95L,
+                        0L, 1L, 31L, 3L, 99L, 99L, 3L, 13L, 7L, 2L, 5L, 5L, 100L, 78L,
+                        4L, 2L, 61L, 3L, 96L, 3L, 1L)))
+
+
+# dputted_dat$V1[dputted_dat$group==1 & dputted_dat$V1 > 86] <- 99
+# dputted_dat$V1[dputted_dat$group==1 & dputted_dat$V1 == 4] <- 3
+# dputted_dat$V1[dputted_dat$group==1 & dputted_dat$V1 == 5] <- 3
+# dputted_dat$V1[dputted_dat$group==1 & dputted_dat$V1 == 6] <- 4
+#
+# dputted_dat$V1[dputted_dat$group==0 & dputted_dat$V1 == 78] <- 85
+# dputted_dat$V1[dputted_dat$group==0 & dputted_dat$V1 == 95] <- 86
+
+## don't do this one makes the ses bonk: #dputted_dat$V1[dputted_dat$group==0 & dputted_dat$V1 >  95] <- 99
+
+
+robby <- data.table(id=dputted_dat$id, group=dputted_dat$group, y1=dputted_dat$V1, y0=JJ-dputted_dat$V1);setorder(robby, group, y1, y0); robby
+# dataset above gives this: and the 95% CI do what I want them to!
+# [1] "Potential WINNER:  free has confidence interval that EXcludes 0:"
+# [1] 2.512907 5.875752
+# > if(fu_2.00_ci[1] <0){print("Potential WINNER:  2.00 has confidence interval that includes 0:"); fu_2.00_ci
+#   + }
+# [1] "Potential WINNER:  2.00 has confidence interval that includes 0:"
+# [1] -0.630262  1.268619
+#                           a0        a1    alpha      scl    value fevals gevals niter convcode kkt1
+# alpha set at 2.00 -0.6137327 0.3191785 2.000000 1.167955 202.3304     14     46    11        0   NA
+# alpha free range  -4.6950302 4.1943299 1.154963 3.074436 189.2001     43    163    29        0   NA
+# alpha set at 1.00 -6.9827573 6.4302173 1.000000 4.328357 189.5539    131    175    52        1   NA
+
+dose <- dputted_dat$group
+
+y_01 <- dputted_dat$V1
+
+id <- dputted_dat$id
+
+y_cbind = cbind(y_01, JJ-y_01)
+
+cbind(id, y_cbind, dose)
+
+gapr_marg_alpha_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=1.5, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+gapr_marg_alpha_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+gapr_marg_alpha_1.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1),
+         pmix=c(alpha=1, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  1,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+roger <-
+  rbind(gapr_marg_alpha_2.00,gapr_marg_alpha_free,gapr_marg_alpha_1.00)
+rownames(roger) <- c("alpha set at 2.00", "alpha free range", "alpha set at 1.00")
+roger
+
+a_free <- gapr_marg_alpha_free$alpha
+phi_free <- (1/sqrt(a_free)) /( (1/sqrt(a_free))^a_free + gapr_marg_alpha_free$scl^a_free)^(1/a_free)
+a_2.00 <- gapr_marg_alpha_2.00$alpha
+phi_2.00 <- (1/sqrt(a_2.00)) /( (1/sqrt(a_2.00))^a_2.00 + gapr_marg_alpha_2.00$scl^a_2.00)^(1/a_2.00)
+
+
+bm0_free <- gapr_marg_alpha_free$a0 * phi_free
+bm1_free <- gapr_marg_alpha_free$a1 * phi_free
+p0_free <- stable_cdf2( bm0_free           , c(a_free, 0, 1/sqrt(a_free), 0))
+p1_free <- stable_cdf2( bm0_free + bm1_free, c(a_free, 0, 1/sqrt(a_free), 0))
+
+bm0_2.00 <- gapr_marg_alpha_2.00$a0 * phi_2.00
+bm1_2.00 <- gapr_marg_alpha_2.00$a1 * phi_2.00
+p0_2.00 <- stable_cdf2( bm0_2.00           , c(a_2.00, 0, 1/sqrt(a_2.00), 0))
+p1_2.00 <- stable_cdf2( bm0_2.00 + bm1_2.00, c(a_2.00, 0, 1/sqrt(a_2.00), 0))
+
+
+### mse: a_2.00 performs better
+mean(c( (robby[group==1]$y1 - p1_free*JJ)^2, (robby[group==0]$y1 - p0_free*JJ)^2 ))
+mean(c( (robby[group==1]$y1 - p1_2.00*JJ)^2, (robby[group==0]$y1 - p0_2.00*JJ)^2 ))
+## median square error: a_free performs better
+median(c( (robby[group==1]$y1 - p1_free*JJ)^2, (robby[group==0]$y1 - p0_free*JJ)^2 ))
+median(c( (robby[group==1]$y1 - p1_2.00*JJ)^2, (robby[group==0]$y1 - p0_2.00*JJ)^2 ))
+### mean absolute error: a_free performs better
+mean(c( abs(robby[group==1]$y1 - p1_free*JJ), abs(robby[group==0]$y1 - p0_free*JJ) ))
+mean(c( abs(robby[group==1]$y1 - p1_2.00*JJ), abs(robby[group==0]$y1 - p0_2.00*JJ) ))
+## median absolute error: : a_free performs better
+median(c( abs(robby[group==1]$y1 - p1_free*JJ), abs(robby[group==0]$y1 - p0_free*JJ) ))
+median(c( abs(robby[group==1]$y1 - p1_2.00*JJ), abs(robby[group==0]$y1 - p0_2.00*JJ) ))
+
+## refit with confidence intervals:
+fu_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+fu_2.00_ci <-
+  fu_2.00$coefficients[2] + 1.96*c(-1,1)*fu_2.00$se[2]
+fu_2.00_ci
+
+## these are conditional probabilities!
+stable_cdf2(fu_2.00$coefficients[1], c(2, 0, 1/sqrt(2), 0))
+stable_cdf2(fu_2.00$coefficients[1] +fu_2.00$coefficients[2], c(2, 0, 1/sqrt(2), 0))
+## fitted values
+sort(unique(fu_2.00$fitted.values)) ## on binomial, out of 100 scale
+## MSE (conditional)
+mean(c((robby[group==1]$y1 - 38.41672)^2, (robby[group==0]$y1 - 26.96960)^2 ))
+
+if(fu_2.00_ci[1] <0){print("Potential WINNER:  2.00 has confidence interval that includes 0:"); fu_2.00_ci
+}
+
+
+fu_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=1.5, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=FALSE,
+         compute_hessian = TRUE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+fu_free_ci <-
+  fu_free$coefficients[2] + 1.96*c(-1,1)*fu_free$se[2]
+fu_free_ci
+
+## these are conditional probabilities!
+stable_cdf2(fu_free$coefficients[1], c(fu_free$coefficients[3], 0, 1/sqrt(fu_free$coefficients[3]), 0))
+stable_cdf2(fu_free$coefficients[1] +fu_free$coefficients[2], c(fu_free$coefficients[3], 0, 1/sqrt(fu_free$coefficients[3]), 0))
+## fitted values
+sort(unique(fu_free$fitted.values)) ## on binomial, out of 100 scale
+## MSE (conditional)
+mean(c((robby[group==1]$y1 - 34.653820)^2, (robby[group==0]$y1 - 4.591598)^2 ))
+
+
+if(fu_free_ci[1] >0){print("Potential WINNER:  free has confidence interval that EXcludes 0:"); fu_free_ci
+}
+
+
+
+## next two lines same?: no.  these are the conditional probabilities * 100
+sort(unique(fu_2.00$fitted.values))
+sort(unique(fu_free$fitted.values))
+## next two lines same?: no.  these are the marginal probabilities * 100
+JJ*c(p0_2.00,p1_2.00)
+JJ*c(p0_free,p1_free)
+## hypothetical TBAs
+100*(1-p0_free/p1_free)
+100*(1-p0_2.00/p1_2.00)
+
+
+#
+#
+#   > sort(unique(fu_2.00$fitted.values))
+# [1] 26.96960 38.41672
+#   > JJ*c(p0_2.00,p1_2.00)
+# [1] 37.52979 43.93764
+# >
+#   >
+#   > sort(unique(fu_free$fitted.values))
+# [1]  4.591598 34.653820
+# > JJ*c(p0_free,p1_free)
+# [1] 20.67212 45.95814
+
+#library(ggplot2)
+#library(ggbeeswarm)
+#ggplot(robby) + geom_violin(aes(x=factor(group), y=y1))
+
+robby[, mean(y1)  , by=group]
+robby[, median(y1), by=group]
+
+ggplot2::ggplot(robby,ggplot2::aes(x=factor(group), y=y1)) + ggplot2::geom_boxplot() + ggbeeswarm::geom_beeswarm(color="blue")
+
+
+##############################################################
+##############################################################
+##############################################################
+## this section shows that let alpha go free it will
+## go to alpha=2 and give same results as setting alpha=2
+##############################################################
+##############################################################
+##############################################################
+
+dose <- c(c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8), 3+c(9,12,4,9,11,10,2,11,12,9,9,9,4,9,11,9,14,7,9,8))
+y_01 <- rep(as.numeric(c(8.674419, 11.506066, 11.386742, 27.414532, 12.135699,  4.359469,
+                         1.900681, 17.425948,  4.503345,  2.691792,  5.731100, 10.534971,
+                         11.220260,  6.968932,  4.094357, 16.393806, 14.656584,  8.786133,
+                         20.972267, 17.178012) > 4),2)
+id <- rep(1:8, each=5)
+
+y_cbind = cbind(y_01, 1-y_01)
+
+gapr_marg_alpha_free <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1.5),
+         pmix=c(alpha=1.5, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+
+
+
+gapr_marg_alpha_2.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=2),
+         pmix=c(alpha=2, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  2,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  2,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+gapr_marg_alpha_1.00 <-
+  gnlrim(y=y_cbind,
+         mu=~ stable_cdf2(a0 + a1*dose + rand, c(alpha, 0, 1/sqrt(alpha), 0)),
+         ##pmu=c( a0=bm0_start, a1=bm1_start, alpha=1.5, phi=0.50),
+         pmu=c( a0=0, a1=0, alpha=1),
+         pmix=c(alpha=1, scl=0.50),
+         p_uppb = c(  Inf,  Inf,  1,  Inf   ),
+         p_lowb = c( -Inf, -Inf,  1,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="libstableR-subgauss-scl",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb"
+  )
+
+roger <-
+  rbind(gapr_marg_alpha_2.00,gapr_marg_alpha_free,gapr_marg_alpha_1.00)
+rownames(roger) <- c("alpha set at 2.00", "alpha free range", "alpha set at 1.00")
+roger
+
 ##############################################################
 ##############################################################
 ##############################################################
@@ -307,7 +1816,22 @@ marg_CCC_phi_libstableR1$maxlike
 ## marginal coefficients and phi (explicitly) appear in the `mu` statement.  Furthermore, the
 ## parameters have to be listed correctly in `pmu` and `pmix`.  That is, the order of pmu must
 ## match the order the parameters appear in `mu`.  This means you might have to do a `1^alpha/phi` trick
-## as opposed to `1/phi` because phi has to be last in pmix and pmu.
+## as opposed to `1/phi` because phi has to be last in pmix and pmu.  Note:  even the "trick" doesn't work for
+## conditional models -- I put in alpha and phi explicitly:
+# cond_CCC_phi_libstableR1_trick <- gnlrim(y=y_cbind,
+#                                          mu=~stable_cdf2( (a_cond+b_cond*dose)*1^alpha*1^phi +rand, c(alpha,0,1,0)),
+#                                          pmu=c(a_cond=0,b_cond=0,alpha=1,phi=0.5),
+#                                          pmix=c(alpha=1, phi=0.5),
+#                                          p_uppb = c(Inf ,  Inf, 1, 1-1e-5),
+#                                          p_lowb = c(-Inf, -Inf, 1, 0+1e-5),
+#                                          distribution="binomial",
+#                                          nest=id,
+#                                          random="rand",
+#                                          mixture="libstableR-subgauss-phi")
+# > cond_CCC_phi_libstableR1_trick$maxlike
+# [1] 9.989502 ## should be 10.03177
+# > cond_CCC_phi_libstableR1$maxlike
+# [1] 9.989502 ## should be 10.03177
 
 
 ## observe these models that use `-scl` in a phi configuration in `mu`:

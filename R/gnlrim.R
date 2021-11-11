@@ -36,6 +36,7 @@
 ##' logit-bridge-phi, normal-var (default), normal-phi,
 ##' Cauchy-scl, Cauchy-phi, stabledist-subgauss-scl, stabledist-subgauss-phi,
 ##' libstableR-subgauss-scl, libstableR-subgauss-phi,
+##' libstableR-subgauss-scl-over-sqrt, libstableR-subgauss-scl-over-sqrt-phi,
 ##' logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
 ##' beta, simplex, or two-sided power. The first twelve have zero location
 ##' parameter, the next three have unit location parameter, and the last two
@@ -254,6 +255,7 @@ shp <- distribution!="binomial"&&distribution!="Poisson"&&
                                    "Cauchy-scl","Cauchy-phi",
                                    "stabledist-subgauss-scl","stabledist-subgauss-phi",
                                    "libstableR-subgauss-scl","libstableR-subgauss-phi",
+                                   "libstableR-subgauss-scl-over-sqrt", "libstableR-subgauss-scl-over-sqrt-phi",
                                    "logistic","Laplace",
 	"gamma","inverse gamma","inverse Gauss","Weibull","Levy","beta",
 	"simplex","two-sided power"))
@@ -817,6 +819,9 @@ mix <- switch(mixture,
               "libstableR-subgauss-scl"  =function(a,p,r) stable_pdf2(r,c(a,0,p       ,0)),
               "libstableR-subgauss-phi"  =function(a,p,r) stable_pdf2(r,c(a,0,(p^(-a)-1)^(1/a),0)),
 
+              "libstableR-subgauss-scl-over-sqrt"=function(a,p,r) stable_pdf2(r,c(a,0,p/sqrt(a),0)),
+              "libstableR-subgauss-scl-over-sqrt-phi"=function(a,p,r) stable_pdf2(r,c(a,0,(p^(-a)-1)^(1/a)/sqrt(a),0)),
+
               Laplace=function(p,r) {
                 tmp <- p
                 exp(-abs(r)/tmp)/(2*tmp)},
@@ -844,7 +849,7 @@ if(mixture=="logit-bridge-var"||mixture=="logit-bridge-phi"||mixture=="normal-va
     fn <- function(r)
       mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
     -sum(log(inta(fn)))}
-else if(mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi"||mixture=="libstableR-subgauss-scl"||mixture=="libstableR-subgauss-phi")
+else if(mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi"||mixture=="libstableR-subgauss-scl"||mixture=="libstableR-subgauss-phi"||mixture=="libstableR-subgauss-scl-over-sqrt"||mixture=="libstableR-subgauss-scl-over-sqrt-phi")
   like <- function(p){
     fn <- function(r)
       mix(p[np-1],p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)

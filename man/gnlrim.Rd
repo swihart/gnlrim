@@ -4,18 +4,46 @@
 \alias{gnlrim}
 \title{Generalized Nonlinear Regression with a Random Parameter}
 \usage{
-gnlrim(y = NULL, distribution = "normal", mixture = "normal-var",
-  random = NULL, nest = NULL, mu = NULL, shape = NULL,
-  linear = NULL, pmu = NULL, pshape = NULL, pmix = NULL,
-  delta = 1, common = FALSE, envir = parent.frame(),
-  print.level = 0, typsize = abs(p), ndigit = 10, gradtol = 1e-05,
-  stepmax = 10 * sqrt(p \%*\% p), steptol = 1e-05, iterlim = 100,
-  compute_hessian = TRUE, compute_kkt = TRUE, fscale = 1,
-  eps = 1e-04, trace = 0, maxfun.bobyqa = 10000, npt.bobyqa = min(p
-  * 2, p + 2), abs.tol.nlminb = 1e-20, xf.tol.nlminb = 2.2e-14,
-  x.tol.nlminb = 1.5e-08, rel.tol.nlminb = 1e-10, method = "nlminb",
-  ooo = FALSE, p_lowb = -Inf, p_uppb = Inf, points = 5,
-  steps = 10)
+gnlrim(
+  y = NULL,
+  distribution = "normal",
+  mixture = "normal-var",
+  random = NULL,
+  nest = NULL,
+  mu = NULL,
+  shape = NULL,
+  linear = NULL,
+  pmu = NULL,
+  pshape = NULL,
+  pmix = NULL,
+  delta = 1,
+  common = FALSE,
+  envir = parent.frame(),
+  print.level = 0,
+  typsize = abs(p),
+  ndigit = 10,
+  gradtol = 1e-05,
+  stepmax = 10 * sqrt(p \%*\% p),
+  steptol = 1e-05,
+  iterlim = 100,
+  compute_hessian = TRUE,
+  compute_kkt = TRUE,
+  fscale = 1,
+  eps = 1e-04,
+  trace = 0,
+  maxfun.bobyqa = 10000,
+  npt.bobyqa = min(p * 2, p + 2),
+  abs.tol.nlminb = 1e-20,
+  xf.tol.nlminb = 2.2e-14,
+  x.tol.nlminb = 1.5e-08,
+  rel.tol.nlminb = 1e-10,
+  method = "nlminb",
+  ooo = FALSE,
+  p_lowb = -Inf,
+  p_uppb = Inf,
+  points = 5,
+  steps = 10
+)
 }
 \arguments{
 \item{y}{A response vector of uncensored data, a two column matrix for
@@ -44,6 +72,7 @@ distributions, see the corresponding [dpqr]distribution help.)}
 logit-bridge-phi, normal-var (default), normal-phi,
 Cauchy-scl, Cauchy-phi, stabledist-subgauss-scl, stabledist-subgauss-phi,
 libstableR-subgauss-scl, libstableR-subgauss-phi,
+libstableR-subgauss-scl-over-sqrt, libstableR-subgauss-scl-over-sqrt-phi,
 logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
 beta, simplex, or two-sided power. The first twelve have zero location
 parameter, the next three have unit location parameter, and the last two
