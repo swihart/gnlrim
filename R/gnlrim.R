@@ -40,7 +40,11 @@
 ##' logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
 ##' beta, simplex, or two-sided power. The first twelve have zero location
 ##' parameter, the next three have unit location parameter, and the last two
-##' have location parameter set to 0.5.
+##' have location parameter set to 0.5.  cloglog-bridge-delta-free estimates delta
+##' (experimental). cloglog-bridge-0-mean makes delta whatever it needs to be
+##' to maintain a mean-0 random intercept distribution (experimental).
+##' cloglog-bridge-delta-eq-alpha sets delta = alpha for the classic
+##' distribution (experimental).
 ##' @param random The name of the random parameter in the \code{mu} formula.
 ##' @param nest The variable classifying observations by the unit upon which
 ##' they were observed. Ignored if \code{y} or \code{envir} has class,
@@ -75,6 +79,9 @@
 ##'     of the random intercept (`mixture`) distribution,
 ##'     if a parameter from \code{mu} is needed for the \code{mixture} distribution
 ##'     then it must be listed in `pmix` as well.
+##'     \code{cloglog-bridge-delta-free} pmix will be delta parameter in the LogPS formulation.
+##'     \code{cloglog-bridge-0-mean} pmix will be the variance.
+##'     \code{cloglog-bridge-delta-eq-alpha} pmix will be alpha between 0 and 1.
 ##' @param delta Scalar or vector giving the unit of measurement (always one
 ##' for discrete data) for each response value, set to unity by default. For
 ##' example, if a response is measured to two decimals, \code{delta=0.01}. If
@@ -256,6 +263,7 @@ shp <- distribution!="binomial"&&distribution!="Poisson"&&
                                    "stabledist-subgauss-scl","stabledist-subgauss-phi",
                                    "libstableR-subgauss-scl","libstableR-subgauss-phi",
                                    "libstableR-subgauss-scl-over-sqrt", "libstableR-subgauss-scl-over-sqrt-phi",
+                                   "cloglog-bridge-delta-free","cloglog-bridge-0-mean","cloglog-bridge-delta-eq-alpha",
                                    "logistic","Laplace",
 	"gamma","inverse gamma","inverse Gauss","Weibull","Levy","beta",
 	"simplex","two-sided power"))
@@ -822,6 +830,64 @@ mix <- switch(mixture,
               "libstableR-subgauss-scl-over-sqrt"=function(a,p,r) stable_pdf2(r,c(a,0,p/sqrt(a),0)),
               "libstableR-subgauss-scl-over-sqrt-phi"=function(a,p,r) stable_pdf2(r,c(a,0,(p^(-a)-1)^(1/a)/sqrt(a),0)),
 
+              "cloglog-bridge-delta-free" = function(a,p,r){
+                ## Derived expression for gamma
+                g <- function(a) {
+                  iu <- complex(real=0, imaginary=1)
+                  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+                }
+
+                x <- r
+                alpha <- a
+                delta <- p
+                mult <- (delta/alpha)^(-1/alpha)
+                libstableR::stable_pdf((mult * exp(x)),
+                                       pars = c(alpha, beta=1, gamma=g(alpha), delta=0),
+                                       parametrization = 1)*abs( (mult*exp(x)) )
+
+              },
+
+              "cloglog-bridge-0-mean" = function(p,r){
+                ## Derived expression for gamma
+                g <- function(a) {
+                  iu <- complex(real=0, imaginary=1)
+                  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+                }
+
+                ## these functions help determine alpha and delta
+                ## based on mean and variance
+                alp <- function(var){1/sqrt(1+6*pi^(-2)*var)}
+                del <- function(bmean,aa){ aa*exp(aa*bmean-digamma(1)*(aa-1))}
+
+
+
+                x <- r
+                alpha <- alp(p)
+                delta <- del(0,alpha)
+                mult <- (delta/alpha)^(-1/alpha)
+                libstableR::stable_pdf((mult * exp(x)),
+                                       pars = c(alpha, beta=1, gamma=g(alpha), delta=0),
+                                       parametrization = 1)*abs( (mult*exp(x)) )
+
+              },
+
+               "cloglog-bridge-delta-eq-alpha" = function(p,r){
+                ## Derived expression for gamma
+                g <- function(a) {
+                  iu <- complex(real=0, imaginary=1)
+                  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+                }
+
+                x <- r
+                alpha <- p
+                delta <- p
+                mult <- (delta/alpha)^(-1/alpha)
+                libstableR::stable_pdf((mult * exp(x)),
+                                       pars = c(alpha, beta=1, gamma=g(alpha), delta=0),
+                                       parametrization = 1)*abs( (mult*exp(x)) )
+
+              },
+
               Laplace=function(p,r) {
                 tmp <- p
                 exp(-abs(r)/tmp)/(2*tmp)},
@@ -844,12 +910,12 @@ mix <- switch(mixture,
 #
 # combine to create the appropriate likelihood function
 #
-if(mixture=="logit-bridge-var"||mixture=="logit-bridge-phi"||mixture=="normal-var"||mixture=="normal-phi"||mixture=="logistic"||mixture=="Cauchy-scl"||mixture=="Cauchy-phi"||mixture=="Laplace")
+if(mixture=="cloglog-bridge-delta-eq-alpha"||mixture=="cloglog-bridge-0-mean"||mixture=="logit-bridge-var"||mixture=="logit-bridge-phi"||mixture=="normal-var"||mixture=="normal-phi"||mixture=="logistic"||mixture=="Cauchy-scl"||mixture=="Cauchy-phi"||mixture=="Laplace")
   like <- function(p){
     fn <- function(r)
       mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
     -sum(log(inta(fn)))}
-else if(mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi"||mixture=="libstableR-subgauss-scl"||mixture=="libstableR-subgauss-phi"||mixture=="libstableR-subgauss-scl-over-sqrt"||mixture=="libstableR-subgauss-scl-over-sqrt-phi")
+else if(mixture=="cloglog-bridge-delta-free"||mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi"||mixture=="libstableR-subgauss-scl"||mixture=="libstableR-subgauss-phi"||mixture=="libstableR-subgauss-scl-over-sqrt"||mixture=="libstableR-subgauss-scl-over-sqrt-phi")
   like <- function(p){
     fn <- function(r)
       mix(p[np-1],p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)

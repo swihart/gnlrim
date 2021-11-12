@@ -1,3 +1,560 @@
+########################################
+## 2021-11-11                         ##
+## START: cloglog / LogPS  free delta ##
+########################################
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+sim_mrim_data <- function(n1, n2, J, a0, a1, v, mrim="PPN", alpha=1.89, gamma=1.2, delta=1){
+
+  if(mrim=="PPN"){
+    G <- function(n,v){rnorm(n, s=sqrt(v))}
+    H <- function(x) pnorm(x)
+  }
+
+  if(mrim=="LLB"){
+    G <- function(n,v){rbridge(n, scale=1/sqrt(1+3/pi^2*v))}
+    H <- function(x) plogis(x)
+  }
+
+  if(mrim=="SSS"){
+    G <- function(n,v){rstable(n, alpha, 0, v, 0, 0)}
+    H <- function(x) pstable(x, alpha, 0, gamma, 0, 0)
+  }
+
+  if(mrim=="CLOGLOG-CLOGLOG-LPS" & alpha!=delta){
+    #library(evd)
+    #source("functions.R")
+    G <- function(n, v){
+      ## this combo should give variance 1 mean 0
+      (aa <- 1/sqrt(1+6*pi^-2*v))
+      (dd <- aa*exp(-digamma(1)*(aa-1)))
+      bridgecloglog_rstable(n, aa, dd)
+    }
+    H <- function(x){
+      #1-pgumbel(x, loc=0, scale=1)
+      1-exp(-exp(x))
+    }
+  }
+  if(mrim=="CLOGLOG-CLOGLOG-LPS" & alpha==delta){
+    #library(evd)
+    #source("functions.R")
+    G <- function(n, v){
+      ## this combo should give variance 1 mean 0
+      (aa <- 1/sqrt(1+6*pi^-2*v))
+      (dd <- aa)
+      bridgecloglog_rstable(n, aa, dd)
+    }
+    H <- function(x){
+      #1-pgumbel(x, loc=0, scale=1)
+      1-exp(-exp(x))
+    }
+  }
+
+  n <- n1 + n2
+  u <- round(rep(G(n,v), each=J),2)
+
+  x <- c(rep(1, n1*J), rep(0, n2*J))
+
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round(eta + u,2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             group = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+
+bc0 = -2.0; bc1 = 3.30; var=1.0;
+## this combo should give variance 1 mean 0
+(aa <- 1/sqrt(1+6*pi^-2*var))
+(dd <- aa*exp(-digamma(1)*(aa-1)))
+## this combo should give variance 1 mean 1
+#(aa <- 1/sqrt(1+6*pi^-2*var))
+#(dd <- 1.535924)
+
+#detach(sim_data)
+set.seed(102)
+sim_data <- sim_mrim_data(n1=800,n2=800,J=80,a0=bc0,a1=bc1,v=var, mrim="CLOGLOG-CLOGLOG-LPS", alpha=aa, delta=dd)
+summary(sim_data)
+attach(sim_data)
+
+y2 <- cbind(sim_data$y,(1-sim_data$y))
+
+marg_fit <-
+  glm(y~#-1 + I(1-group) + group,
+        1+group,
+      data=sim_data,
+      family=binomial("cloglog"))
+
+(bm0 <- marg_fit$coefficients[1])
+(bm1 <- marg_fit$coefficients[2])
+
+(bc0_hat <- -log(dd/aa)/aa + bm0/aa); bc0
+
+(bc1_hat <-  bm1/aa); bc1
+
+print(paste0("******************"))
+print(paste0("******************"))
+print(paste0("bc0_hat: ", round(bc0_hat,3)))
+print(paste0("bc0    : ", round(bc0    ,3)))
+print(paste0("******************"))
+print(paste0("bm0    : ", round(bm0    ,3)))
+print(paste0("******************"))
+print(paste0("bc1_hat: ", round(bc1_hat,3)))
+print(paste0("bc1    : ", round(bc1    ,3)))
+print(paste0("******************"))
+print(paste0("bm1    : ", round(bm1    ,3)))
+print(paste0("******************"))
+print(paste0("******************"))
+
+alp <- function(var){1/sqrt(1+6*pi^(-2)*var)}
+#bmean <- 1/aa*(log(dd/aa)+ -digamma(1)*(1-aa))
+del <- function(bmean,aa){ aa*exp(aa*bmean-digamma(1)*(aa-1))}
+
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+LogPS_alpha_free_delta_free <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp(beta0_c + beta1_c*group + rand)),
+         pmu=c(beta0_c=-2, beta1_c=3),
+         pmix=c(alpha=0.80, scl=0.69),
+         p_uppb = c(  10,   10,  0.95,  Inf   ),
+         p_lowb = c( -10,  -10,  0.05,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="cloglog-bridge-delta-free",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb" #,
+         # abs.tol.nlminb=1e-7,#0,#1e-20, ## 1e-20,
+         # xf.tol.nlminb=2.2e-7, ##2.2e-14,
+         # x.tol.nlminb=1.5e-7, ##1.5e-8,
+         # rel.tol.nlminb=1e-7
+  )
+
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+
+# > start.time <- Sys.time()
+# > print(paste0("Entering gnlrim at: ", start.time))
+# [1] "Entering gnlrim at: 2021-11-11 14:58:02"
+# > LogPS_alpha_free_delta_free <-
+#   +   gnlrim(y=y2,
+#              +          mu = ~1-exp(-exp(beta0_c + beta1_c*group + rand)),
+#              +          pmu=c(beta0_c=-2, beta1_c=3),
+#              +          pmix=c(alpha=0.80, scl=0.69),
+#              +          p_uppb = c(  10,   10,  0.95,  Inf   ),
+#              +          p_lowb = c( -10,  -10,  0.05,  0+1e-5),
+#              +          distribution="binomial",
+#              +          nest=id,
+#              +          random="rand",
+#              +          mixture="cloglog-bridge-delta-free",
+#              +          ooo=TRUE,
+#              +          compute_hessian = FALSE,
+#              +          compute_kkt = FALSE,
+#              +          trace=1,
+#              +          method="nlminb" #,
+#              +          # abs.tol.nlminb=1e-7,#0,#1e-20, ## 1e-20,
+#                +          # xf.tol.nlminb=2.2e-7, ##2.2e-14,
+#                +          # x.tol.nlminb=1.5e-7, ##1.5e-8,
+#                +          # rel.tol.nlminb=1e-7
+#                +   )
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  4  arguments
+# par[ 1 ]:  -10   <? -2   <? 10     In Bounds
+# par[ 2 ]:  -10   <? 3   <? 10     In Bounds
+# par[ 3 ]:  0.05   <? 0.8   <? 0.95     In Bounds
+# par[ 4 ]:  1e-05   <? 0.69   <? Inf     In Bounds
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.6382722   log bounds ratio= 1.346787
+# Method:  nlminb
+# 0:     40100.997: -2.00000  3.00000 0.800000 0.690000
+# 1:     40010.425: -1.95628  3.04045 0.786593 0.769199
+# 2:     40005.706: -1.95624  3.04964 0.800184 0.769282
+# 3:     39995.817: -1.96778  3.11038 0.811630 0.750536
+# 4:     39994.488: -1.97104  3.11876 0.789264 0.745191
+# 5:     39990.241: -1.97106  3.13999 0.801705 0.743053
+# 6:     39987.512: -1.98223  3.18156 0.789231 0.722325
+# 7:     39985.428: -1.98196  3.22603 0.803275 0.722835
+# 8:     39983.219: -2.00469  3.26200 0.792262 0.707217
+# 9:     39983.005: -2.00896  3.26518 0.793542 0.714551
+# 10:     39982.986: -2.01089  3.26379 0.794580 0.713355
+# 11:     39982.968: -2.01109  3.26180 0.794439 0.715388
+# 12:     39982.968: -2.01112  3.26161 0.794238 0.715341
+# 13:     39982.967: -2.01109  3.26144 0.794399 0.715498
+# 14:     39982.966: -2.01121  3.26091 0.794300 0.715631
+# 15:     39982.965: -2.01126  3.25990 0.794572 0.716106
+# 16:     39982.964: -2.01022  3.25964 0.794367 0.715793
+# 17:     39982.964: -2.00935  3.25902 0.794414 0.715374
+# 18:     39982.964: -2.00831  3.25887 0.794527 0.714947
+# 19:     39982.964: -2.00733  3.25884 0.794484 0.714365
+# 20:     39982.964: -2.00477  3.25883 0.794483 0.712908
+# 21:     39982.964: -1.99451  3.25882 0.794481 0.707088
+# 22:     39982.964: -1.99431  3.25882 0.794481 0.706997
+# 23:     39982.964: -1.98438  3.25882 0.794481 0.701443
+# 24:     39982.964: -1.97401  3.25885 0.794484 0.695661
+# 25:     39982.964: -1.96794  3.25889 0.794490 0.692337
+# 26:     39982.964: -1.96360  3.25888 0.794490 0.689946
+# 27:     39982.964: -1.95926  3.25886 0.794488 0.687564
+# 28:     39982.964: -1.95353  3.25880 0.794482 0.684459
+# 29:     39982.964: -1.95325  3.25879 0.794478 0.684329
+# 30:     39982.964: -1.94734  3.25883 0.794478 0.681115
+# 31:     39982.964: -1.93615  3.25884 0.794485 0.675046
+# 32:     39982.964: -1.93987  3.25886 0.794489 0.677084
+# 33:     39982.964: -1.93688  3.25885 0.794486 0.675475
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# beta0_c    beta1_c      alpha        scl
+# -1.9368846  3.2588463  0.7944856  0.6754750
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 39982.96
+#
+# $fevals
+# function
+# 46
+#
+# $gevals
+# gradient
+# 225
+#
+# $nitns
+# [1] 33
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 8692.615
+#
+# Assemble the answers
+# Warning message:
+#   In nlminb(start = par, objective = ufn, gradient = ugr, lower = lower,  :
+#               NA/NaN function evaluation
+#             >
+#               > finish.time <- Sys.time()
+#             > total.time <- finish.time - start.time
+#             > total.time
+#             Time difference of 55.55566 mins
+#             > print(paste0("gnlrim took: ", total.time))
+#             [1] "gnlrim took: 55.5556649168332"
+
+
+# ## -aa*bc0_hat - log(dd/aa) ==  bm0
+# > -0.7944856 * -1.9368846 - log(0.6754750/0.7944856)
+# [1] 1.701106
+#
+# > ## beta1_c times alpha_hat
+#   > 3.2588463  * 0.7944856
+# [1] 2.589106
+
+
+
+## now do the mean-0 parameterization.
+## there is no alpha or delta; just the variance.
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+LogPS_alpha_0_mean <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp(beta0_c + beta1_c*group + rand)),
+         pmu=c(beta0_c=-2, beta1_c=3),
+         pmix=c(scl=pi^2*(0.80^-2-1)/6), ## alpha=0.80
+         p_uppb = c(  10,   10,  Inf   ),
+         p_lowb = c( -10,  -10,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="cloglog-bridge-0-mean",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb" #,
+         # abs.tol.nlminb=1e-7,#0,#1e-20, ## 1e-20,
+         # xf.tol.nlminb=2.2e-7, ##2.2e-14,
+         # x.tol.nlminb=1.5e-7, ##1.5e-8,
+         # rel.tol.nlminb=1e-7
+  )
+
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+
+# [1] "Entering gnlrim at: 2021-11-11 18:07:06"
+# > LogPS_alpha_0_mean <-
+#   +   gnlrim(y=y2,
+#              +          mu = ~1-exp(-exp(beta0_c + beta1_c*group + rand)),
+#              +          pmu=c(beta0_c=-2, beta1_c=3),
+#              +          pmix=c(scl=pi^2*(0.80^-2-1)/6), ## alpha=0.80
+#              +          p_uppb = c(  10,   10,  Inf   ),
+#              +          p_lowb = c( -10,  -10,  0+1e-5),
+#              +          distribution="binomial",
+#              +          nest=id,
+#              +          random="rand",
+#              +          mixture="cloglog-bridge-0-mean",
+#              +          ooo=TRUE,
+#              +          compute_hessian = FALSE,
+#              +          compute_kkt = FALSE,
+#              +          trace=1,
+#              +          method="nlminb" #,
+#              +          # abs.tol.nlminb=1e-7,#0,#1e-20, ## 1e-20,
+#                +          # xf.tol.nlminb=2.2e-7, ##2.2e-14,
+#                +          # x.tol.nlminb=1.5e-7, ##1.5e-8,
+#                +          # rel.tol.nlminb=1e-7
+#                +   )
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  3  arguments
+# par[ 1 ]:  -10   <? -2   <? 10     In Bounds
+# par[ 2 ]:  -10   <? 3   <? 10     In Bounds
+# par[ 3 ]:  1e-05   <? 0.9252754   <? Inf     In Bounds
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.5108502   log bounds ratio= 0
+# Method:  nlminb
+# 0:     40072.639: -2.00000  3.00000 0.925275
+# 1:     40005.516: -1.93126  3.06911 0.902950
+# 2:     39993.509: -1.91198  3.16665 0.892288
+# 3:     39985.026: -1.98031  3.20920 0.951620
+# 4:     39983.526: -1.97748  3.25743 0.957456
+# 5:     39983.516: -2.02014  3.28073 0.955241
+# 6:     39983.189: -2.00257  3.28050 0.972062
+# 7:     39983.126: -2.00163  3.26995 0.970668
+# 8:     39983.033: -1.99719  3.26940 0.960971
+# 9:     39983.009: -2.00007  3.26222 0.953609
+# 10:     39982.968: -1.99360  3.26158 0.962087
+# 11:     39982.965: -1.99211  3.26007 0.961439
+# 12:     39982.965: -1.99251  3.25956 0.961618
+# 13:     39982.964: -1.99189  3.25937 0.961810
+# 14:     39982.964: -1.99173  3.25895 0.961310
+# 15:     39982.964: -1.99190  3.25888 0.960995
+# 16:     39982.964: -1.99183  3.25881 0.961049
+# 17:     39982.964: -1.99183  3.25881 0.961049
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# beta0_c    beta1_c        scl
+# -1.9918274  3.2588144  0.9610486
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 39982.96
+#
+# $fevals
+# function
+# 24
+#
+# $gevals
+# gradient
+# 70
+#
+# $nitns
+# [1] 17
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 3039.317
+#
+# Assemble the answers
+# Warning message:
+#   In nlminb(start = par, objective = ufn, gradient = ugr, lower = lower,  :
+#               NA/NaN function evaluation
+#             >
+#               > finish.time <- Sys.time()
+#             > total.time <- finish.time - start.time
+#             > total.time
+#             Time difference of 19.53819 mins
+#             > print(paste0("gnlrim took: ", total.time))
+#             [1] "gnlrim took: 19.5381904681524"
+
+# > (aa <- 1/sqrt(1+6*pi^-2*0.9611163 ))
+# [1] 0.7944798
+
+# which means delta is del <- function(bmean,aa){ aa*exp(aa*bmean-digamma(1)*(aa-1))}
+# R> 0.7944798*exp(0.7944798*0-digamma(1)*(0.7944798-1))
+# [1] 0.7056068
+
+# ## -aa*bc0_hat - log(dd/aa) ==  bm0
+# > -0.7944798 * -1.9917919 - log(0.7056068/0.7944798)
+# > -0.7944798 * -1.9917919 - log(0.7056068/0.7944798)
+# [1] 1.701068
+#
+# > ## beta1_c times alpha_hat
+#   > 3.2588396   * 0.7944798
+# [1] 2.589082
+
+
+
+## now do delta == alpha param
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+LogPS_alpha_eq_delta <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp(beta0_c + beta1_c*group + rand)),
+         pmu=c(beta0_c=-2, beta1_c=3),
+         pmix=c(scl=0.80),
+         p_uppb = c(  10,   10,  1-1e-5),
+         p_lowb = c( -10,  -10,  0+1e-5),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="cloglog-bridge-delta-eq-alpha",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method="nlminb" #,
+         # abs.tol.nlminb=1e-7,#0,#1e-20, ## 1e-20,
+         # xf.tol.nlminb=2.2e-7, ##2.2e-14,
+         # x.tol.nlminb=1.5e-7, ##1.5e-8,
+         # rel.tol.nlminb=1e-7
+  )
+
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  3  arguments
+# par[ 1 ]:  -10   <? -2   <? 10     In Bounds
+# par[ 2 ]:  -10   <? 3   <? 10     In Bounds
+# par[ 3 ]:  1e-05   <? 0.8   <? 0.99999     In Bounds
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.5740313   log bounds ratio= 1.301039
+# Method:  nlminb
+# 0:     40018.722: -2.00000  3.00000 0.800000
+# 1:     40014.883: -1.99692  3.01256 0.807203
+# 2:     40009.836: -1.99999  3.04061 0.789127
+# 3:     40001.696: -2.01098  3.10437 0.806594
+# 4:     39990.817: -2.06636  3.13962 0.793089
+# 5:     39987.376: -2.11448  3.18342 0.809120
+# 6:     39984.835: -2.09857  3.24394 0.785132
+# 7:     39984.496: -2.16266  3.26239 0.791643
+# 8:     39983.368: -2.16044  3.26394 0.797087
+# 9:     39983.208: -2.15461  3.26263 0.798228
+# 10:     39983.096: -2.14598  3.25478 0.794790
+# 11:     39983.013: -2.13396  3.25288 0.794762
+# 12:     39983.006: -2.13947  3.26357 0.792925
+# 13:     39982.993: -2.13980  3.25751 0.793340
+# 14:     39982.971: -2.14175  3.25843 0.795188
+# 15:     39982.965: -2.14099  3.25884 0.794457
+# 16:     39982.965: -2.14117  3.25885 0.794485
+# 17:     39982.965: -2.14113  3.25884 0.794483
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# beta0_c   beta1_c       scl
+# -2.141126  3.258838  0.794483
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 39982.96
+#
+# $fevals
+# function
+# 23
+#
+# $gevals
+# gradient
+# 63
+#
+# $nitns
+# [1] 17
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 2877.638
+#
+# Assemble the answers
+# Warning message:
+#   In nlminb(start = par, objective = ufn, gradient = ugr, lower = lower,  :
+#               NA/NaN function evaluation
+#             >
+#               > finish.time <- Sys.time()
+#             > total.time <- finish.time - start.time
+#             > total.time
+#             Time difference of 19.82804 mins
+#             > print(paste0("gnlrim took: ", total.time))
+#             [1] "gnlrim took: 19.8280424316724"
+#             >
+
+
+########################################
+## 2021-11-11                         ##
+## ENDxx: cloglog / LogPS  free delta ##
+########################################
+
+####################
+## Pre 2021-11-11 ##
+####################
+
 sim_mrim_data2 <- function(n1, n2, J, a0, a1, v= 6/sqrt(1.69), mrim="SSS", alpha=1.69, gamma= 1/sqrt(1.69)){
 
   if(mrim=="PPN"){

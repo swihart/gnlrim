@@ -76,7 +76,11 @@ libstableR-subgauss-scl-over-sqrt, libstableR-subgauss-scl-over-sqrt-phi,
 logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
 beta, simplex, or two-sided power. The first twelve have zero location
 parameter, the next three have unit location parameter, and the last two
-have location parameter set to 0.5.}
+have location parameter set to 0.5.  cloglog-bridge-delta-free estimates delta
+(experimental). cloglog-bridge-0-mean makes delta whatever it needs to be
+to maintain a mean-0 random intercept distribution (experimental).
+cloglog-bridge-delta-eq-alpha sets delta = alpha for the classic
+distribution (experimental).}
 
 \item{random}{The name of the random parameter in the \code{mu} formula.}
 
@@ -118,7 +122,10 @@ of the dispersion parameter of the mixing distribution.  For
 factor phi.  Otherwise it is the scale.  The last element must be the scale
 of the random intercept (`mixture`) distribution,
 if a parameter from \code{mu} is needed for the \code{mixture} distribution
-then it must be listed in `pmix` as well.}
+then it must be listed in `pmix` as well.
+\code{cloglog-bridge-delta-free} pmix will be delta parameter in the LogPS formulation.
+\code{cloglog-bridge-0-mean} pmix will be the variance.
+\code{cloglog-bridge-delta-eq-alpha} pmix will be alpha between 0 and 1.}
 
 \item{delta}{Scalar or vector giving the unit of measurement (always one
 for discrete data) for each response value, set to unity by default. For
