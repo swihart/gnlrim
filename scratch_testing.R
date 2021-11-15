@@ -1,4 +1,550 @@
 ########################################
+## 2021-11-15                         ##
+## START: Senn Fertility data example ##
+########################################
+
+## found the data (not where linked in paper)
+## added to package.  In Makubate & Senn (DOI: 10.1002/sim.3981)
+## they fit logit-normal models for 2 datasets.
+## we convert them to cloglog-normal so that
+## we can then make them cloglog-LogPS for
+## bridging.  We also fit a logit-bridge
+## model to show how the Table VII point could have
+## been made.  These examples include data from the
+## supplemental materials of Makubate & Senn,
+## and slightly edited code.
+
+#Analysis of Gregoriou et al data
+#Gregoriou, O, Vitoratos, N, Papadias, C, Konidaris, S, Gargaropoulos, A, Rizos, D.
+#Pregnancy rates in gonadotrophin stimulated cycles with timed intercourse or intrauterine insemination
+#for the treatment of male subfertility, Eur J Obstet Gynecol Reprod Biol 1996; 64: 213-216.
+
+#Load lme4 library
+library(lme4)
+#Remember to define filepath as required
+#Read data
+#NB 'period' is the period in which treatment was given
+## greg <- read.table("../data_files/Greg.txt", header=T)
+greg #Print data
+#Proceed to fit various models
+fit1 <- glmer(response~(1|patient),family=binomial,data=greg)#null model
+fit2 <- glmer(response~treat+(1|patient),family=binomial,data=greg)#treatment only
+fit3 <- glmer(response~period+(1|patient),family=binomial,data=greg)#period only
+fit4 <- glmer(response~treat+period+(1|patient),family=binomial,data=greg)#full model
+summary(fit2)#Summary of model with treatment only
+summary(fit4)#Summary of model with treatment and period
+#carry out analysis of deviance to check effect of adding treatment to model with period
+anova(fit3,fit4)
+
+
+## now change link from logit to cloglog; retain normal random intercept:
+fit5 <- glmer(response~treat+(1|patient),family=binomial(link=cloglog),data=greg)#full model
+summary(fit5)
+
+## now change link from logit to cloglog; retain normal random intercept; boost nAGQ
+fit5_100 <- glmer(response~treat+(1|patient),family=binomial(link=cloglog),
+                  nAGQ=100,data=greg)#full model
+summary(fit5_100)
+
+## from ?glmer:
+## nAGQ0initStep
+## Run an initial optimization phase with nAGQ = 0.
+## While the initial optimization usually provides a good starting point for
+## subsequent fitting (thus increasing overall computational speed), setting
+## this option to FALSE can be useful in cases where the initial phase results
+## in bad fixed-effect estimates (seen most often in binomial models
+## with link="cloglog" and offsets).
+fit5_0 <- glmer(response~treat+(1|patient),family=binomial(link=cloglog),
+                  nAGQ=100,
+                  control=glmerControl(nAGQ0initStep=FALSE, tol=1e-8),
+                  data=greg)#full model
+summary(fit5_0)
+
+## reproduce the cloglog-normal model below in gnlrim:
+attach(greg)
+
+y2 <- cbind(greg$response,1-greg$response)
+
+## now do the mean-0 parameterization.
+## there is no alpha or delta; just the variance.
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+cloglog_norm <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp(beta0_c + beta_treat_c*treat + rand)),
+         pmu=c(beta0_c=-3, beta_treat_c=1.36),
+         pmix=c(var=2.7),
+         p_uppb = c(  10,   10,  110.298   ),
+         p_lowb = c( -10,  -10,    0.290),
+         # pmu=c(beta0_c=-2.425, beta_treat_c=1.1605, beta_period_c=-0.1645),
+         # pmix=c(scl=0.58),
+         # p_uppb = c(-2.42, 1.161, -0.164,  0.59   ),
+         # p_lowb = c(-2.43, 1.160, -0.165,  0.57   ),
+         distribution="binomial",
+         nest=patient,
+         random="rand",
+         mixture="normal-var",#"cloglog-bridge-0-mean",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+  )
+cloglog_norm
+summary(fit5_0)$coeff
+
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+
+## now that we have similar numbers, switch r.e. distribution to LogPS
+
+
+## now do the mean-0 parameterization.
+## there is no alpha or delta; just the variance.
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+LogPS_alpha_0_mean <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp(beta0_c + beta_treat_c*treat + rand)),
+         pmu=c(beta0_c=-3, beta_treat_c=1.36),
+         pmix=c(var=2.7),
+         p_uppb = c(  10,   10,  110.298   ),
+         p_lowb = c( -10,  -10,    0.290),
+         # pmu=c(beta0_c=-2.425, beta_treat_c=1.1605, beta_period_c=-0.1645),
+         # pmix=c(scl=0.58),
+         # p_uppb = c(-2.42, 1.161, -0.164,  0.59   ),
+         # p_lowb = c(-2.43, 1.160, -0.165,  0.57   ),
+         distribution="binomial",
+         nest=patient,
+         random="rand",
+         mixture="cloglog-bridge-0-mean",#"normal-var",#"cloglog-bridge-0-mean",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+  )
+LogPS_alpha_0_mean
+
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+
+## calculate alpha based off variance
+VARIANCE <- 1.776157
+(aa <- 1/sqrt(1+6*pi^-2* VARIANCE  ))
+## back-calculate delta that gave 0 mean:
+del <- function(bmean,aa){ aa*exp(aa*bmean-digamma(1)*(aa-1))}
+dd <- del(0,aa)
+
+## we can see what a purely marginal fit
+## of these clustered data would yield;
+## as a general rule of thumb
+## they should be similar to a gnlrim marginal coefficients;
+## but not necessarily exactly the same -- highlights the importance
+## of accounting of intra-class correlation and clustering
+marg_fit <-
+  glm(response~#-1 + I(1-group) + group,
+        1+treat,
+      data=greg,
+      family=binomial("cloglog"))
+
+(bm0 <- marg_fit$coefficients[1])
+(bm1 <- marg_fit$coefficients[2])
+
+
+data.frame(marg_fit_intecept=bm0,
+           glrim_marg_intercept=as.numeric(aa*LogPS_alpha_0_mean[1] + log(dd/aa)))
+data.frame(marg_fit_slope=bm1,
+           "glrim_marg_slope"=as.numeric(aa*LogPS_alpha_0_mean[2]))
+
+
+## now do the alpha equal delta -- this allows to
+## also do the marginal parameterization because it simplifies
+## the intercept transformation
+## phi here is alpha
+
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+LogPS_alpha_eq_delta_cond <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp(beta0_c + beta_treat_c*treat + rand)),
+         pmu=c(beta0_c=-3, beta_treat_c=1.36),
+         pmix=c(alp_eq_del=0.5),
+         p_uppb = c(  10,   10,    1-1e-5),
+         p_lowb = c( -10,  -10,    0+1e-5),
+         # pmu=c(beta0_c=-2.425, beta_treat_c=1.1605, beta_period_c=-0.1645),
+         # pmix=c(scl=0.58),
+         # p_uppb = c(-2.42, 1.161, -0.164,  0.59   ),
+         # p_lowb = c(-2.43, 1.160, -0.165,  0.57   ),
+         distribution="binomial",
+         nest=patient,
+         random="rand",
+         mixture="cloglog-bridge-delta-eq-alpha",#"normal-var",#"cloglog-bridge-0-mean",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+  )
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+LogPS_alpha_0_mean[1:6]
+LogPS_alpha_eq_delta_cond[1:6]
+
+
+data.frame(marg_fit_intecept=bm0,
+           glrim_marg_intercept=as.numeric(aa*LogPS_alpha_eq_delta_cond[1] + log(aa/aa))) ## log(dd/aa) = 0 in this case
+data.frame(marg_fit_slope=bm1,
+           "glrim_marg_slope"=as.numeric(aa*LogPS_alpha_eq_delta_cond[2]))
+
+
+## for marginal param:
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+LogPS_alpha_eq_delta_marg <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp( (beta0_m + beta_treat_m*treat)/alp_eq_del + rand)),
+         pmu=c(beta0_m=-3, beta_treat_m=1.36,alp_eq_del=0.5),
+         pmix=c(alp_eq_del=0.5),
+         p_uppb = c(  10,   10,    1-1e-5),
+         p_lowb = c( -10,  -10,    0+1e-5),
+         # pmu=c(beta0_c=-2.425, beta_treat_c=1.1605, beta_period_c=-0.1645),
+         # pmix=c(scl=0.58),
+         # p_uppb = c(-2.42, 1.161, -0.164,  0.59   ),
+         # p_lowb = c(-2.43, 1.160, -0.165,  0.57   ),
+         distribution="binomial",
+         nest=patient,
+         random="rand",
+         mixture="cloglog-bridge-delta-eq-alpha",#"normal-var",#"cloglog-bridge-0-mean",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+  )
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+LogPS_alpha_0_mean[1:6]
+LogPS_alpha_eq_delta_cond[1:6]
+LogPS_alpha_eq_delta_marg[1:6]
+
+
+
+data.frame(marg_fit_intecept=bm0,
+           glrim_marg_intercept=as.numeric(LogPS_alpha_eq_delta_marg[1]))
+data.frame(marg_fit_slope=bm1,
+           "glrim_marg_slope"=as.numeric(LogPS_alpha_eq_delta_marg[2]))
+
+
+
+
+
+## In Makubate & Senn (DOI: 10.1002/sim.3981), they carry out
+## simulations to show marginalized/parallel track
+## Below, we  fit a logit-bridge
+## model to show how the Table VII point could have
+## been made.
+
+## Table VII could have been fit with Wang & Louis (2003) logit-bridge:
+cond_parm <-
+  gnlrim(y=y2,
+         mu = ~plogis( (beta0_c + beta_treat_c*treat) + rand),
+         pmu=c(beta0_c=-3, beta_treat_c=1.36),
+         pmix=c(phi=0.5),
+         p_uppb = c(  10,   10,  1-1e-5   ),
+         p_lowb = c( -10,  -10,  0+1e-5),
+         # pmu=c(beta0_c=-2.425, beta_treat_c=1.1605, beta_period_c=-0.1645),
+         # pmix=c(scl=0.58),
+         # p_uppb = c(-2.42, 1.161, -0.164,  0.59   ),
+         # p_lowb = c(-2.43, 1.160, -0.165,  0.57   ),
+         distribution="binomial",
+         nest=patient,
+         random="rand",
+         mixture="logit-bridge-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+  )
+
+
+
+marg_parm <-
+  gnlrim(y=y2,
+         mu = ~plogis( (beta0_m + beta_treat_m*treat)/phi + rand),
+         pmu=c(beta0_m=-3, beta_treat_m=1.36, phi=0.646),
+         pmix=c(phi=0.646),
+         p_uppb = c(  10,   10,  0.9   ),
+         p_lowb = c( -10,  -10,  0.2),
+         # pmu=c(beta0_c=-2.425, beta_treat_c=1.1605, beta_period_c=-0.1645),
+         # pmix=c(scl=0.58),
+         # p_uppb = c(-2.42, 1.161, -0.164,  0.59   ),
+         # p_lowb = c(-2.43, 1.160, -0.165,  0.57   ),
+         distribution="binomial",
+         nest=patient,
+         random="rand",
+         mixture="logit-bridge-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+  )
+
+cond_parm[1:8]
+marg_parm[1:8]
+
+
+detach(greg)
+## above was the "greg" example from Senn Fertility
+## below  is the "cohlen" example
+
+#Analysis of Cohlen et al data
+#Cohlen, BJ, Velde, ERT, Looman, CWN, Eijckemans, R, Habbema, JDF.
+#Crossover or parallel design in infertility trials? The discussion continues
+#Fertility and Sterility 1998; 70: 40-45.
+
+#Load lme4 library
+library(lme4)
+#Remember to define filepath as required
+#Read data
+#NB 'term' is the period in which treatment was given
+#cohlen <- read.table("../data_files/Cohlen.txt", header=T)
+head(cohlen) #Print data
+#Proceed to fit various models
+fit1 <- glmer(response~(1|patient),family=binomial,data=cohlen)#null model
+fit2 <- glmer(response~treatment+(1|patient),family=binomial,data=cohlen)#treatment only
+fit3 <- glmer(response~period2 + period3 + period4 + period5 + period6 +(1|patient),family=binomial,data=cohlen)#period only, as a factor
+fit4 <- glmer(response~treatment + period2 + period3 + period4 + period5 + period6+(1|patient),family=binomial,data=cohlen)#full model,period as a factor
+fit5 <- glmer(response~period+(1|patient),family=binomial,data=cohlen)#period only, Period having a linear effect
+fit6 <- glmer(response~treatment+period+(1|patient),family=binomial,data=cohlen)#full model,period having a linear effect
+summary(fit2)#Summary of model with treatment only
+summary(fit4)#Summary of model with treatment and term
+#carry out analysis of deviance to check effect of adding treatment to model with term
+anova(fit3,fit4)
+
+## do cloglog
+
+fit4_cloglog <- glmer(response~treatment + period2 + period3 + period4 + period5 + period6+(1|patient),
+                      family=binomial(link=cloglog),data=cohlen)#full model
+summary(fit4_cloglog)
+
+fit4_020 <- glmer(response~treatment +
+                    # period2 +
+                    # period3 +
+                    # period4 +
+                    # period5 +
+                    # period6+
+                    (1|patient),
+                  family=binomial(link=cloglog),data=cohlen, nAGQ=20)
+summary(fit4_020)
+
+## nAGQ0initStep
+## Run an initial optimization phase with nAGQ = 0.
+## While the initial optimization usually provides a good starting point for
+## subsequent fitting (thus increasing overall computational speed), setting
+## this option to FALSE can be useful in cases where the initial phase results
+## in bad fixed-effect estimates (seen most often in binomial models
+## with link="cloglog" and offsets).
+
+# fit4_020 <- glmer(response~treatment + period2 + period3 + period4 + period5 + period6+(1|patient),
+#                   family=binomial(link=cloglog),
+#                   nAGQ=20,
+#                   control=glmerControl(nAGQ0initStep=FALSE, tol=1e-5),
+#                   data=cohlen)#full model
+# summary(fit4_020)
+
+## now do the mean-0 parameterization.
+## there is no alpha or delta; just the variance.
+library(gnlrim)
+attach(cohlen)
+
+y2 <- cbind(cohlen$response,1-cohlen$response)
+
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+cloglog_normal_cohlen <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp(beta0_c + beta_treat_c*treatment +
+                            # beta_period2*period2 +
+                            # beta_period3*period3 +
+                            # beta_period4*period4 +
+                            # beta_period5*period5 +
+                            # beta_period6*period6 +
+                            rand)),
+         pmu=c(beta0_c=0, beta_treat_c=0#,
+               # beta_period2=0,
+               # beta_period3=0,
+               # beta_period4=0,
+               # beta_period5=0,
+               # beta_period6=0
+               ),
+         pmix=c(scl=0.9568),
+         p_uppb = c(  10,   10,  20   ),
+         p_lowb = c( -10,  -10,  0+1e-5),
+         # pmu=c(beta0_c=-2.425, beta_treat_c=1.1605, beta_period_c=-0.1645),
+         # pmix=c(scl=0.58),
+         # p_uppb = c(-2.42, 1.161, -0.164,  0.59   ),
+         # p_lowb = c(-2.43, 1.160, -0.165,  0.57   ),
+         distribution="binomial",
+         nest=patient,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'#,
+         # abs.tol.nlminb=1e-4,#0,#1e-20, ## 1e-20,
+         # xf.tol.nlminb=2.2e-4, ##2.2e-14,
+         # x.tol.nlminb=1.5e-4, ##1.5e-8,
+         # rel.tol.nlminb=1e-4
+  )
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+
+cloglog_normal_cohlen
+summary(fit4_020)
+
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+LogPS_alpha_0_mean <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp(beta0_c + beta_treat_c*treatment + rand)),
+         pmu=c(beta0_c=0, beta_treat_c=0),
+         pmix=c(scl=1.292),
+         p_uppb = c(  10,   10,  110.298   ),
+         p_lowb = c( -10,  -10,    0+1e-5),
+         # pmu=c(beta0_c=-2.425, beta_treat_c=1.1605, beta_period_c=-0.1645),
+         # pmix=c(scl=0.58),
+         # p_uppb = c(-2.42, 1.161, -0.164,  0.59   ),
+         # p_lowb = c(-2.43, 1.160, -0.165,  0.57   ),
+         distribution="binomial",
+         nest=patient,
+         random="rand",
+         mixture="cloglog-bridge-0-mean",#"normal-var",#"cloglog-bridge-0-mean",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         # xf.tol.nlminb=2.2e-8, ##2.2e-14,
+         # x.tol.nlminb=1.5e-8, ##1.5e-8,
+         # rel.tol.nlminb=1e-8
+  )
+
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+
+## calculate alpha based off variance
+VARIANCE <- 0.07141041
+(aa <- 1/sqrt(1+6*pi^-2* VARIANCE  ))
+## back-calculate delta that gave 0 mean:
+del <- function(bmean,aa){ aa*exp(aa*bmean-digamma(1)*(aa-1))}
+dd <- del(0,aa)
+
+
+
+marg_fit <-
+  glm(response~#-1 + I(1-group) + group,
+        1+treat,#+period,
+      data=greg,
+      family=binomial("cloglog"))
+
+(bm0 <- marg_fit$coefficients[1])
+(bm1 <- marg_fit$coefficients[2])
+
+data.frame(marg_fit_intecept=bm0,
+           glrim_marg_intercept=as.numeric(aa*LogPS_alpha_0_mean[1] + log(dd/aa)))
+data.frame(marg_fit_slope=bm1,
+           "glrim_marg_slope"=as.numeric(aa*LogPS_alpha_0_mean[2]))
+
+## now do the alpha equal delta -- this allows to
+## also do the marginal parameterization because it simplifies
+## the intercept transformation
+## phi here is alpha
+
+start.time <- Sys.time()
+print(paste0("Entering gnlrim at: ", start.time))
+LogPS_alpha_eq_delta_cond <-
+  gnlrim(y=y2,
+         mu = ~1-exp(-exp(beta0_c + beta_treat_c*treatment + rand)),
+         pmu=c(beta0_c=0, beta_treat_c=0),
+         pmix=c(alp_eq_del=0.9),
+         p_uppb = c(  10,   10,    1-1e-5),
+         p_lowb = c( -10,  -10,    0+1e-5),
+         # pmu=c(beta0_c=-2.425, beta_treat_c=1.1605, beta_period_c=-0.1645),
+         # pmix=c(scl=0.58),
+         # p_uppb = c(-2.42, 1.161, -0.164,  0.59   ),
+         # p_lowb = c(-2.43, 1.160, -0.165,  0.57   ),
+         distribution="binomial",
+         nest=patient,
+         random="rand",
+         mixture="cloglog-bridge-delta-eq-alpha",#"normal-var",#"cloglog-bridge-0-mean",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+  )
+finish.time <- Sys.time()
+total.time <- finish.time - start.time
+total.time
+print(paste0("gnlrim took: ", total.time))
+LogPS_alpha_0_mean[1:6]
+LogPS_alpha_eq_delta_cond[1:6]
+
+########################################
+## 2021-11-15                         ##
+## END: Senn Fertility data example   ##
+########################################
+
+
+
+
+########################################
 ## 2021-11-11                         ##
 ## START: cloglog / LogPS  free delta ##
 ########################################

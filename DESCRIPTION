@@ -1,11 +1,12 @@
 Package: gnlrim
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Generalized Non-Linear Random Intercept Models
 Version: 0.1.0
-Author: Who wrote it
+Author: Bruce Swihart and Jim Lindsey
 Maintainer: Bruce Swihart <bruce.swihart@gmail.com>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: Based on \code{repeated::gnlmix}.  Provides for a suite of 
+    bridged models with nonstandard random intercept distributions for modeling 
+    clustered binary outcomes (a la Wang & Louis (2003)).
 License: GPL-2
 Imports: 
   Rcpp (>= 0.12.9),		

@@ -1,0 +1,28 @@
+#' Gregoriou et al data
+#'
+#' A dataset containing the fertility crossover trial.
+#' Acquired from Supplementary materials of
+#' Reference
+#' Makubate, B., and Senn, S. (2010),Planning and Analysis of Cross-over Trials in Infertility, Statistics in Medicine, 29, 3203-3210.
+#'
+#' @format A data frame with 111 rows and 5 variables:
+#' \describe{
+#'   \item{group}{group id}
+#'   \item{patient}{patient id}
+#'   \item{period}{period}
+#'   \item{treat}{binary}
+#'   \item{response}{outcome -- }
+#' }
+#' @source \url{http://senns.uk/InfCros/InfCROSInt.html}
+#' @examples
+#' \dontrun{
+#' #Proceed to fit various models
+#' fit1 <- glmer(response~(1|patient),family=binomial,data=greg)              #null model
+#' fit2 <- glmer(response~treat+(1|patient),family=binomial,data=greg)        #treatment only
+#' fit3 <- glmer(response~period+(1|patient),family=binomial,data=greg)       #period only
+#' fit4 <- glmer(response~treat+period+(1|patient),family=binomial,data=greg) #full model
+#' summary(fit2)#Summary of model with treatment only
+#' summary(fit4)#Summary of model with treatment and period
+#' #carry out analysis of deviance to check effect of adding treatment to model with period
+#' anova(fit3,fit4)}
+"greg"
