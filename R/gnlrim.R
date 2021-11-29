@@ -44,7 +44,10 @@
 ##' (experimental). cloglog-bridge-0-mean makes delta whatever it needs to be
 ##' to maintain a mean-0 random intercept distribution (experimental).
 ##' cloglog-bridge-delta-eq-alpha sets delta = alpha for the classic
-##' distribution (experimental).
+##' distribution (experimental).  betaprime has mean (shp/(shp-1) for shp>1.
+##' "beta-HGLM" is experimental and is the same as "beta" but
+##' instead it is integrated with intb
+##' instead of int1.
 ##' @param random The name of the random parameter in the \code{mu} formula.
 ##' @param nest The variable classifying observations by the unit upon which
 ##' they were observed. Ignored if \code{y} or \code{envir} has class,
@@ -207,6 +210,7 @@
 ##' @importFrom stats as.formula dbeta dbinom dcauchy deriv dexp dgamma dlogis dnbinom dnorm dpois dt dweibull gaussian glm glm.control model.frame model.matrix model.response na.fail nlm pbeta pcauchy pexp pgamma pgeom plogis pnbinom pnorm ppois pt pweibull qnorm summary.glm terms uniroot update.formula
 ##' @importFrom stabledist dstable pstable qstable
 ##' @importFrom libstableR stable_pdf stable_cdf stable_q
+##' @importFrom extraDistr dbetapr
 ##' @useDynLib gnlrim, .registration = TRUE
 gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
@@ -266,7 +270,7 @@ shp <- distribution!="binomial"&&distribution!="Poisson"&&
                                    "cloglog-bridge-delta-free","cloglog-bridge-0-mean","cloglog-bridge-delta-eq-alpha",
                                    "logistic","Laplace",
 	"gamma","inverse gamma","inverse Gauss","Weibull","Levy","beta",
-	"simplex","two-sided power"))
+	"simplex","two-sided power","betaprime","beta-HGLM"))
 #
 # check random parameters
 #
@@ -901,8 +905,13 @@ mix <- switch(mixture,
                 exp(-((r-1)^2/(r*p)+log(p)+log(2*pi*r^3))/2),
               Weibull=function(p,r) dweibull(r,p,1),
               beta=function(p,r) {
-                tmp <- 0.5*p
+                tmp <- p
                 dbeta(r,tmp,tmp)},
+              "beta-HGLM"=function(p,r) {
+                tmp <- p
+                dbeta(r,tmp,tmp)},
+              "betaprime"=function(p,r) {
+                extraDistr::dbetapr(r,p,p)},
               simplex=function(p,r) exp(-(((r-0.5)/0.25)^2/(r*(1-r)*p)+
                                             log(p)+3*log(r*(1-r))/2+log(2*pi)/2)),
               "two-sided power"=function(p,r)
@@ -921,7 +930,7 @@ else if(mixture=="cloglog-bridge-delta-free"||mixture=="stabledist-subgauss-scl"
       mix(p[np-1],p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
     -sum(log(inta(fn)))}
 else if(mixture=="gamma"||mixture=="inverse gamma"||mixture=="inverse Gauss"||
-        mixture=="Weibull")
+        mixture=="Weibull"||mixture=="betaprime"||mixture=="beta-HGLM")
   like <- function(p){
     fn <- function(r)
       mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
@@ -933,7 +942,7 @@ else like <- function(p){
 #
 # check that the likelihood returns an appropriate value and optimize
 #
-tmp <- like(p)
+tmp <- like(p)##; print(np); print(p); print(tmp)
 if(is.na(tmp)||abs(tmp)==Inf)
 	stop("Likelihood returns Inf or NAs: invalid initial values, wrong model, or probabilities too small to calculate")
 if(fscale==1)fscale <- tmp

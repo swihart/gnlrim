@@ -1,4 +1,656 @@
 ########################################
+## 2021-11-27                         ##
+## START: HGLM intercept relation     ##
+########################################
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v, mrim="binomial-beta-HGLM", alpha=1.89, gamma=1.2, delta=1){
+
+  if(mrim=="PPN"){
+    G <- function(n,v){rnorm(n, s=sqrt(v))}
+    H <- function(x) pnorm(x)
+  }
+
+  if(mrim=="LLB"){
+    G <- function(n,v){bridgedist::rbridge(n, scale=1/sqrt(1+3/pi^2*v))}
+    H <- function(x) plogis(x)
+  }
+
+  if(mrim=="SSS"){
+    G <- function(n,v){rstable(n, alpha, 0, v, 0, 0)}
+    H <- function(x) pstable(x, alpha, 0, gamma, 0, 0)
+  }
+
+  if(mrim=="CLOGLOG-CLOGLOG-LPS" & alpha!=delta){
+    #library(evd)
+    #source("functions.R")
+    G <- function(n, v){
+      ## this combo should give variance 1 mean 0
+      (aa <- 1/sqrt(1+6*pi^-2*v))
+      (dd <- aa*exp(-digamma(1)*(aa-1)))
+      bridgecloglog_rstable(n, aa, dd)
+    }
+    H <- function(x){
+      #1-pgumbel(x, loc=0, scale=1)
+      1-exp(-exp(x))
+    }
+  }
+  if(mrim=="CLOGLOG-CLOGLOG-LPS" & alpha==delta){
+    #library(evd)
+    #source("functions.R")
+    G <- function(n, v){
+      ## this combo should give variance 1 mean 0
+      (aa <- 1/sqrt(1+6*pi^-2*v))
+      (dd <- aa)
+      bridgecloglog_rstable(n, aa, dd)
+    }
+    H <- function(x){
+      #1-pgumbel(x, loc=0, scale=1)
+      1-exp(-exp(x))
+    }
+  }
+  if(mrim=="binomial-beta-HGLM"){
+    G <- function(n, v){rbeta(n, v, v)}
+    H <- function(x) plogis(x)
+  }
+
+  n <- n1 + n2
+  u <- round(rep(G(n,v), each=J),2)
+
+  x <- c(rep(1, n1*J), rep(0, n2*J))
+
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round(eta + u,2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             group = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+library(hglm)
+
+detach(summed_binom_beta_dat)
+set.seed(789) ## warnings for logit-bridge-phi
+binom_beta_dat <-
+  sim_mrim_data(400,100, J=300, a0 = -2, a1 = 1, v=1.2)
+data.table::setDT(binom_beta_dat)
+
+summed_binom_beta_dat <-
+  binom_beta_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","group")]
+
+attach(summed_binom_beta_dat)
+
+
+
+
+ybind <- cbind(r,n_r)
+x1 <- group
+
+sim_binom_beta_gnlrim <-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="beta-HGLM",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+## but what about log(betaprime) ? it gives same intercept as hglm
+log_betaprime<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + log(rand)),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="betaprime",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+sim_binom_beta_hglm <-
+  hglm(fixed = r/(r+n_r) ~ group,
+       weights = (r+n_r),
+       data = summed_binom_beta_dat,
+       random = ~1 | id,
+       family = binomial(),
+       rand.family = Beta(),
+       fix.disp = 1)
+mean(sim_binom_beta_hglm$ranef)
+(disp.hglm <- unique(sim_binom_beta_hglm$phi))
+(alpha.hglm <- 0.5*(1/disp.hglm-1))
+c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm)
+
+print(
+  rbind(
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+## but what about Wang-Louis (2003)?
+logit_bridge_var<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=0.75),
+         p_uppb = c(  10,   2,   1.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="logit-bridge-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+print(
+  rbind(
+    wang_louis_2003 = logit_bridge_var[1:4],
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+
+
+
+
+
+
+
+## I want smaller alpha so I get bigger variance or random intecrpt...
+## I mean, are HGLM coefs marginal?
+
+library(hglm)
+
+detach(summed_binom_beta_dat)
+set.seed(10004)
+binom_beta_dat <-
+  sim_mrim_data(400,100, J=30, a0 = -2, a1 = 1, v=30, mrim = "LLB")
+data.table::setDT(binom_beta_dat)
+
+summed_binom_beta_dat <-
+  binom_beta_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","group")]
+
+attach(summed_binom_beta_dat)
+
+
+
+
+ybind <- cbind(r,n_r)
+x1 <- group
+
+sim_binom_beta_gnlrim <-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.0),
+         p_lowb = c( -10,  -2,   1e-6),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="beta-HGLM",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+## but what about log(betaprime) ? it gives same intercept as hglm
+log_betaprime<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + log(rand)),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="betaprime",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+sim_binom_beta_hglm <-
+  hglm(fixed = r/(r+n_r) ~ group,
+       weights = (r+n_r),
+       data = summed_binom_beta_dat,
+       random = ~1 | id,
+       family = binomial(),
+       rand.family = Beta(),
+       fix.disp = 1)
+mean(sim_binom_beta_hglm$ranef)
+(disp.hglm <- unique(sim_binom_beta_hglm$phi))
+(alpha.hglm <- 0.5*(1/disp.hglm-1))
+c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm)
+
+print(
+  rbind(
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+
+## but what about Wang-Louis (2003)?
+logit_bridge_var<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=0.75),
+         p_uppb = c(  10,   2,   1.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="logit-bridge-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+print(
+  rbind(
+    wang_louis_2003 = logit_bridge_var[1:4],
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+
+
+
+
+
+### Let's flip it.  I'm trying to get a sense
+### if hglm show marginal betas.  Let's generate
+### LLB sim data with a strong attenuation effect
+library(hglm)
+
+detach(summed_binom_beta_dat)
+set.seed(789)
+binom_beta_dat <-
+  sim_mrim_data(400,100, J=300, a0 = -2, a1 = 1, v=30, mrim="LLB")## 1/sqrt(1+3/pi^2*30)= 0.314
+data.table::setDT(binom_beta_dat)
+
+summed_binom_beta_dat <-
+  binom_beta_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","group")]
+
+attach(summed_binom_beta_dat)
+
+ybind <- cbind(r,n_r)
+x1 <- group
+
+
+
+
+sim_binom_beta_gnlrim <-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="beta-HGLM",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+## but what about log(betaprime) ? it gives same intercept as hglm
+log_betaprime<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + log(rand)),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="betaprime",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+sim_binom_beta_hglm <-
+  hglm(fixed = r/(r+n_r) ~ group,
+       weights = (r+n_r),
+       data = summed_binom_beta_dat,
+       random = ~1 | id,
+       family = binomial(),
+       rand.family = Beta(),
+       fix.disp = 1)
+mean(sim_binom_beta_hglm$ranef)
+(disp.hglm <- unique(sim_binom_beta_hglm$phi))
+(alpha.hglm <- 0.5*(1/disp.hglm-1))
+c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm)
+
+print(
+  rbind(
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+## but what about Wang-Louis (2003)?
+logit_bridge_var<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=0.25),
+         p_uppb = c(  10,   2,   1.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="logit-bridge-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+
+print(
+  rbind(
+    wang_louis_2003 = logit_bridge_var[1:4],
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+## cool!  The marginal effect should be 0.30 * 1 = 0.30.  Look at row 2.
+## and...what happened for rows 3 and 4?  They aren't similar to each other
+## and they don't have a beta near 0.31.
+# Intercept treatment alp1_eq_alp2 value
+# wang_louis_2003              -2.01     1.070        0.298  2287
+# gnlrim.rand.beta             -1.03     0.311        0.202 44485
+# gnlrim.rand.logbetaprime     -2.32     0.943        0.296  2367
+# hglm                         -2.07     1.215       -0.311    NA
+
+
+
+## Again!  That was fun.  Choose a phi=0.75.
+library(hglm)
+
+detach(summed_binom_beta_dat)
+set.seed(1664)
+binom_beta_dat <-
+  sim_mrim_data(800,200, J=300, a0 = -2, a1 = 1, v=2.5579, mrim="LLB")## 1/sqrt(1+3/pi^2*2.5579)= 0.750
+data.table::setDT(binom_beta_dat)
+
+summed_binom_beta_dat <-
+  binom_beta_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","group")]
+
+attach(summed_binom_beta_dat)
+
+ybind <- cbind(r,n_r)
+x1 <- group
+
+
+
+
+sim_binom_beta_gnlrim <-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="beta-HGLM",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+## but what about log(betaprime) ? it gives same intercept as hglm
+log_betaprime<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + log(rand)),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="betaprime",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+sim_binom_beta_hglm <-
+  hglm(fixed = r/(r+n_r) ~ group,
+       weights = (r+n_r),
+       data = summed_binom_beta_dat,
+       random = ~1 | id,
+       family = binomial(),
+       rand.family = Beta(),
+       fix.disp = 1)
+mean(sim_binom_beta_hglm$ranef)
+(disp.hglm <- unique(sim_binom_beta_hglm$phi))
+(alpha.hglm <- 0.5*(1/disp.hglm-1))
+c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm)
+
+print(
+  rbind(
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+## but what about Wang-Louis (2003)?
+logit_bridge_var<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(alp1_eq_alp2=0.25),
+         p_uppb = c(  10,   2,   1.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="logit-bridge-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+
+print(
+  rbind(
+    wang_louis_2003 = logit_bridge_var[1:4],
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+## 0.746 * 1.05 = 0.7833 which is close to 0.821
+#                          Intercept treatment alp1_eq_alp2 value
+# wang_louis_2003              -2.01     1.054        0.746  5394
+# gnlrim.rand.beta             -1.92     0.821        0.269 24169
+# gnlrim.rand.logbetaprime     -2.04     1.118        1.316  5417
+# hglm                         -2.03     1.112        0.640    NA
+
+
+
+## one more with strong attenuation effect, please!?
+library(hglm)
+
+detach(summed_binom_beta_dat)
+set.seed(15551)
+binom_beta_dat <-
+  sim_mrim_data(800,200, J=300, a0 = -2, a1 = 1, v=325, mrim="LLB")## 1/sqrt(1+3/pi^2*325) = 0.100
+data.table::setDT(binom_beta_dat)
+
+summed_binom_beta_dat <-
+  binom_beta_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","group")]
+
+attach(summed_binom_beta_dat)
+
+ybind <- cbind(r,n_r)
+x1 <- group
+
+
+
+
+sim_binom_beta_gnlrim <-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=-0.1,treatment=0.1),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.00),
+         p_lowb = c( -10,  -2,   0.01),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="beta-HGLM",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+## but what about log(betaprime) ? it gives same intercept as hglm
+log_betaprime<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + log(rand)),
+         pmu = c(Intercept=-1.0,treatment=0.10),
+         pmix=c(alp1_eq_alp2=2),
+         p_uppb = c(  10,   2, 200.0),
+         p_lowb = c( -10,  -2,   0.001),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="betaprime",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+sim_binom_beta_hglm <-
+  hglm(fixed = r/(r+n_r) ~ group,
+       weights = (r+n_r),
+       data = summed_binom_beta_dat,
+       random = ~1 | id,
+       family = binomial(),
+       rand.family = Beta(),
+       fix.disp = 1)
+mean(sim_binom_beta_hglm$ranef)
+(disp.hglm <- unique(sim_binom_beta_hglm$phi))
+(alpha.hglm <- 0.5*(1/disp.hglm-1))
+c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm)
+
+print(
+  rbind(
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+## but what about Wang-Louis (2003)?
+logit_bridge_var<-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=-1.8,treatment=1.1), ##had to smarten up
+         pmix=c(alp1_eq_alp2=0.25),
+         p_uppb = c(  10,   2,   1.000),
+         p_lowb = c( -10,  -2,   0.001),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="logit-bridge-phi",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+
+print(
+  rbind(
+    wang_louis_2003 = logit_bridge_var[1:4],
+    gnlrim.rand.beta=sim_binom_beta_gnlrim[1:4],
+    gnlrim.rand.logbetaprime=log_betaprime[1:4],
+    hglm=c(as.numeric(sim_binom_beta_hglm$fixef), alpha.hglm, NA)
+  ),
+  digits=3)
+## for low=phi (strong attenuation) the hglm goes off.
+# Intercept treatment alp1_eq_alp2  value
+# wang_louis_2003             -1.695    1.0403       0.0889   2539
+# gnlrim.rand.beta            -0.586    0.0612       0.1918 124287
+# gnlrim.rand.logbetaprime    -0.730    0.1369       0.1981   3670
+# hglm                        -0.914    0.6622      -0.4052     NA
+
+########################################
+## 2021-11-27                         ##
+## END:   HGLM intercept relation     ##
+########################################
+
+
+
+
+########################################
 ## 2021-11-15                         ##
 ## START: Senn Fertility data example ##
 ########################################

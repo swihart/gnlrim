@@ -80,7 +80,10 @@ have location parameter set to 0.5.  cloglog-bridge-delta-free estimates delta
 (experimental). cloglog-bridge-0-mean makes delta whatever it needs to be
 to maintain a mean-0 random intercept distribution (experimental).
 cloglog-bridge-delta-eq-alpha sets delta = alpha for the classic
-distribution (experimental).}
+distribution (experimental).  betaprime has mean (shp/(shp-1) for shp>1.
+"beta-HGLM" is experimental and is the same as "beta" but
+instead it is integrated with intb
+instead of int1.}
 
 \item{random}{The name of the random parameter in the \code{mu} formula.}
 
