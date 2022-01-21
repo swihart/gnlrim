@@ -66,7 +66,8 @@ gamma count, Consul
 generalized Poisson, logarithmic series, geometric, normal, inverse Gauss,
 logistic, exponential, gamma, Weibull, extreme value, Cauchy, Pareto,
 Laplace, Levy, beta, simplex, or two-sided power. (For definitions of
-distributions, see the corresponding [dpqr]distribution help.)}
+distributions, see the corresponding [dpqr]distribution help.) "beta-binomial-TBA"
+is experimental (see blogpost).}
 
 \item{mixture}{The mixing distribution for the random parameter: logit-bridge-var,
 logit-bridge-phi, normal-var (default), normal-phi,

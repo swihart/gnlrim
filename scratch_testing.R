@@ -1,3 +1,1005 @@
+########################################$$$$#########
+## 2021-12-14                                      ##
+## START: 0 mean intercept - cloglog bridge        ##
+#####################################################
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v=1, mrim="CLOGLOG-CLOGLOG-LPS", alpha=1.89, gamma=1.2, delta=1){
+
+  if(mrim=="PPN"){
+    G <- function(n,v){rnorm(n, s=sqrt(v))}
+    H <- function(x) pnorm(x)
+  }
+
+  if(mrim=="LLB"){
+    G <- function(n,v){bridgedist::rbridge(n, scale=1/sqrt(1+3/pi^2*v))}
+    H <- function(x) plogis(x)
+  }
+
+  if(mrim=="SSS"){
+    G <- function(n,v){rstable(n, alpha, 0, v, 0, 0)}
+    H <- function(x) pstable(x, alpha, 0, gamma, 0, 0)
+  }
+
+  if(mrim=="CLOGLOG-CLOGLOG-LPS" & alpha!=delta){
+    #library(evd)
+    #source("functions.R")
+    G <- function(n, v){
+      ## this combo should give variance 1 mean 0
+      (aa <- 1/sqrt(1+6*pi^-2*v))
+      (dd <- aa*exp(-digamma(1)*(aa-1)))
+      print("IN HERE")
+      bridgecloglog_rstable(n, aa, dd)
+    }
+    H <- function(x){
+      #1-pgumbel(x, loc=0, scale=1)
+      1-exp(-exp(x))
+    }
+  }
+  if(mrim=="CLOGLOG-CLOGLOG-LPS" & alpha==delta){
+    #library(evd)
+    #source("functions.R")
+    G <- function(n, v){
+      ## this combo should give variance 1 mean 0
+      (aa <- 1/sqrt(1+6*pi^-2*v))
+      (dd <- aa)
+      bridgecloglog_rstable(n, aa, dd)
+    }
+    H <- function(x){
+      #1-pgumbel(x, loc=0, scale=1)
+      1-exp(-exp(x))
+    }
+  }
+  if(mrim=="binomial-beta-HGLM"){
+    G <- function(n, v){rbeta(n, v, v)}
+    H <- function(x) plogis(x)
+  }
+
+  n <- n1 + n2
+  u <- round(rep(G(n,v), each=J),2)
+
+  x <- c(rep(1, n1*J), rep(0, n2*J))
+
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round(eta + u,2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             group = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+
+
+detach(summed_binom_dat)
+set.seed(5)
+binom_dat <-
+  sim_mrim_data(500,120, J=47, a0 = -2, a1 = 1)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","group")]
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+x1 <- group
+
+gnlrim.a.eq.d <-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=0,treatment=0),
+         pmix=c(a_eq_d=0.78),
+         p_uppb = c(  10,   2,   1.0),
+         p_lowb = c( -10,  -2,   0.1),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="cloglog-bridge-delta-eq-alpha",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         abs.tol.nlminb = 1e-6,
+         xf.tol.nlminb =  1e-6,
+         x.tol.nlminb =   1e-6,
+         rel.tol.nlminb = 1e-6
+  )
+
+## I want to demonstrate that when
+## a != d we need to add an intercept adjustment
+## for marginalization of coeffs.
+## we used the fit above to 1) validate simulated values
+## and 2) know where to aim for marg coeff bc when a==d
+## we have straightforward multiply b0m = a*b0c
+gnlrim.mean.0 <-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*treatment + rand),
+         pmu = c(Intercept=-2,treatment=1),
+         pmix=c(var=2),
+         p_uppb = c(  10,   2,   100),
+         p_lowb = c( -10,  -2,   0.01),
+         distribution="binomial",
+         nest=id,
+         random="rand",
+         mixture="cloglog-bridge-0-mean",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         abs.tol.nlminb = 1e-6,
+         xf.tol.nlminb =  1e-6,
+         x.tol.nlminb =   1e-6,
+         rel.tol.nlminb = 1e-6
+  )
+
+
+rbind(gnlrim.a.eq.d[1:2],
+      gnlrim.mean.0[1:2])
+
+
+calc.a <- 1/sqrt(1+6*pi^-2*gnlrim.mean.0[3])
+calc.d <- calc.a*exp(-digamma(1)*(calc.a-1))
+
+
+## looks like these two are identical:
+log(calc.d/calc.a)/calc.a
+gnlrim.a.eq.d[1] - gnlrim.mean.0[1]
+
+## so the implication is that we need to add
+## an adjustment when we use 0-mean param:
+gnlrim.mean.0[1]+log(calc.d/calc.a)/calc.a
+gnlrim.a.eq.d[1]
+
+## looks like these two are identical:
+log(calc.d/calc.a)
+(gnlrim.a.eq.d[1]*gnlrim.a.eq.d[3]) - (gnlrim.mean.0[1]*gnlrim.a.eq.d[3])
+
+
+
+########################################$$$$#########
+## 2021-12-14                                      ##
+## END:   0 mean intercept - cloglog bridge        ##
+#####################################################
+
+########################################$$$$#########
+## 2021-12-04                                      ##
+## START: ZINBRI TRA/TBA  STOP THE COUNT example   ##
+#####################################################
+library(data.table)
+library(glmmTMB)
+## rewrite vectorize -- originally from macbook, readme_toc.rmd 12/23/2015:
+## beta= -2.303 should give 90% TRA 100*(1-exp(-2.303))=90.00
+createData <- function(nc=NUM,
+                       nt=NUM,
+                       mu=exp(2.57),
+                       beta=0,#-2.303,##tra2beta(TRA),
+                       sigf=1.042,
+                       sigc=SIGC,
+                       pi= 0.056,
+                       theta=1.93,
+                       testconc=1,
+                       sampleName="s1",
+                       feedNumber=1,
+                       num_pints=1){## num_pints PER treatment and control
+
+  ## feed effect
+  alphai<-rep(rnorm(length(feedNumber),mean=0,sd=sigf), each=2)
+
+  muci <- mu*exp(alphai)
+
+  ## pint effect
+  deltaij<-rnorm(2*length(feedNumber),mean=0,sd=sigc)
+
+  mucij <-muci * exp(deltaij)
+
+  ## make every second one the treatment; multiply beta.
+  mucij <- mucij * rep(c(1,exp(beta)), length(feedNumber))
+
+
+  ## negative binomial draws, nc in each com, treated following control
+  y <- rnbinom(nc*length(feedNumber)*2, mu = rep(mucij, each=nc), size=theta)
+
+  ## zero process
+  z <- rbinom(length(y),1,1-pi)
+
+  ## zero-inflated neg bin:
+  y[z==0] <- 0
+
+
+  ## trmt
+  trmt<-c(rep(0,nc),rep(       1,nt))
+
+  ## feed
+  feed <- rep(feedNumber, each=2*nc)
+
+  ## combine into data.table
+  data.table(feed, trmt, y, key=c("feed","trmt","y"))
+
+}
+
+## pi=0, theta=1 should give us logistic
+## beta= -2.303 should give 90% TRA 100*(1-exp(-2.303))=90.00
+set.seed(88)
+zinbri_dat <- copy(createData(nc=20, nt=20, mu=exp(2.57), beta= -2.303, sigf=1, sigc=0, pi=0.05, theta=1.93, feedNumber = 1:5))
+zinbri_dat[, mean(y), by=c("feed", "trmt")]
+zinbri_dat[, var(y), by=c("feed", "trmt")]
+zinbri_dat[,{j=list(mean=mean(y),var=var(y))}, by=c("feed","trmt")]
+
+sum(zinbri_dat$y)
+## assume the lab techs counted all 21,134
+## then you could fit this model:
+zinbri <- glmmTMB(y~trmt +(1|feed) ,
+                  ziformula=~0,
+                  family=nbinom2(),
+                  data=zinbri_dat
+)
+summary(zinbri)
+
+## or, assume they just identified 0 or at least 1.
+## so here they checked all 2000 mosquitoes but only counted
+sum(zinbri_dat$y>0)
+## 1476 eggs.
+## you know the RCM theta and pi.  So...
+detach(summed_binom_zinbri_dat)
+summed_binom_zinbri_dat <-
+  zinbri_dat[, {j=list(r=sum(y>0), n_r=sum(y==0))}, by=c("feed","trmt")]
+
+
+attach(summed_binom_zinbri_dat)
+
+ybind <- cbind(r,n_r)
+x1 <- trmt
+
+sim_binom_locked <-
+  gnlrim(y=ybind,
+         mu = ~ (1-piz)*(1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta),
+         pmu = c(piz=0.05, Intercept=0,beta_trmt=0,theta=1.93),
+         pmix=c(var=20),
+         p_uppb = c(0.05,  10,   10, 1.93 ,200.0),
+         p_lowb = c(0.05, -10,  -10, 1.93,   0.1),
+         distribution="binomial",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'#,
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+
+
+  )
+
+
+sim_binom_free <-
+  gnlrim(y=ybind,
+         mu = ~ (1-piz)*(1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta),
+         pmu = c(piz=0.05, Intercept=0,beta_trmt=0,theta=1.93),
+         pmix=c(var=20),
+         p_uppb = c(0.99,  10,   10, 100,  200.0),
+         p_lowb = c(0.01, -10,  -10, 0.01,   0.1),
+         distribution="binomial",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'#,
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+
+
+  )
+
+summary(zinbri)
+rbind(
+sim_binom_locked,
+sim_binom_free)
+
+
+########################################$$$$#########
+## 2021-12-04                                      ##
+## END:   ZINBRI TRA/TBA  STOP THE COUNT example   ##
+#####################################################
+
+########################################
+## 2021-12-02                         ##
+## START: ZINBRI TRA/TBA   relation   ##
+########################################
+library(data.table)
+library(glmmTMB)
+## rewrite vectorize -- originally from macbook, readme_toc.rmd 12/23/2015:
+createData <- function(nc=NUM,
+                       nt=NUM,
+                       mu=MUC,
+                       beta=BETA,##tra2beta(TRA),
+                       sigf=SIGF,
+                       sigc=SIGC,
+                       pi= PI,
+                       theta=THETA,
+                       testconc=1,
+                       sampleName="s1",
+                       feedNumber=1,
+                       num_pints=1){## num_pints PER treatment and control
+
+  ## feed effect
+  alphai<-rep(rnorm(length(feedNumber),mean=0,sd=sigf), each=2)
+
+  muci <- mu*exp(alphai)
+
+  ## pint effect
+  deltaij<-rnorm(2*length(feedNumber),mean=0,sd=sigc)
+
+  mucij <-muci * exp(deltaij)
+
+  ## make every second one the treatment; multiply beta.
+  mucij <- mucij * rep(c(1,exp(beta)), length(feedNumber))
+
+
+  ## negative binomial draws, nc in each com, treated following control
+  y <- rnbinom(nc*length(feedNumber)*2, mu = rep(mucij, each=nc), size=theta)
+
+  ## zero process
+  z <- rbinom(length(y),1,1-pi)
+
+  ## zero-inflated neg bin:
+  y[z==0] <- 0
+
+
+  ## trmt
+  trmt<-c(rep(0,nc),rep(       1,nt))
+
+  ## feed
+  feed <- rep(feedNumber, each=2*nc)
+
+  ## combine into data.table
+  data.table(feed, trmt, y, key=c("feed","trmt","y"))
+
+}
+
+## pi=0, theta=1 should give us logistic
+## beta= -2.303 should give 90% TRA 100*(1-exp(-2.303))=90.00
+set.seed(88)
+zinbri_dat <- createData(nc=2000, nt=2000, mu=10, beta= -2.303, sigf=1, sigc=0, pi=0, theta=1, feedNumber = 1:50)
+zinbri_dat[, mean(y), by=c("feed", "trmt")]
+zinbri_dat[, var(y), by=c("feed", "trmt")]
+zinbri_dat[,{j=list(mean=mean(y),var=var(y))}, by=c("feed","trmt")]
+
+zinbri <- glmmTMB(y~trmt +(1|feed) ,
+        ziformula=~0,
+        family=nbinom2(),
+        data=zinbri_dat
+)
+summary(zinbri)
+
+detach(summed_binom_zinbri_dat)
+summed_binom_zinbri_dat <-
+  zinbri_dat[, {j=list(r=sum(y>0), n_r=sum(y==0))}, by=c("feed","trmt")]
+
+summed_binom_zinbri_dat[,{j=list(mean=mean(y),var=var(y))}, by=c("feed","trmt")]
+attach(summed_binom_zinbri_dat)
+
+ybind <- cbind(r,n_r)
+x1 <- trmt
+
+sim_binom_zinbri_gnlrim <-
+  gnlrim(y=ybind,
+         mu = ~ plogis(Intercept + x1*beta_trmt + rand),
+         pmu = c(Intercept=0,beta_trmt=0),
+         pmix=c(var=2),
+         p_uppb = c(  10,   10, 200.0),
+         p_lowb = c( -10,  -10,   0.1),
+         distribution="binomial",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+
+## NOTE:  this was erroring because theta was coming first...
+# sim_binom_lock1theta_error <-
+#   gnlrim(y=ybind,
+#          mu = ~ 1-(theta/( exp(Intercept + x1*beta_trmt + rand) + theta ) )^theta,
+#          pmu = c(Intercept=0,beta_trmt=0,theta=1),
+#          pmix=c(var=2),
+#          p_uppb = c(  10,   10, 1 ,200.0),
+#          p_lowb = c( -10,  -10, 1,   0.1),
+#          distribution="binomial",
+#          nest=feed,
+#          random="rand",
+#          mixture="normal-var",
+#          ooo=TRUE,
+#          compute_hessian = FALSE,
+#          compute_kkt = FALSE,
+#          trace=1,
+#          method='nlminb'
+#   )
+
+
+##
+sim_binom_lock1theta <-
+  gnlrim(y=ybind,
+         mu = ~ 1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta,
+         pmu = c(Intercept=0,beta_trmt=0,theta=1),
+         pmix=c(var=2),
+         p_uppb = c(  10,   10, 1 ,200.0),
+         p_lowb = c( -10,  -10, 1,   0.1),
+         distribution="binomial",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+## samesies!
+sim_binom_zinbri_gnlrim
+sim_binom_lock1theta
+
+
+
+## test beta-binom-TBA by locking theta=1 pi =0
+sim_betabinomTBA <-
+  gnlrim(y=ybind,
+
+         mu = ~ (1-piz)*(1-(theta/( exp(Intercept + x1*beta_trmt + rand) + theta ) )^theta),
+         pmu = c(piz=0, theta=1, Intercept=0, beta_trmt=0),
+         pmix=c(var=1),
+         p_uppb = c(0, 1, 10, 10, 20),
+         p_lowb = c(0, 1,-10,-10,  0.1),
+
+         distribution="beta-binomial-TBA",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+## samesies!
+sim_binom_zinbri_gnlrim
+sim_binom_lock1theta
+sim_betabinomTBA
+
+## relax theta
+sim_binom_freerangetheta <-
+  gnlrim(y=ybind,
+         mu = ~ 1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta,
+         pmu = c(Intercept=0,beta_trmt=0,theta=1),
+         pmix=c(var=2),
+         p_uppb = c(  10,   10, 10 ,200.0),
+         p_lowb = c( -10,  -10, 0.1,   0.1),
+         distribution="binomial",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+
+
+
+## test beta-binom-TBA by locking theta=1 pi =0
+sim_betabinomTBA_free_range <-
+  gnlrim(y=ybind,
+
+         mu = ~ (1-piz)*(1-(theta/( exp(Intercept + x1*beta_trmt + rand) + theta ) )^theta),
+         pmu = c(piz=0, theta=1, Intercept=0, beta_trmt=0),
+         pmix=c(var=2),
+         p_uppb = c(0, 1  , 10, 10, 50),
+         p_lowb = c(0, 1,-10,-10, 0.1),
+
+         distribution="beta-binomial-TBA",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+sim_binom_freerangetheta
+sim_betabinomTBA_free_range
+
+
+
+
+
+
+##
+###
+#### Let's generate data that is theta=0.43
+##
+##
+#
+
+## pi=0, theta=1 should give us logistic
+set.seed(1110)
+zinbri_dat <- createData(nc=2000, nt=2000, mu=10, beta= -2.303, sigf=1, sigc=0, pi=0, theta=0.43, feedNumber = 1:50)
+zinbri_dat[, mean(y), by=c("feed", "trmt")]
+
+
+
+detach(summed_binom_zinbri_dat)
+summed_binom_zinbri_dat <-
+  zinbri_dat[, {j=list(r=sum(y>0), n_r=sum(y==0))}, by=c("feed","trmt")]
+
+attach(summed_binom_zinbri_dat)
+
+ybind <- cbind(r,n_r)
+x1 <- trmt
+
+## relax theta
+sim_binom_freerangetheta <-
+  gnlrim(y=ybind,
+         mu = ~ 1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta,
+         pmu = c(Intercept=0,beta_trmt=0,theta=0.432),
+         pmix=c(var=20),
+         p_uppb = c(  10,   10, 0.432 ,200.0),
+         p_lowb = c( -10,  -10, 0.432,   0.1),
+         distribution="binomial",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'#,
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+
+
+  )
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept beta_trmt     theta       var
+# 2.532540 -2.307376  0.432000  1.030043
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 577.3475
+
+
+
+sim_betabinomTBA_free_range <-
+  gnlrim(y=ybind,
+
+         mu = ~ (1-piz)*(1-(theta/( exp(Intercept + x1*beta_trmt + rand) + theta ) )^theta),
+         pmu = c(piz=0, theta=1, Intercept=0, beta_trmt=0),
+         pmix=c(var=2),
+         p_uppb = c(1, 9  , 10, 10, 50),
+         p_lowb = c(0, 1/9,-10,-10, 0.1),
+
+         distribution="beta-binomial-TBA",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+sim_betabinomTBA_free_range
+#
+# piz     theta Intercept beta_trmt      var    value fevals gevals niter convcode kkt1 kkt2
+# nlminb 0.01040509 0.4280494  2.643594 -2.377035 1.097934 575.4275     54    197    34        0   NA   NA
+# xtime
+# nlminb 126.956
+# >
+
+sim_binom_freerangetheta
+
+
+
+
+
+
+
+zinbri <- glmmTMB(y~trmt +(1|feed) ,
+                  ziformula=~0,
+                  family=nbinom2(),
+                  data=zinbri_dat
+)
+summary(zinbri)
+# Family: nbinom2  ( log )
+# Formula:          y ~ trmt + (1 | feed)
+# Data: zinbri_dat
+#
+# AIC       BIC    logLik  deviance  df.resid
+# 996911.9  996952.7 -498452.0  996903.9    199996
+#
+# Random effects:
+#
+#   Conditional model:
+#   Groups Name        Variance Std.Dev.
+# feed   (Intercept) 1.046    1.023
+# Number of obs: 200000, groups:  feed, 50
+#
+# Overdispersion parameter for nbinom2 family (): 0.432
+#
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept)  2.528181   0.144717   17.47   <2e-16 ***
+#   trmt        -2.301011   0.007611 -302.33   <2e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+## lock down estimates.
+gnlrim(y=ybind,
+       mu = ~ 1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta,
+       pmu = c(Intercept=2.528181 ,beta_trmt=-2.301011,theta=0.432),
+       pmix=c(var=1.046),
+       p_uppb = c(2.528181,   -2.301011,0.432,  1.046),
+       p_lowb = c(2.528181,   -2.301011,0.432,  1.046),
+       distribution="binomial",
+       nest=feed,
+       random="rand",
+       mixture="normal-var",
+       ooo=TRUE,
+       compute_hessian = FALSE,
+       compute_kkt = FALSE,
+       trace=1,
+       method='nlminb'
+)
+
+
+
+# ## lock down estimates.
+# gnlrim(y=ybind,
+#        mu = ~ 1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta,
+#        pmu = c(Intercept=0 ,beta_trmt=0,theta=1),
+#        pmix=c(var=1.00),
+#        p_uppb = c( 10,    10, 6.60,   100,  3),
+#        p_lowb = c(-10,   -10,     0, -10,  0),
+#        distribution="beta binomial",
+#        nest=feed,
+#        random="rand",
+#        mixture="normal-var",
+#        ooo=TRUE,
+#        compute_hessian = FALSE,
+#        compute_kkt = FALSE,
+#        trace=1,
+#        method='nlminb',
+#        pshape=c(1)
+# )
+
+
+###
+#### Try some zero-inflation?
+###
+##
+#
+## pi=0, theta=1 should give us logistic
+set.seed(1112)
+zinbri_dat <- createData(nc=2000, nt=2000, mu=10, beta= -2.303, sigf=1, sigc=0, pi=0.15, theta=0.43, feedNumber = 1:50)
+zinbri_dat[, mean(y), by=c("feed", "trmt")]
+
+
+
+detach(summed_binom_zinbri_dat)
+summed_binom_zinbri_dat <-
+  zinbri_dat[, {j=list(r=sum(y>0), n_r=sum(y==0))}, by=c("feed","trmt")]
+
+attach(summed_binom_zinbri_dat)
+
+ybind <- cbind(r,n_r)
+x1 <- trmt
+
+## relax theta
+sim_binom_freerangetheta_zi <-
+  gnlrim(y=ybind,
+         mu = ~ (1-piz)*(1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta),
+         pmu = c(piz=0.12, Intercept=0,beta_trmt=0,theta=1),
+         pmix=c(var=20),
+         p_uppb = c(1,  10,   10, 4.432 ,200.0),
+         p_lowb = c(0, -10,  -10, 0.0432,   0.1),
+         distribution="binomial",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'#,
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+
+
+  )
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# piz  Intercept  beta_trmt      theta        var
+# 0.1639896  2.3434760 -2.2814760  0.4643283  1.2013067
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 583.2621
+
+sim_betabinomTBA_free_range <-
+  gnlrim(y=ybind,
+
+         mu = ~ (1-piz)*(1-(theta/( exp(Intercept + x1*beta_trmt + rand) + theta ) )^theta),
+         pmu = c(piz=0.12, theta=1, Intercept=0, beta_trmt=0),
+         pmix=c(var=2),
+         p_uppb = c(1, 9  , 10, 10, 50),
+         p_lowb = c(0, 1/9,-10,-10, 0.1),
+
+         distribution="beta-binomial-TBA",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+# $par
+# piz      theta  Intercept  beta_trmt        var
+# 0.1639897  0.4643284  2.3434758 -2.2814760  1.2013063
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 583.2621
+
+
+zinbri.zi <- glmmTMB(y~trmt +(1|feed) ,
+                     ziformula=~1,
+                     family=nbinom2(),
+                     data=zinbri_dat
+)
+summary(zinbri.zi)
+# amily: nbinom2  ( log )
+# Formula:          y ~ trmt + (1 | feed)
+# Zero inflation:     ~1
+# Data: zinbri_dat
+#
+# AIC       BIC    logLik  deviance  df.resid
+# 859992.4  860043.4 -429991.2  859982.4    199995
+#
+# Random effects:
+#
+#   Conditional model:
+#   Groups Name        Variance Std.Dev.
+# feed   (Intercept) 1.189    1.09
+# Number of obs: 200000, groups:  feed, 50
+#
+# Overdispersion parameter for nbinom2 family (): 0.433
+#
+# Conditional model:
+#               Estimate Std. Error z value Pr(>|z|)
+# (Intercept)  2.363158   0.154337   15.31   <2e-16 ***
+#   trmt        -2.291876   0.008564 -267.63   <2e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#
+# Zero-inflation model:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept) -1.73914    0.02839  -61.27   <2e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# > plogis(-1.73)
+# [1] 0.1505876
+# > exp(2.36)
+# [1] 10.59095
+
+
+
+###
+#### Try some zero-inflation?
+###
+##
+#
+## pi=0, theta=1 should give us logistic
+set.seed(3353)
+zinbri_dat <- createData(nc=20, nt=20, mu=10, beta= -2.303, sigf=1, sigc=0, pi=0.15, theta=0.43, feedNumber = 1:3)
+zinbri_dat[, mean(y), by=c("feed", "trmt")]
+
+
+
+detach(summed_binom_zinbri_dat)
+summed_binom_zinbri_dat <-
+  zinbri_dat[, {j=list(r=sum(y>0), n_r=sum(y==0))}, by=c("feed","trmt")]
+
+attach(summed_binom_zinbri_dat)
+
+ybind <- cbind(r,n_r)
+x1 <- trmt
+
+## relax theta
+sim_binom_freerangetheta_zi.small.n <-
+  gnlrim(y=ybind,
+         mu = ~ (1-piz)*(1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta),
+         pmu = c(piz=0.12, Intercept=0,beta_trmt=0,theta=0.324),
+         pmix=c(var=1.06),
+         p_uppb = c(1,  10,   10,1000, 1.06),
+         p_lowb = c(0, -10,  -10, 0, 1.06),
+         distribution="binomial",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'#,
+         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
+         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
+         #  rel.tol.nlminb=1e-5
+
+
+  )
+# $par
+# piz  Intercept  beta_trmt      theta        var
+# 0.2633867  1.3524598 -1.2996150  4.4320000  1.4818467
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 14.77954
+
+## relax theta
+sim_binom_freerangetheta_zi.small.n.bb <-
+  gnlrim(y=ybind,
+         mu = ~ (1-piz)*(1-(1/( exp(Intercept + x1*beta_trmt + rand) + theta )*theta )^theta),
+         pmu = c(piz=0.12, Intercept=0,beta_trmt=0,theta=0.324),
+         pmix=c(var=1.06),
+         p_uppb = c(1,   3,   0, 0.324,      1.06),
+         p_lowb = c(0,   0,  -3, 0.324,   1.06),
+         distribution="beta binomial",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb',
+         shape=~(exp(Intercept + x1*beta_trmt) + theta)^theta,
+         common=TRUE
+  )
+
+zinbri.zi.small.n <- glmmTMB(y~trmt +(1|feed) ,
+                     ziformula=~1,
+                     family=nbinom2(),
+                     data=zinbri_dat
+)
+summary(zinbri.zi.small.n)
+# Family: nbinom2  ( log )
+# Formula:          y ~ trmt + (1 | feed)
+# Zero inflation:     ~1
+# Data: zinbri_dat
+#
+# AIC      BIC   logLik deviance df.resid
+# 553.6    567.6   -271.8    543.6      115
+#
+# Random effects:
+#
+#   Conditional model:
+#   Groups Name        Variance Std.Dev.
+# feed   (Intercept) 1.062    1.03
+# Number of obs: 120, groups:  feed, 3
+#
+# Overdispersion parameter for nbinom2 family (): 0.324
+#
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept)   2.2149     0.6846   3.236  0.00121 **
+#   trmt         -1.8963     0.3779  -5.018 5.23e-07 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#
+# Zero-inflation model:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept)   -3.472      7.242  -0.479    0.632
+
+
+sim_betabinomTBA_free_range <-
+  gnlrim(y=ybind,
+
+         mu = ~ (1-piz)*(1-(theta/( exp(Intercept + x1*beta_trmt + rand) + theta ) )^theta),
+         pmu = c(piz=0, theta=1, Intercept=0, beta_trmt=0),
+         pmix=c(var=2),
+         p_uppb = c(1, 900  , 10, 10, 50),
+         p_lowb = c(0, 1/9,-10,-10, 0.1),
+
+         distribution="beta-binomial-TBA",
+         nest=feed,
+         random="rand",
+         mixture="normal-var",
+         ooo=TRUE,
+         compute_hessian = FALSE,
+         compute_kkt = FALSE,
+         trace=1,
+         method='nlminb'
+  )
+
+sim_betabinomTBA_free_range
+
+########################################
+## 2021-12-02                         ##
+## END: ZINBRI TRA/TBA   relation     ##
+########################################
+
 ########################################
 ## 2021-11-27                         ##
 ## START: HGLM intercept relation     ##
@@ -781,10 +1783,10 @@ LogPS_alpha_0_mean <-
          compute_kkt = FALSE,
          trace=1,
          method='nlminb',
-         # abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
-         #  xf.tol.nlminb=2.2e-5, ##2.2e-14,
-         #  x.tol.nlminb=1.5e-5, ##1.5e-8,
-         #  rel.tol.nlminb=1e-5
+         abs.tol.nlminb=1e-8,#0,#1e-20, ## 1e-20,
+          xf.tol.nlminb=2.2e-5, ##2.2e-14,
+          x.tol.nlminb=1.5e-5, ##1.5e-8,
+          rel.tol.nlminb=1e-5
   )
 LogPS_alpha_0_mean
 

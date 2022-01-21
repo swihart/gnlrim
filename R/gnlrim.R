@@ -31,7 +31,8 @@
 ##' generalized Poisson, logarithmic series, geometric, normal, inverse Gauss,
 ##' logistic, exponential, gamma, Weibull, extreme value, Cauchy, Pareto,
 ##' Laplace, Levy, beta, simplex, or two-sided power. (For definitions of
-##' distributions, see the corresponding [dpqr]distribution help.)
+##' distributions, see the corresponding [dpqr]distribution help.) "beta-binomial-TBA"
+##' is experimental (see blogpost).
 ##' @param mixture The mixing distribution for the random parameter: logit-bridge-var,
 ##' logit-bridge-phi, normal-var (default), normal-phi,
 ##' Cauchy-scl, Cauchy-phi, stabledist-subgauss-scl, stabledist-subgauss-phi,
@@ -211,6 +212,7 @@
 ##' @importFrom stabledist dstable pstable qstable
 ##' @importFrom libstableR stable_pdf stable_cdf stable_q
 ##' @importFrom extraDistr dbetapr
+##' @importFrom VGAM dbetabinom dbetabinom.ab
 ##' @useDynLib gnlrim, .registration = TRUE
 gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	random=NULL, nest=NULL, mu=NULL, shape=NULL, linear=NULL,
@@ -254,10 +256,10 @@ distribution <- match.arg(distribution,c("binomial","beta binomial",
 	"double Poisson","mult Poisson","gamma count","Consul","logarithmic",
 	"geometric","normal","inverse Gauss","logistic","exponential","gamma",
 	"Weibull","extreme value","Pareto","Cauchy","Laplace","Levy","beta",
-	"simplex","two-sided power"))
+	"simplex","two-sided power", "beta-binomial-TBA"))
 shp <- distribution!="binomial"&&distribution!="Poisson"&&
 	distribution!="exponential"&&distribution!="geometric"&&
-	distribution!="logarithmic"
+	distribution!="logarithmic"&&distribution!="beta-binomial-TBA"
 #
 # check mixture
 #
@@ -532,7 +534,7 @@ if(any(is.na(y)))stop("NAs in y - use rmna")
 # check that data are appropriate for distribution
 #
 if(distribution=="binomial"||distribution=="double binomial"||
-	distribution=="beta binomial"||distribution=="mult binomial"){
+	distribution=="beta binomial"||distribution=="mult binomial"||distribution=="beta-binomial-TBA"){
 	# binomial data
 	if(type!="unknown"&&type!="nominal")stop("nominal data required")
 	if(distribution=="binomial"&&(is.vector(y)||(length(dim(y))==2&&
@@ -579,6 +581,7 @@ else if(distribution=="beta"||distribution=="simplex"||
 		stop("All response values must lie between 0 and 1")}
 else if(distribution!="binomial"&&distribution!="double binomial"&&
 	distribution!="beta binomial"&&distribution!="mult binomial"&&
+	distribution!="beta-binomial-TBA"&&
 	type!="unknown"&&type!="continuous"&&type!="duration")
 	stop("continuous data required")
 #
@@ -616,7 +619,7 @@ if(distribution=="Levy"&&any(y<=mu1(p)))
 # check that shape function returns appropriate values
 #
 if(distribution!="binomial"&&distribution!="Poisson"&&
-	distribution!="exponential"&&distribution!="geometric"&&
+	distribution!="exponential"&&distribution!="geometric"&&distribution!="beta-binomial-TBA"&&
 	distribution!="logarithmic"&&any(is.na(sh1(p))))
 	stop("The shape model returns NAs: probably invalid initial values")
 if(distribution=="Pareto"&&exp(sh1(p))<=1)stop("shape parameters must be > 0")
@@ -631,6 +634,61 @@ if(!censor)fcn <- switch(distribution,
 		t <- s*m
 		u <- s*(1-m)
 		exp(lbeta(y[,1]+t,y[,2]+u)-lbeta(t,u)+lchoose(nn,y[,1]))},
+	"beta-binomial-TBA"=function(p,r){
+	  pi=p[1]
+	  theta=p[2]
+	  lam=function(p,r){
+	    star = (1 - mu1(p,r)/(1-p[1]) )^(1/p[2])
+	    lam = (1/star - 1)*p[2]
+	    lam
+	  }
+	  ## PROBLEM: when lam is inf, then t is inf and u is inf and t/(t+u) is NaN
+	  ## when maybe it should just be 0.5. LOL.
+	  # t is legacy and is `alpha` shape1
+	  t <- (1-pi)*( (lam(p,r)+theta)^theta - theta^theta)
+	  # u is legacy and is `beta` shape2
+	  u <- pi*(lam(p,r)+theta)^theta + (1-pi)*theta^theta
+
+
+    probability <- t/(t+u)
+    row.your.boat <- 1/( (lam(p,r)+theta)^theta + 1)
+
+	  if(is.infinite(t[1]) & is.finite(u[1])){
+	    probability <- 1; #print("I AM SETTING probability to 1.0. LOVEU")
+	    row.your.boat <- 0
+	  }
+
+	  if(is.infinite(t[1]) & (is.infinite(u[1])  | is.nan(u[1]) )){
+	    probability <- 0.5; #print("I AM SETTING probability to 0.5")
+	    row.your.boat <- 0
+	  }
+
+    #if(t[1]/(t[1]+u[1]) > 1){print("t/(t+u) is greater than 1: ", t[1]/(t[1]+u[1])  )}
+    # if(is.na(u[1])){print(paste("u missing y'all: ", u[1]  ))
+    #   print(paste0("pi is:",pi))
+    #   print(paste0("theta is: ",theta))
+    #   print(paste0("lam(p,r) is: ", lam(p,r)))
+    #   print(paste0("p is: ", p))
+    #   print(paste0("r is: ", r))
+    #   print(paste0("t[1] is: ", t[1]))
+    #   print(paste0("probability is: ", probability))
+    #
+    #
+    # }
+
+
+
+	  # print(paste("This is t, I mean alpha: ",t))
+	  # print(paste("This is u, I mean beta : ",u))
+	  # print(paste("This is LAM, I mean lam : ", lam(p,r)))
+	  # print(paste("This is dbinom: ", dbinom(y[,1],nn, (1-pi)*(1-(theta/(lam(p,r)+theta))^theta ))))
+	  #dbinom(y[,1],nn, mu1(p,r))
+	  #dbinom(y[,1],nn, (1-pi)*(1-(theta/(lam(p,r)+theta))^theta ) )
+    dbinom(y[,1],nn, probability)
+	  ##exp(lbe#ta(y[,1]+t,y[,2]+u)-lbeta(t,u)+lchoose(nn,y[,1]))
+    #VGAM::dbetabinom(y[,1], nn, probability, rho = 1/( (lam(p,r)+theta)^theta + 1), log = FALSE)
+    #VGAM::dbetabinom.ab(y[,1], nn, shape1=t, shape2=u, log = FALSE)
+	  },
 	# "double binomial"=function(p,r)
 	# 	exp(.C("ddb",as.integer(y[,1]),as.integer(nn),
 	# 		as.double(mu1(p,r)),as.double(exp(sh1(p))),
@@ -942,7 +1000,7 @@ else like <- function(p){
 #
 # check that the likelihood returns an appropriate value and optimize
 #
-tmp <- like(p)##; print(np); print(p); print(tmp)
+tmp <- like(p); print(np); print(p); print(tmp)
 if(is.na(tmp)||abs(tmp)==Inf)
 	stop("Likelihood returns Inf or NAs: invalid initial values, wrong model, or probabilities too small to calculate")
 if(fscale==1)fscale <- tmp
