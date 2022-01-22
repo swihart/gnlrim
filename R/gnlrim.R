@@ -229,7 +229,7 @@ gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	p_lowb = -Inf, p_uppb = Inf,
         points=5, steps=10){
 
-int1 <- function(ff, aa, bb)
+int1 <- function(ff, aa, bb){
 	.C("romberg",
 		ff,
 		as.double(aa),
@@ -241,6 +241,18 @@ int1 <- function(ff, aa, bb)
 		err=integer(1),
 		res=double(nnest),
 		PACKAGE="gnlrim")$res
+
+
+# envir2 <- environment(fun=ff)
+# print("aa values:")
+# print(aa)
+# print("ff(aa) value:")
+# print(ff(aa))
+# print(".Call call:")
+# print(	.Call("romberg_sexp", ff, aa, envir2, PACKAGE="gnlrim"))
+#
+
+	}
 inta <- function(f){
 	ff <- function(x) f(1/x)/(x*x)
 	int1(ff,neg1,zero)+int1(f,neg1,pos1)+int1(ff,zero,pos1)}
