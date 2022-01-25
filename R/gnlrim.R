@@ -229,6 +229,9 @@ gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	p_lowb = -Inf, p_uppb = Inf,
         points=5, steps=10){
 
+
+
+
 int1 <- function(ff, aa, bb){
 	## .C("romberg",
 	## 	ff,
@@ -242,22 +245,27 @@ int1 <- function(ff, aa, bb){
 	## 	res=double(nnest),
 	## 	PACKAGE="gnlrim")$res
 
-xx <- c(1,2,3,4)
+xx <- c(1,2,2.5,3.11)
 envir2 <- environment(fun=ff)
 print("xx values:")
 print(xx)
 print("ff(xx) value:")
 print(ff(xx))
 print(".Call call:")
-    print(	.Call("romberg_sexp",
+print(
+        .Call("romberg_sexp",
                       ff,
+                      as.double(aa),
+ 	              as.double(bb),
                       xx,
                       len=as.integer(nnest),
+                      eps=as.double(eps),
                       as.integer(points),
                       max=as.integer(steps),
                       err=integer(1),
                       envir2,
-                      PACKAGE="gnlrim"))
+                      PACKAGE="gnlrim")
+     )
 
 
 	}
@@ -1020,7 +1028,7 @@ else like <- function(p){
 #
 # check that the likelihood returns an appropriate value and optimize
 #
-tmp <- like(p); print(np); print(p); print(tmp)
+tmp <- like(p); ##print(np); print(p); print(tmp)
 if(is.na(tmp)||abs(tmp)==Inf)
 	stop("Likelihood returns Inf or NAs: invalid initial values, wrong model, or probabilities too small to calculate")
 if(fscale==1)fscale <- tmp
