@@ -16,7 +16,7 @@ static const R_CMethodDef CEntries[] = {
 extern void romberg_sexp(void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 
 static const R_CallMethodDef callMethods[]  = {
-    {"romberg_sexp", (DL_FUNC) &romberg_sexp, 10},
+    {"romberg_sexp", (DL_FUNC) &romberg_sexp, 9},
     {NULL, NULL, 0}
 };
 

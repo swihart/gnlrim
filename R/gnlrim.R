@@ -250,8 +250,9 @@ int1 <- function(ff, aa, bb){
 # print("from .C()")
 # print(from_dotc)
 
- xx <- c(1,2,2.5,3.11)
+
  envir2 <- environment(fun=ff)
+# xx <- c(1,2,2.5,3.11)
 # print("xx values:")
 # print(xx)
 # print("ff(xx) value:")
@@ -261,7 +262,6 @@ int1 <- function(ff, aa, bb){
                       ff,
                       as.double(aa),
  	                    as.double(bb),
-                      xx,
                       len=as.integer(nnest),
                       eps=as.double(eps),
                       as.integer(points),

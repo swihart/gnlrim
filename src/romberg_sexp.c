@@ -126,7 +126,7 @@ static void evalRfn_sexp(SEXP fcn, double a[], double b[], int n, int len,
 
 
 
-SEXP romberg_sexp(SEXP fcn, SEXP a, SEXP b, SEXP state, SEXP len, SEXP eps,
+SEXP romberg_sexp(SEXP fcn, SEXP a, SEXP b, SEXP len, SEXP eps,
                   SEXP pts, SEXP max, int *err, SEXP envir)
 {
 
