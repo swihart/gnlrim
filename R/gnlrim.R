@@ -245,7 +245,13 @@ int1 <- function(ff, aa, bb){
 # 		max=as.integer(steps),
 # 		err=integer(1),
 # 		res=double(nnest),
-# 		PACKAGE="gnlrim")$res
+# 		PACKAGE="gnlrim")
+# ## answers are in from_dotc$res
+#
+#   if(from_dotc$err==1) warning("Unable to allocate memory for int")
+#   if(from_dotc$err==2) warning("Division by zero in int")
+#   else if(from_dotc$err==3) warning("No convergence in int")
+
 
 # print("from .C()")
 # print(from_dotc)
@@ -274,7 +280,7 @@ int1 <- function(ff, aa, bb){
         # print(from_c_land)
 
 from_c_land
-#from_dotc
+#from_dotc$res
 	}
 inta <- function(f){
 	ff <- function(x) f(1/x)/(x*x)
