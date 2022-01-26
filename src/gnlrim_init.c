@@ -2,13 +2,13 @@
 #include <stdlib.h> // for NULL
 #include <R_ext/Rdynload.h>
 
-// /* .C() */
-// extern void romberg_c(void *, void *, void *, void *, void *, void *, void *, void *, void *);
-//
-// static const R_CMethodDef CEntries[] = {
-//     {"romberg_c",    (DL_FUNC) &romberg_c,     9},
-//     {NULL, NULL, 0}
-// };
+/* .C() */
+extern void romberg(void *, void *, void *, void *, void *, void *, void *, void *, void *);
+
+static const R_CMethodDef CEntries[] = {
+    {"romberg",    (DL_FUNC) &romberg,     9},
+    {NULL, NULL, 0}
+};
 
 
 
@@ -22,6 +22,6 @@ static const R_CallMethodDef callMethods[]  = {
 
 void R_init_gnlrim(DllInfo *dll)
 {
-    R_registerRoutines(dll, NULL, callMethods, NULL, NULL);
+    R_registerRoutines(dll, CEntries, callMethods, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

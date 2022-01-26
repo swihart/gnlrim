@@ -233,30 +233,34 @@ gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 
 
 int1 <- function(ff, aa, bb){
-	## .C("romberg",
-	## 	ff,
-	## 	as.double(aa),
-	## 	as.double(bb),
-	## 	len=as.integer(nnest),
-	## 	eps=as.double(eps),
-	## 	pts=as.integer(points),
-	## 	max=as.integer(steps),
-	## 	err=integer(1),
-	## 	res=double(nnest),
-	## 	PACKAGE="gnlrim")$res
 
-xx <- c(1,2,2.5,3.11)
-envir2 <- environment(fun=ff)
-print("xx values:")
-print(xx)
-print("ff(xx) value:")
-print(ff(xx))
-print(".Call call:")
-print(
+# from_dotc <-
+# 	.C("romberg",
+# 		ff,
+# 		as.double(aa),
+# 		as.double(bb),
+# 		len=as.integer(nnest),
+# 		eps=as.double(eps),
+# 		pts=as.integer(points),
+# 		max=as.integer(steps),
+# 		err=integer(1),
+# 		res=double(nnest),
+# 		PACKAGE="gnlrim")$res
+
+# print("from .C()")
+# print(from_dotc)
+
+ xx <- c(1,2,2.5,3.11)
+ envir2 <- environment(fun=ff)
+# print("xx values:")
+# print(xx)
+# print("ff(xx) value:")
+# print(ff(xx))
+ from_c_land <-
         .Call("romberg_sexp",
                       ff,
                       as.double(aa),
- 	              as.double(bb),
+ 	                    as.double(bb),
                       xx,
                       len=as.integer(nnest),
                       eps=as.double(eps),
@@ -265,9 +269,12 @@ print(
                       err=integer(1),
                       envir2,
                       PACKAGE="gnlrim")
-     )
 
+        # print(".Call call:")
+        # print(from_c_land)
 
+from_c_land
+#from_dotc
 	}
 inta <- function(f){
 	ff <- function(x) f(1/x)/(x*x)
@@ -1028,7 +1035,7 @@ else like <- function(p){
 #
 # check that the likelihood returns an appropriate value and optimize
 #
-tmp <- like(p); ##print(np); print(p); print(tmp)
+tmp <- like(p); print(np); print(p); print(tmp)
 if(is.na(tmp)||abs(tmp)==Inf)
 	stop("Likelihood returns Inf or NAs: invalid initial values, wrong model, or probabilities too small to calculate")
 if(fscale==1)fscale <- tmp
