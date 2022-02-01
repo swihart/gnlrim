@@ -3,6 +3,8 @@
 export(dstable2)
 export(gnlmix)
 export(gnlrim)
+export(gnlrim_dotc)
+export(gnlrim_dotcall)
 export(pstable2)
 export(stable_cdf2)
 export(stable_pdf2)
