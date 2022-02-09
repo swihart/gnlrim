@@ -229,30 +229,53 @@ gnlrim <- function(y=NULL, distribution="normal", mixture="normal-var",
 	p_lowb = -Inf, p_uppb = Inf,
         points=5, steps=10){
 
-int1 <- function(ff, aa, bb){
-	.C("romberg",
-		ff,
-		as.double(aa),
-		as.double(bb),
-		len=as.integer(nnest),
-		eps=as.double(eps),
-		pts=as.integer(points),
-		max=as.integer(steps),
-		err=integer(1),
-		res=double(nnest),
-		PACKAGE="gnlrim")$res
+  int1 <- function(ff, aa, bb){
+    # from_dotc <-
+    # .C("romberg_c",
+    #    ff,
+    #    as.double(aa),
+    #    as.double(bb),
+    #    len=as.integer(nnest),
+    #    eps=as.double(eps),
+    #    pts=as.integer(points),
+    #    max=as.integer(steps),
+    #    err=integer(1),
+    #    res=double(nnest),
+    #    PACKAGE="repeated")
+    # ## answers are in from_dotc$res
+    #
+    #   if(from_dotc$err==1) warning("Unable to allocate memory for int")
+    #   if(from_dotc$err==2) warning("Division by zero in int")
+    #   else if(from_dotc$err==3) warning("No convergence in int")
 
+    # print("from .C()")
+    # print(from_dotc)
 
-# envir2 <- environment(fun=ff)
-# print("aa values:")
-# print(aa)
-# print("ff(aa) value:")
-# print(ff(aa))
-# print(".Call call:")
-# print(	.Call("romberg_sexp", ff, aa, envir2, PACKAGE="gnlrim"))
-#
+    envir2 <- environment(fun=ff)
+    # xx <- c(1,2,2.5,3.11)
+    # print("xx values:")
+    # print(xx)
+    # print("ff(xx) value:")
+    # print(ff(xx))
+    from_c_land <-
+      .Call("romberg_sexp",
+            ff,
+            as.double(aa),
+            as.double(bb),
+            len=as.integer(nnest),
+            eps=as.double(eps),
+            as.integer(points),
+            max=as.integer(steps),
+            err=integer(1),
+            envir2,
+            PACKAGE="gnlrim")
 
-	}
+    # print(".Call call:")
+    # print(from_c_land)
+
+    from_c_land
+    #from_dotc$res
+  }
 inta <- function(f){
 	ff <- function(x) f(1/x)/(x*x)
 	int1(ff,neg1,zero)+int1(f,neg1,pos1)+int1(ff,zero,pos1)}

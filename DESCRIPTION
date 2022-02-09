@@ -8,9 +8,9 @@ Description: Based on \code{repeated::gnlmix}.  Provides for a suite of
     bridged models with nonstandard random intercept distributions for modeling 
     clustered binary outcomes (a la Wang & Louis (2003)).
 License: GPL-2
+Depends:
+    R (>= 3.5.0)
 Imports: 
-  Rcpp (>= 0.12.9),		
-  RcppGSL,
   optimx,
   bridgedist,
   stabledist,
@@ -19,4 +19,4 @@ Imports:
   extraDistr
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
