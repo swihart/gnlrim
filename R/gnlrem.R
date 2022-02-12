@@ -158,6 +158,7 @@
 ##' @param p_lowb Argument to nlminb / optimx for the \code{method}'s
 ##' that are constrained optimization.  Lower bounds on parameters.
 ##' Defaults to -Inf.  Can be a vector.
+##' @param int2dmethod EXPERIMENTAL.  default "romberg_int2d".  Can also be "cuba".
 ##' @return If \code{ooo=TRUE}, A list of class \code{gnlm} is
 ##'     returned that contains all of the relevant information
 ##'     calculated, including error codes.  If \code{ooo=FALSE}, then
@@ -239,7 +240,8 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                    rel.tol.nlminb=1e-10,
                    method="nlminb", ooo=FALSE,
                    p_lowb = -Inf, p_uppb = Inf,
-                   points=5, steps=10){
+                   points=5, steps=10,
+                   int2dmethod=c("romberg_int2d","cuba")[1]){
 
   int1 <- function(ff, aa, bb){
     # from_dotc <-
@@ -1007,8 +1009,8 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                                          parametrization = 1)*abs( (mult*exp(x)) )
 
                 },
-                "bivariate-normal-indep"=function(s1,s2,    r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,   0,   0,s2),nrow=2)),
-                "bivariate-normal-corr"=function(s1,s2,corr,r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2)),
+                "bivariate-normal-indep"=function(s1,s2,    r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,   0,   0,s2),nrow=2),checkSymmetry=FALSE),
+                "bivariate-normal-corr"=function(s1,s2,corr,r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),checkSymmetry=FALSE),
                 Laplace=function(p,r) {
                   tmp <- p
                   exp(-abs(r)/tmp)/(2*tmp)},
@@ -1046,7 +1048,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
       fn <- function(r)
         mix(p[np-1],p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
       -sum(log(inta(fn)))}
-  else if(mixture=="bivariate-normal-indep")
+  else if(mixture=="bivariate-normal-indep" & int2dmethod=="romberg_int2d")
      like <- function(p){
        fn <- function(r1,r2)
          mix(p[np-1],p[np],r1,r2)*capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod)
@@ -1054,13 +1056,67 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
        -sum(log(romberg_int2d(f=fn,a=matrix(-Inf,nnest,2),b=matrix(Inf,nnest,2))))
        ## here,bruce
      }
-  else if(mixture=="bivariate-normal-corr")
+  else if(mixture=="bivariate-normal-corr" & int2dmethod=="romberg_int2d")
     like <- function(p){
       fn <- function(r1,r2)
         mix(p[np-2],p[np-1],p[np],r1,r2)*capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod)
       ##-sum(log(inta(fn)))
       -sum(log(romberg_int2d(f=fn,a=matrix(-Inf,nnest,2),b=matrix(Inf,nnest,2))))
       ## here,bruce
+    }
+  else if(mixture=="bivariate-normal-corr" & int2dmethod=="cuba")
+
+
+
+    like <- function(p){
+      fn <- function(r){##print("printing `mu1`:");print(mu1);
+
+
+
+
+        r1 <- rep(r[1],nnest); r2<-rep(r[2],nnest);
+
+        # print("printing `r1`:")
+        # print(r1)
+        # print("printing `r2`:")
+        # print(r2)
+        #
+        # print("printing `r1[nest]`:")
+        # print(r1[nest])
+        # print("printing `r2[nest]`:")
+        # print(r2[nest])
+
+
+
+        # print("printing mix(p[np-2],p[np-1],p[np],r1,r2):")
+        # print(mix(p[np-2],p[np-1],p[np],r1,r2))
+        #
+        # print("printing capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod):")
+        # print(capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod))
+
+        mix(p[np-2],p[np-1],p[np],r1,r2)*capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod)
+
+
+
+
+
+        }
+      ##-sum(log(inta(fn)))
+      # print("printing `fn`:")
+      # print(fn);
+      print("HERE-boy-0")
+      #print(nest)
+      #print(nnest)
+      #print(fn(c(1,2)))
+      #print(cubature::pcubature(f=fn,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf), fDim=nnest))
+
+      -sum(log(cubature::pcubature(f=fn,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf), fDim=nnest)$integral))
+      ## here,bruce
+
+
+
+
+
     }
   else if(mixture=="gamma"||mixture=="inverse gamma"||mixture=="inverse Gauss"||
           mixture=="Weibull"||mixture=="betaprime"||mixture=="beta-HGLM")

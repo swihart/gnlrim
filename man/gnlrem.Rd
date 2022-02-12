@@ -44,7 +44,8 @@ gnlrem(
   p_lowb = -Inf,
   p_uppb = Inf,
   points = 5,
-  steps = 10
+  steps = 10,
+  int2dmethod = c("romberg_int2d", "cuba")[1]
 )
 }
 \arguments{
@@ -231,6 +232,8 @@ points=2 is Simpson's rule.}
 
 \item{steps}{For the Romberg integration, the maximum number of steps, by
 default set to 10.}
+
+\item{int2dmethod}{EXPERIMENTAL.  default "romberg_int2d".  Can also be "cuba".}
 }
 \value{
 If \code{ooo=TRUE}, A list of class \code{gnlm} is

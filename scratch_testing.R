@@ -50,18 +50,24 @@ sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Logistic-B
 
 
 detach(summed_binom_dat)
-set.seed(5)
+set.seed(6)
 binom_dat <-
+#  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
 #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
-  sim_mrim_data(2,2, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(8,8, J=100, a0 = -2, a1 = 1)
 data.table::setDT(binom_dat)
 
 summed_binom_dat <-
   binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
 data.table::setkey(summed_binom_dat,id, x1)
 summed_binom_dat
+## glmer -- only random intercept
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial, nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial, nAGQ = 1)
+
 ## glmer with correlation between random intercept and random slope
 lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 1)
 
 
 
@@ -70,11 +76,31 @@ attach(summed_binom_dat)
 ybind <- cbind(r,n_r)
 period_numeric <- x1
 
+
+(rand.int.nonzero.corr <-
+    gnlrem(y=ybind,
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1),
+           pmu = c(Intercept=-0.95, b_p=0.55),
+           pmix=c(var1=1),
+           p_uppb = c(  0,   2, 4.00),
+           p_lowb = c( -4,  -2, 0.05),
+           distribution="binomial",
+           nest=id,
+           random=c("rand1"),
+           mixture="normal-var",
+           ooo=TRUE,
+           compute_hessian = FALSE,
+           compute_kkt = FALSE,
+           trace=1,
+           method='nlminb'
+    )
+)
+
 (rand.int.rand.slopes.nonzero.corr <-
     gnlrem(y=ybind,
            mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + rand2*b_p),
            pmu = c(Intercept=-0.95, b_p=0.55),
-           pmix=c(var1=3, var2=3, corr12= 0.20),
+           pmix=c(var1=1, var2=1, corr12= 0.20),
            p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
            p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
            distribution="binomial",
@@ -88,6 +114,52 @@ period_numeric <- x1
            method='nlminb'
     )
 )
+
+(rand.int.rand.slopes.nonzero.corr.CUBA <-
+    gnlrem(y=ybind,
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + rand2*b_p),
+           pmu = c(Intercept=-0.95, b_p=0.55),
+           pmix=c(var1=1, var2=1, corr12= 0.20),
+           p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+           p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+           distribution="binomial",
+           nest=id,
+           random=c("rand1", "rand2"),
+           mixture="bivariate-normal-corr",
+           ooo=TRUE,
+           compute_hessian = FALSE,
+           compute_kkt = FALSE,
+           trace=1,
+           method='nlminb',
+           int2dmethod="cuba"
+    )
+)
+
+## wout corr
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id)+(0+x1 | id), summed_binom_dat, binomial, nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id)+(0+x1 | id), summed_binom_dat, binomial, nAGQ = 1)
+
+(rand.int.rand.slopes.nonzero.corr.CUBA.wout.corr <-
+    gnlrem(y=ybind,
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + rand2*b_p),
+           pmu = c(Intercept=-0.95, b_p=0.55),
+           pmix=c(var1=.3, var2=.3, corr12= 0),
+           p_uppb = c(  0,   2, 4.00, 4.00, 0),
+           p_lowb = c( -4,  -2, 0.05, 0.05,-0),
+           distribution="binomial",
+           nest=id,
+           random=c("rand1", "rand2"),
+           mixture="bivariate-normal-corr",
+           ooo=TRUE,
+           compute_hessian = FALSE,
+           compute_kkt = FALSE,
+           trace=1,
+           method='nlminb',
+           int2dmethod="cuba"
+    )
+)
+
+
 
 ########################################$$$$#########
 ## 2022-02-10                                      ##
