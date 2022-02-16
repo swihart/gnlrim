@@ -65,9 +65,6 @@ summed_binom_dat
 lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial, nAGQ = 0)
 lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial, nAGQ = 1)
 
-## glmer with correlation between random intercept and random slope
-lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 0)
-lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 1)
 
 
 
@@ -77,7 +74,7 @@ ybind <- cbind(r,n_r)
 period_numeric <- x1
 
 
-(rand.int.nonzero.corr <-
+(rand.int <-
     gnlrem(y=ybind,
            mu = ~ plogis(Intercept + period_numeric*b_p + rand1),
            pmu = c(Intercept=-0.95, b_p=0.55),
@@ -92,13 +89,43 @@ period_numeric <- x1
            compute_hessian = FALSE,
            compute_kkt = FALSE,
            trace=1,
-           method='nlminb'
+           method='nlminb',
     )
 )
 
+
+
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 1)
+
+
+
+
+
+# (rand.int.nonzero.corr <-
+#     gnlrem(y=ybind,
+#            mu = ~ plogis(Intercept + period_numeric*b_p + rand1),
+#            pmu = c(Intercept=-0.95, b_p=0.55),
+#            pmix=c(var1=1),
+#            p_uppb = c(  0,   2, 4.00),
+#            p_lowb = c( -4,  -2, 0.05),
+#            distribution="binomial",
+#            nest=id,
+#            random=c("rand1"),
+#            mixture="normal-var",
+#            ooo=TRUE,
+#            compute_hessian = FALSE,
+#            compute_kkt = FALSE,
+#            trace=1,
+#            method='nlminb'
+#     )
+# )
+
 (rand.int.rand.slopes.nonzero.corr <-
     gnlrem(y=ybind,
-           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + rand2*b_p),
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
            pmu = c(Intercept=-0.95, b_p=0.55),
            pmix=c(var1=1, var2=1, corr12= 0.20),
            p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
@@ -117,7 +144,7 @@ period_numeric <- x1
 
 (rand.int.rand.slopes.nonzero.corr.CUBA <-
     gnlrem(y=ybind,
-           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + rand2*b_p),
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
            pmu = c(Intercept=-0.95, b_p=0.55),
            pmix=c(var1=1, var2=1, corr12= 0.20),
            p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
@@ -141,7 +168,7 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id)+(0+x1 | id), summed_binom_dat, binomia
 
 (rand.int.rand.slopes.nonzero.corr.CUBA.wout.corr <-
     gnlrem(y=ybind,
-           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + rand2*b_p),
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
            pmu = c(Intercept=-0.95, b_p=0.55),
            pmix=c(var1=.3, var2=.3, corr12= 0),
            p_uppb = c(  0,   2, 4.00, 4.00, 0),
@@ -159,7 +186,78 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id)+(0+x1 | id), summed_binom_dat, binomia
     )
 )
 
+(take2 <-
+    gnlrem(y=ybind,
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+           pmu = c(Intercept=-0.95, b_p=0.55),
+           pmix=c(var1=.3, var2=.3, corr=0),
+           p_uppb = c(  0,   2, 4.00, 4.00, 0.99),
+           p_lowb = c( -4,  -2, 0.05, 0.05,-0.99),
+           distribution="binomial",
+           nest=id,
+           random=c("rand1", "rand2"),
+           mixture="bivariate-normal-corr",
+           ooo=TRUE,
+           compute_hessian = FALSE,
+           compute_kkt = FALSE,
+           trace=1,
+           method='nlminb',
+           int2dmethod="cuba"
+    )
+)
 
+## lock down PQL estimated s1,s2,rho
+(take3 <-
+    gnlrem(y=ybind,
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+           pmu = c(Intercept=-0.95, b_p=0.55),
+           pmix=c(var1=0.952^2, var2=1.4878^2, corr=0.553),
+           p_uppb = c(  0,   2, 0.952^2, 1.4878^2, 0.553),
+           p_lowb = c( -4,  -2, 0.952^2, 1.4878^2, 0.553),
+           distribution="binomial",
+           nest=id,
+           random=c("rand1", "rand2"),
+           mixture="bivariate-normal-corr",
+           ooo=TRUE,
+           compute_hessian = FALSE,
+           compute_kkt = FALSE,
+           trace=1,
+           method='nlminb',
+           int2dmethod="cuba"
+    )
+)
+
+## https://stats.stackexchange.com/questions/49039/reml-use-in-glmm
+##cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 1
+## ?MASS::glmmPQL
+library(nlme) # will be loaded automatically if omitted
+summary(MASS::glmmPQL(cbind(r, n_r) ~ x1, random = ~ x1 | id,
+                family = binomial, data = summed_binom_dat))
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 0)
+##?GMMAT::glmmkin
+##GMMAT::glmmkin(cbind(r, n_r) ~ x1, id="id", random.slope="x1")
+
+
+
+g1 <- hglm::hglm(
+  fixed = r/(r+n_r) ~ x1, weights=(r+n_r),
+  random = ~ 1 | id,
+  data = summed_binom_dat,
+  family = binomial(link = logit),
+  rand.family = gaussian(link = identity)
+)
+summary(g1)
+yy <- r/(r+n_r)
+g2 <- hglm::hglm2(
+  meanmodel= yy ~ x1 + (x1 | id),
+  weights=(r+n_r),
+  data = summed_binom_dat,
+  family = binomial(link = logit),
+  rand.family = gaussian(link = identity),
+  fix.disp=NULL
+)
+summary(g2)
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id)+(0+x1 | id), summed_binom_dat, binomial, nAGQ = 1)
 
 ########################################$$$$#########
 ## 2022-02-10                                      ##
@@ -181,12 +279,15 @@ xyplot(incidence/size ~ period|herd, cbpp, type=c('g','p','l'),
 ## using nAGQ=0 only gets close to the optimum
 (gm1a <- glmer(cbind(incidence, size - incidence) ~ period + (1 | herd),
                cbpp, binomial, nAGQ = 0))
+(gm1a <- glmer(cbind(incidence, size - incidence) ~ period + (1 | herd),
+               cbpp, binomial, nAGQ = 1))
+
 ## using  nAGQ = 9  provides a better evaluation of the deviance
 ## Currently the internal calculations use the sum of deviance residuals,
 ## which is not directly comparable with the nAGQ=0 or nAGQ=1 result.
 ## 'verbose = 1' monitors iteratin a bit; (verbose = 2 does more):
 (gm1a <- glmer(cbind(incidence, size - incidence) ~ period + (1 | herd),
-               cbpp, binomial, verbose = 1, nAGQ = 9))
+               cbpp, binomial, verbose = 2, nAGQ =9))
 
 ## GLMM with individual-level variability (accounting for overdispersion)
 ## For this data set the model is the same as one allowing for a period:herd
@@ -211,8 +312,8 @@ attach(cbpp)
 gm1.redux <-
   gnlrem(y=cbind(incidence, size - incidence),
          mu = ~ plogis(Intercept + period2*b2 + period3*b3 + period4*b4 + rand),
-         pmu = c(Intercept=-1,b2=-1, b3=-1, b4=-1),
-         pmix=c(var=0.78),
+         pmu = c(Intercept=2,b2=2, b3=2, b4=2),#pmu = c(Intercept=-1,b2=-1, b3=-1, b4=-1),
+         pmix=c(var=1.00),
          p_uppb = c(  2,   2, 2, 2,  1.0),
          p_lowb = c( -2,  -2,-2,-2,  0.1),
          distribution="binomial",
@@ -224,10 +325,14 @@ gm1.redux <-
          compute_kkt = FALSE,
          trace=1,
          method='nlminb',
-         abs.tol.nlminb = 1e-6,
-         xf.tol.nlminb =  1e-6,
-         x.tol.nlminb =   1e-6,
-         rel.tol.nlminb = 1e-6
+         abs.tol.nlminb = 1e-10,
+         xf.tol.nlminb =  1e-10,
+         x.tol.nlminb =   1e-10,
+         rel.tol.nlminb = 1e-10,
+         steps=10,
+         points=5,
+         eps=1e-04,
+
   )
 
 gm1.redux$value
@@ -251,12 +356,12 @@ gm1a.redux <-
          compute_kkt = FALSE,
          trace=1,
          method='nlminb',
-         abs.tol.nlminb = 1e-7,
-         xf.tol.nlminb =  1e-7,
-         x.tol.nlminb =   1e-7,
-         rel.tol.nlminb = 1e-7,
-         points = 10, #5 default
-         steps = 20   # 10 is default
+         abs.tol.nlminb = 1e-2,
+         xf.tol.nlminb =  1e-2,
+         x.tol.nlminb =   1e-2,
+         rel.tol.nlminb = 1e-2,
+         points = 2, #5 default
+         steps = 2   # 10 is default
   )
 
  gm1.redux$value
@@ -266,25 +371,25 @@ gm1a.redux$value
 ## https://stats.stackexchange.com/questions/414864/lme4glmer-get-the-covariance-matrix-of-the-fixed-and-random-effect-estimates
 
 
-
-(gm2.redux <-
-  gnlrem(y=cbind(incidence, size - incidence),
-         mu = ~ plogis(Intercept + period2*b2 + period3*b3 + period4*b4 + rand1 + rand2),
-         pmu = c(Intercept=-1,b2=-1, b3=-1, b4=-1),
-         pmix=c(var1=0.78, var2=0.40),
-         p_uppb = c(  2,   2, 2, 2,  1.0, 1.0),
-         p_lowb = c( -2,  -2,-2,-2,  0.1, 0.1),
-         distribution="binomial",
-         nest=herd,
-         random=c("rand1", "rand2"),
-         mixture="bivariate-normal-indep",
-         ooo=TRUE,
-         compute_hessian = FALSE,
-         compute_kkt = FALSE,
-         trace=1,
-         method='nlminb',
-  )
-)
+#
+# (gm2.redux <-
+#   gnlrem(y=cbind(incidence, size - incidence),
+#          mu = ~ plogis(Intercept + period2*b2 + period3*b3 + period4*b4 + rand1 + rand2),
+#          pmu = c(Intercept=-1,b2=-1, b3=-1, b4=-1),
+#          pmix=c(var1=0.78, var2=0.40),
+#          p_uppb = c(  2,   2, 2, 2,  1.0, 1.0),
+#          p_lowb = c( -2,  -2,-2,-2,  0.1, 0.1),
+#          distribution="binomial",
+#          nest=herd,
+#          random=c("rand1", "rand2"),
+#          mixture="bivariate-normal-indep",
+#          ooo=TRUE,
+#          compute_hessian = FALSE,
+#          compute_kkt = FALSE,
+#          trace=1,
+#          method='nlminb',
+#   )
+# )
 
 
 ## glmer with correlation between random intercept and random slope
@@ -331,57 +436,65 @@ glmer(cbind(incidence, size - incidence) ~ period_numeric + (1 | herd) + (0+peri
 
 (rand.int.rand.slopes <-
     gnlrem(y=cbind(incidence, size - incidence),
-           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + rand2*b_p),
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
            pmu = c(Intercept=-1, b_p=-1),
-           pmix=c(var1=0.78, var2=0.40),
-           p_uppb = c(  2,   2, 4.00, 4.00),
-           p_lowb = c( -2,  -2, 0.1, 0.1),
+           pmix=c(var1=0.78, var2=0.40, corr12=0),
+           p_uppb = c(  2,   2, 4.00, 4.00, 0),
+           p_lowb = c( -2,  -2, 0.001, 0.00004, 0),
            distribution="binomial",
            nest=herd,
            random=c("rand1", "rand2"),
-           mixture="bivariate-normal-indep",
+           mixture="bivariate-normal-corr",
            ooo=TRUE,
            compute_hessian = FALSE,
            compute_kkt = FALSE,
            trace=1,
-           method='nlminb'
+           method='nlminb',
+           int2dmethod="cuba"
+
     )
 )
-# [1] 4
-# Intercept       b_p      var1      var2
-# -1.00     -1.00      0.78      0.40
-# [1] 103.7967
+# [1] 5
+# Intercept       b_p      var1      var2    corr12
+# -1.00     -1.00      0.78      0.40      0.00
+# [1] 100.0948
 # fn is  fn
 # Looking for method =  nlminb
-# Function has  4  arguments
+# Function has  5  arguments
 # par[ 1 ]:  -2   <? -1   <? 2     In Bounds
 # par[ 2 ]:  -2   <? -1   <? 2     In Bounds
-# par[ 3 ]:  0.1   <? 0.78   <? 4     In Bounds
-# par[ 4 ]:  0.1   <? 0.4   <? 4     In Bounds
+# par[ 3 ]:  0.001   <? 0.78   <? 4     In Bounds
+# par[ 4 ]:  4e-05   <? 0.4   <? 4     In Bounds
+# par[ 5 ]:  0   <? 0   <? 0     In Bounds
 # Analytic gradient not made available.
 # Analytic Hessian not made available.
-# Scale check -- log parameter ratio= 0.39794   log bounds ratio= 0.01099538
+# Scale check -- log parameter ratio= 0.39794   log bounds ratio= 0.0001085872
 # Method:  nlminb
-# 0:     103.79673: -1.00000 -1.00000 0.780000 0.400000
-# 1:     94.395935: -0.921281 -0.625287 0.773239 0.393239
-# 2:     93.454422: -0.996482 -0.490285 0.443614 0.274224
-# 3:     93.305688: -1.00875 -0.550801 0.437306 0.272707
-# 4:     93.248260: -0.959084 -0.551177 0.401156 0.263686
-# 5:     93.242240: -0.948738 -0.547427 0.374704 0.255650
-# 6:     93.239082: -0.932206 -0.564129 0.366603 0.252365
-# 7:     93.237854: -0.925698 -0.560545 0.368247 0.252491
-# 8:     93.237583: -0.932887 -0.558137 0.367660 0.252801
-# 9:     93.237511: -0.933923 -0.558984 0.369611 0.253577
-# 10:     93.237500: -0.933290 -0.559070 0.368478 0.253123
-# 11:     93.237499: -0.933371 -0.558983 0.368667 0.253196
-# 12:     93.237499: -0.933370 -0.558997 0.368656 0.253192
-# 13:     93.237499: -0.933369 -0.558997 0.368655 0.253192
+# 0:     100.09476: -1.00000 -1.00000 0.780000 0.400000  0.00000
+# 1:     96.840530: -0.889769 -0.753339 0.781888 0.240449  0.00000
+# 2:     93.411291: -0.921116 -0.611218 0.414012 4.00000e-05  0.00000
+# 3:     93.361374: -0.915466 -0.592099 0.416240 0.0188371  0.00000
+# 4:     93.269964: -0.909596 -0.586202 0.431892 4.00000e-05  0.00000
+# 5:     93.268432: -0.902234 -0.569471 0.450896 0.00781833  0.00000
+# 6:     93.245441: -0.904989 -0.573779 0.453331 4.00000e-05  0.00000
+# 7:     93.244993: -0.906060 -0.560295 0.450888 4.00000e-05  0.00000
+# 8:     93.240816: -0.909700 -0.566084 0.450205 4.00000e-05  0.00000
+# 9:     93.238758: -0.922579 -0.565109 0.445501 4.00000e-05  0.00000
+# 10:     93.238174: -0.922553 -0.562195 0.445604 4.00000e-05  0.00000
+# 11:     93.237931: -0.925453 -0.562172 0.445910 4.00000e-05  0.00000
+# 12:     93.237854: -0.927833 -0.560123 0.450825 4.00000e-05  0.00000
+# 13:     93.237692: -0.931224 -0.558374 0.446415 4.00000e-05  0.00000
+# 14:     93.237642: -0.932079 -0.560479 0.446628 4.00000e-05  0.00000
+# 15:     93.237548: -0.933500 -0.559038 0.447681 4.00000e-05  0.00000
+# 16:     93.237548: -0.933253 -0.559058 0.447741 4.00000e-05  0.00000
+# 17:     93.237548: -0.933305 -0.559046 0.447725 4.00000e-05  0.00000
+# 18:     93.237548: -0.933304 -0.559047 0.447725 4.00000e-05  0.00000
 # Post processing for method  nlminb
 # Successful convergence!
 #   Save results from method  nlminb
 # $par
-# Intercept        b_p       var1       var2
-# -0.9333689 -0.5589967  0.3686549  0.2531917
+# Intercept        b_p       var1       var2     corr12
+# -0.9333043 -0.5590465  0.4477254  0.0000400  0.0000000
 #
 # $message
 # [1] "relative convergence (4)"
@@ -390,18 +503,18 @@ glmer(cbind(incidence, size - incidence) ~ period_numeric + (1 | herd) + (0+peri
 # [1] 0
 #
 # $value
-# [1] 93.2375
+# [1] 93.23755
 #
 # $fevals
 # function
-# 19
+# 25
 #
 # $gevals
 # gradient
-# 74
+# 90
 #
 # $nitns
-# [1] 13
+# [1] 18
 #
 # $kkt1
 # [1] NA
@@ -411,17 +524,17 @@ glmer(cbind(incidence, size - incidence) ~ period_numeric + (1 | herd) + (0+peri
 #
 # $xtimes
 # user.self
-# 1391.858
+# 2779.862
 #
 # Assemble the answers
-# Intercept        b_p      var1      var2   value fevals gevals niter convcode kkt1
-# nlminb -0.9333689 -0.5589967 0.3686549 0.2531917 93.2375     19     74    13        0   NA
-# kkt2    xtime
-# nlminb   NA 1391.858
+# Intercept        b_p      var1  var2 corr12    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -0.9333043 -0.5590465 0.4477254 4e-05      0 93.23755     25     90    18        0   NA   NA
+# xtime
+# nlminb 2779.862
 
 (rand.int.rand.slopes.nonzero.corr <-
     gnlrem(y=cbind(incidence, size - incidence),
-           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + rand2*b_p),
+           mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
            pmu = c(Intercept=-0.9333689, b_p=-0.558996),
            pmix=c(var1=0.3686549, var2=0.2531917, corr12= -0.10),
            p_uppb = c(  2,   2, 4.00, 4.00, 0.90),
@@ -434,10 +547,13 @@ glmer(cbind(incidence, size - incidence) ~ period_numeric + (1 | herd) + (0+peri
            compute_hessian = FALSE,
            compute_kkt = FALSE,
            trace=1,
-           method='nlminb'
+           method='nlminb',
+           int2dmethod="cuba"
     )
 )
-#
+# Intercept        b_p       var1       var2     corr12
+# -0.9333689 -0.5589960  0.3686549  0.2531917 -0.1000000
+# [1] 96.66891
 # fn is  fn
 # Looking for method =  nlminb
 # Function has  5  arguments
@@ -450,23 +566,58 @@ glmer(cbind(incidence, size - incidence) ~ period_numeric + (1 | herd) + (0+peri
 # Analytic Hessian not made available.
 # Scale check -- log parameter ratio= 0.9700533   log bounds ratio= 0.3467875
 # Method:  nlminb
-# 0:     93.246926: -0.933369 -0.558996 0.368655 0.253192 -0.100000
-# 1:     93.240001: -0.935611 -0.553697 0.352205 0.247219 -0.0946299
-# 2:     93.238462: -0.937009 -0.558041 0.350772 0.246712 -0.0941815
-# 3:     93.237903: -0.936588 -0.556481 0.346662 0.245240 -0.0928892
-# 4:     93.237721: -0.936962 -0.558312 0.345884 0.244963 -0.0926473
-# 5:     93.237611: -0.935713 -0.557602 0.344551 0.244488 -0.0922390
-# 6:     93.237524: -0.932448 -0.559458 0.343021 0.243941 -0.0917914
-# 7:     93.237500: -0.933385 -0.559064 0.342267 0.243669 -0.0915783
-# 8:     93.237500: -0.933358 -0.558945 0.342223 0.243654 -0.0915649
-# 9:     93.237499: -0.933394 -0.558982 0.342113 0.243615 -0.0915364
-# 10:     93.237499: -0.933360 -0.559000 0.342104 0.243612 -0.0915342
+# 0:     96.668908: -0.933369 -0.558996 0.368655 0.253192 -0.100000
+# 1:     93.764320: -0.925143 -0.600387 0.401532 0.0705280 -0.139629
+# 2:     93.663329: -0.794393 -0.508991 0.587035 0.0400000 -0.403583
+# 3:     93.368641: -0.929231 -0.476850 0.561841 0.0400000 -0.516573
+# 4:     93.135918: -1.05063 -0.488291 0.606646 0.0400000 -0.391118
+# 5:     93.061465: -0.987166 -0.544726 0.447698 0.0400000 -0.379357
+# 6:     93.003421: -1.00495 -0.518751 0.510988 0.0400000 -0.413143
+# 7:     92.980272: -1.01102 -0.512586 0.519505 0.0400000 -0.443200
+# 8:     92.843109: -1.02957 -0.491499 0.572051 0.0400000 -0.613687
+# 9:     92.690070: -1.03509 -0.488232 0.643033 0.0400000 -0.769081
+# 10:     92.417551: -0.995270 -0.521391 0.751831 0.0400000 -0.878620
+# 11:     92.301027: -0.921752 -0.570864 0.813047 0.0400000 -0.816547
+# 12:     92.116208: -0.843831 -0.621220 0.952859 0.106774 -0.818105
+# 13:     92.108905: -0.829141 -0.637993 0.988450 0.0980816 -0.819566
+# 14:     92.098351: -0.851070 -0.621007 0.955995 0.0958164 -0.823257
+# 15:     92.080683: -0.868195 -0.607672 0.990312 0.0975466 -0.837036
+# 16:     92.078781: -0.876284 -0.610849 0.987859 0.0932515 -0.837657
+# 17:     92.075977: -0.872079 -0.611615 0.995128 0.0986009 -0.836853
+# 18:     92.075055: -0.867671 -0.619043  1.01318 0.0987198 -0.835824
+# 19:     92.072255: -0.897652 -0.600761 0.995213 0.0929377 -0.839901
+# 20:     92.071222: -0.898548 -0.599909 0.998049 0.0981050 -0.839632
+# 21:     92.069745: -0.895347 -0.602814  1.00165 0.0959737 -0.839253
+# 22:     92.068704: -0.888963 -0.603302  1.01083 0.100449 -0.839293
+# 23:     92.067546: -0.912729 -0.599588  1.00949 0.100118 -0.840250
+# 24:     92.065667: -0.911289 -0.597023  1.01329 0.0960900 -0.839790
+# 25:     92.065181: -0.911061 -0.596072  1.01740 0.100429 -0.841468
+# 26:     92.063686: -0.908216 -0.600430  1.02047 0.0988163 -0.842168
+# 27:     92.062576: -0.904611 -0.599756  1.02507 0.100845 -0.843054
+# 28:     92.061936: -0.908856 -0.597960  1.02725 0.0975579 -0.842813
+# 29:     92.060866: -0.906395 -0.599946  1.03095 0.100915 -0.844201
+# 30:     92.060197: -0.905387 -0.601117  1.03622 0.0986433 -0.844509
+# 31:     92.059329: -0.908543 -0.596741  1.03836 0.0999210 -0.844653
+# 32:     92.058422: -0.906826 -0.600893  1.04156 0.101522 -0.846202
+# 33:     92.057351: -0.907661 -0.597961  1.04666 0.101453 -0.846465
+# 34:     92.056886: -0.915429 -0.596897  1.05498 0.0984724 -0.847833
+# 35:     92.053833: -0.912204 -0.599004  1.06449 0.103531 -0.851084
+# 36:     92.053320: -0.910584 -0.595329  1.07546 0.105772 -0.851029
+# 37:     92.050592: -0.909178 -0.598999  1.08645 0.106157 -0.853318
+# 38:     92.047510: -0.902631 -0.602922  1.13649 0.114179 -0.862802
+# 39:     92.046690: -0.917413 -0.599439  1.15437 0.114772 -0.861209
+# 40:     92.046615: -0.918075 -0.597644  1.15287 0.113208 -0.864805
+# 41:     92.046506: -0.914415 -0.599314  1.15109 0.114132 -0.862900
+# 42:     92.046501: -0.915416 -0.599059  1.15193 0.114079 -0.862989
+# 43:     92.046501: -0.915315 -0.599069  1.15184 0.114072 -0.863020
+# 44:     92.046501: -0.915313 -0.599070  1.15185 0.114073 -0.863017
+#
 # Post processing for method  nlminb
 # Successful convergence!
 #   Save results from method  nlminb
 # $par
-# Intercept         b_p        var1        var2      corr12
-# -0.93336043 -0.55900009  0.34210449  0.24361159 -0.09153423
+# Intercept        b_p       var1       var2     corr12
+# -0.9153133 -0.5990704  1.1518453  0.1140729 -0.8630170
 #
 # $message
 # [1] "relative convergence (4)"
@@ -475,18 +626,18 @@ glmer(cbind(incidence, size - incidence) ~ period_numeric + (1 | herd) + (0+peri
 # [1] 0
 #
 # $value
-# [1] 93.2375
+# [1] 92.0465
 #
 # $fevals
 # function
-# 17
+# 53
 #
 # $gevals
 # gradient
-# 73
+# 264
 #
 # $nitns
-# [1] 10
+# [1] 44
 #
 # $kkt1
 # [1] NA
@@ -496,13 +647,15 @@ glmer(cbind(incidence, size - incidence) ~ period_numeric + (1 | herd) + (0+peri
 #
 # $xtimes
 # user.self
-# 1167.854
+# 328.956
 #
 # Assemble the answers
-# Intercept        b_p      var1      var2      corr12   value fevals gevals niter
-# nlminb -0.9333604 -0.5590001 0.3421045 0.2436116 -0.09153423 93.2375     17     73    10
-# convcode kkt1 kkt2    xtime
-# nlminb        0   NA   NA 1167.854
+# Intercept        b_p     var1      var2    corr12   value fevals gevals niter convcode kkt1 kkt2
+# nlminb -0.9153133 -0.5990704 1.151845 0.1140729 -0.863017 92.0465     53    264    44        0   NA   NA
+# xtime
+# nlminb 328.956
+
+
 
 ## BELOW HERE: tried to dichotomize lmer example for my glmer purposes
 # (fm1 <- lmer(Reaction ~ Days + (Days | Subject), sleepstudy))

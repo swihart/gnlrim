@@ -224,6 +224,7 @@
 ##' @importFrom extraDistr dbetapr
 ##' @importFrom VGAM dbetabinom dbetabinom.ab
 ##' @importFrom mvtnorm dmvnorm
+##' @importFrom cubature pcubature
 ##' @useDynLib gnlrim, .registration = TRUE
 gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                    random=NULL, nest=NULL,
@@ -1010,7 +1011,8 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
 
                 },
                 "bivariate-normal-indep"=function(s1,s2,    r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,   0,   0,s2),nrow=2),checkSymmetry=FALSE),
-                "bivariate-normal-corr"=function(s1,s2,corr,r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),checkSymmetry=FALSE),
+                "bivariate-normal-corr"=function(s1,s2,corr,r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),checkSymmetry=FALSE,log=FALSE),
+                ##"bivariate-normal-corr"=function(s1,s2,corr,r1,r2) mvtnorm::dmvt(df=1,x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr,corr,s2),nrow=2),checkSymmetry=FALSE,log=FALSE),
                 Laplace=function(p,r) {
                   tmp <- p
                   exp(-abs(r)/tmp)/(2*tmp)},
@@ -1040,8 +1042,17 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
   # #
   if(mixture=="cloglog-bridge-delta-eq-alpha"||mixture=="cloglog-bridge-0-mean"||mixture=="logit-bridge-var"||mixture=="logit-bridge-phi"||mixture=="normal-var"||mixture=="normal-phi"||mixture=="logistic"||mixture=="Cauchy-scl"||mixture=="Cauchy-phi"||mixture=="Laplace")
     like <- function(p){
-      fn <- function(r)
-        mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
+      fn <- function(r){
+        # print("printing mix(p[np],r):")
+        # print(mix(p[np],r))
+        # #
+        # print("printing capply(fcn(p,r[nest])*delta^cc,nest,prod):")
+        # print(capply(fcn(p,r[nest])*delta^cc,nest,prod))
+        #
+        # print("their product:")
+        # print(mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod))
+              mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
+        }
       -sum(log(inta(fn)))}
   else if(mixture=="cloglog-bridge-delta-free"||mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi"||mixture=="libstableR-subgauss-scl"||mixture=="libstableR-subgauss-phi"||mixture=="libstableR-subgauss-scl-over-sqrt"||mixture=="libstableR-subgauss-scl-over-sqrt-phi")
     like <- function(p){
@@ -1058,8 +1069,15 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
      }
   else if(mixture=="bivariate-normal-corr" & int2dmethod=="romberg_int2d")
     like <- function(p){
-      fn <- function(r1,r2)
+      fn <- function(r1,r2){
+
+      #   print(r1)
+      # print(r2)
+      # print(r1[nest])
+      # print(r2[nest])
+
         mix(p[np-2],p[np-1],p[np],r1,r2)*capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod)
+      }
       ##-sum(log(inta(fn)))
       -sum(log(romberg_int2d(f=fn,a=matrix(-Inf,nnest,2),b=matrix(Inf,nnest,2))))
       ## here,bruce
@@ -1090,10 +1108,22 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
 
         # print("printing mix(p[np-2],p[np-1],p[np],r1,r2):")
         # print(mix(p[np-2],p[np-1],p[np],r1,r2))
-        #
+        # #
         # print("printing capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod):")
         # print(capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod))
-
+        #
+        # print("their product:")
+        # print(mix(p[np-2],p[np-1],p[np],r1,r2)*capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod))
+# print(mix);
+#         print(p)
+#         print(c(p[np-2],p[np-1],p[np]))
+#         print(fcn)
+#         print(mu1)
+#         print(nest)
+#         print(r1)
+#         print(r2)
+#         print(r1[nest])
+#         print(r2[nest])
         mix(p[np-2],p[np-1],p[np],r1,r2)*capply(fcn(p,r1[nest],r2[nest])*delta^cc,nest,prod)
 
 
@@ -1104,13 +1134,16 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
       ##-sum(log(inta(fn)))
       # print("printing `fn`:")
       # print(fn);
-      print("HERE-boy-0")
+      #print("HERE-boy-0")
       #print(nest)
       #print(nnest)
       #print(fn(c(1,2)))
       #print(cubature::pcubature(f=fn,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf), fDim=nnest))
 
-      -sum(log(cubature::pcubature(f=fn,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf), fDim=nnest)$integral))
+      -sum(log(cubature::pcubature(f=fn,
+                                   lowerLimit=c(-Inf,-Inf),
+                                   upperLimit=c(Inf,Inf),
+                                   fDim=nnest)$integral))
       ## here,bruce
 
 
@@ -1131,7 +1164,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
   #
   # check that the likelihood returns an appropriate value and optimize
   #
-  tmp <- like(p); print(np); print(p); print(tmp)
+  tmp <- like(p); ## print(np); print(p); print(tmp)
   if(is.na(tmp)||abs(tmp)==Inf)
     stop("Likelihood returns Inf or NAs: invalid initial values, wrong model, or probabilities too small to calculate")
   if(fscale==1)fscale <- tmp
@@ -1172,7 +1205,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                    )
     )
   } else if ( length(method) == 1 & method[1]=="bobyqa"){
-    print("here"); print(maxfun.bobyqa); print(npt.bobyqa)
+    #print("here"); print(maxfun.bobyqa); print(npt.bobyqa)
     zAll <- optimx(fn=like,
                    par=p,
                    hessian=compute_hessian, ## not `hess`

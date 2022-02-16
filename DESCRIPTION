@@ -11,6 +11,8 @@ License: GPL-2
 Depends:
     R (>= 3.5.0)
 Imports: 
+  cubature,
+  mvtnorm,
   optimx,
   bridgedist,
   stabledist,
