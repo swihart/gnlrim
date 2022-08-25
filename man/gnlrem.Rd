@@ -89,7 +89,8 @@ distribution (experimental).  betaprime has mean (shp/(shp-1) for shp>1.
 instead it is integrated with intb
 instead of int1.  \code{bivariate-normal-indep} is for the 2 random parameters
 and has correlation fixed at 0. \code{bivariate-normal-corr} is for the 2 random parameters
-and allows correlation between the two random parameters.}
+and allows correlation between the two random parameters. \code{univariate-normal-corr} is for the 2 random parameters
+and allows correlation between the two random parameters but uses a univariate dnorm for fitting.}
 
 \item{random}{The name of the random parameter in the \code{mu} formula.}
 

@@ -1,3 +1,2928 @@
+####################################################
+## BEGIN Sameer XDR COP idea              ##########
+####################################################
+## none of these worked very well.  SO i copied and pasted
+## to create chunk above this one and fiddled with how many outliers
+## I had to see if that would give comp. advantage to stable
+
+## code copied from:
+## /Volumes/swihartbj$/projects/_XDR/_12_costs_cdf_log10_nofacet_2curves.R
+## which supports this paper:
+## https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6710115/
+## and improve this figure/analysis;
+## https://pubmed.ncbi.nlm.nih.gov/30824387/#&gid=article-figures&pid=figure-4-uid-3
+library(ggplot2)
+library(data.table)
+dtep.money <- readRDS("dtep.money.RDS")
+mx=max(dtep.money$total_direct_cost,na.rm=TRUE)
+mn=min(dtep.money$total_direct_cost,na.rm=TRUE)
+
+ggplot(dtep.money, aes(total_direct_cost_adj, colour=factor(cc1_or_ncc0)))+
+  stat_ecdf() +
+  coord_cartesian(xlim=c(5e3, 1.2*mx))+
+  scale_x_log10(
+    breaks=c(5e3,1e4,73187,101190,1e6,1.2*mx),
+    labels=c("$5,000","$10,000","$73,187","$101,190","$1,000,000","$2,469,965")
+
+  )+
+  xlab("Total Direct Cost (log10 USD)") + ylab("Percentile") +
+  theme(legend.position="bottom")+
+  ggtitle("Cumulative log10 hospitalization costs for the CC and NCC groups")+
+  scale_color_discrete(name="Group",
+                       breaks=c("0","1"),
+                       labels=c("Non-Colistin case", "Colistin case")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+ggplot(dtep.money) +
+  geom_jitter(aes(x=death_flag, y=total_direct_cost,color=group))
+
+dtep.money[,mean(total_direct_cost,na.rm=TRUE),by=group]
+
+dtep.money[,{j=list(min=min(total_direct_cost,na.rm=TRUE),
+                    q10=quantile(total_direct_cost,0.10,na.rm=TRUE),
+                    q25=quantile(total_direct_cost,0.25,na.rm=TRUE),
+                    q50=quantile(total_direct_cost,0.50,na.rm=TRUE),
+                    q75=quantile(total_direct_cost,0.75,na.rm=TRUE),
+                    q90=quantile(total_direct_cost,0.90,na.rm=TRUE),
+                    q99=quantile(total_direct_cost,0.99,na.rm=TRUE),
+                    max=max(total_direct_cost,na.rm=TRUE))
+},
+by=group]
+
+
+dtep.money[,{j=list(min=min(total_direct_cost,na.rm=TRUE),
+                    q10=quantile(total_direct_cost,0.10,na.rm=TRUE),
+                    q25=quantile(total_direct_cost,0.25,na.rm=TRUE),
+                    q50=quantile(total_direct_cost,0.50,na.rm=TRUE),
+                    q75=quantile(total_direct_cost,0.75,na.rm=TRUE),
+                    q90=quantile(total_direct_cost,0.90,na.rm=TRUE),
+                    q99=quantile(total_direct_cost,0.99,na.rm=TRUE),
+                    max=max(total_direct_cost,na.rm=TRUE))
+},
+by=c("group","death_flag")]
+
+
+dtep.money[,mean(death_flag),by=group]
+
+table(dtep.money[,mean(death_flag),by=match_id]$V1)
+
+## error about scaling
+# probit.re <-
+#   lme4::glmer(death_flag ~ -1 + total_direct_cost + group + (1|match_id), family=binomial(link="probit"), data=dtep.money,
+#               nAGQ = 100)
+# summary(probit.re)
+#Error in pwrssUpdate(pp, resp, tol = tolPwrss, GQmat = GQmat, compDev = compDev,  :
+# PIRLS loop resulted in NaN value
+# In addition: Warning message:
+#   Some predictor variables are on very different scales: consider rescaling
+
+# probit.re <-
+#   lme4::glmer(death_flag ~ I(total_direct_cost/1e6) + (1|match_id), family=binomial(link="probit"), data=dtep.money,
+#               nAGQ = 100)
+# summary(probit.re)
+#
+# probit.re <-
+#   lme4::glmer(death_flag ~ scale(total_direct_cost) + group + (1|match_id), family=binomial(link="probit"), data=dtep.money,
+#               nAGQ = 100)
+# summary(probit.re)
+#
+#
+# probit.re <-
+#   lme4::glmer(death_flag ~ -1 + scale(total_direct_cost) * group + (1|match_id), family=binomial(link="probit"), data=dtep.money,
+#               nAGQ = 100)
+# summary(probit.re)
+
+##remove match_ids with missing
+bad.ids <- dtep.money[is.na(total_direct_cost)]$match_id
+dtep.money2 <- copy(dtep.money[!(match_id %in% bad.ids)])
+nrow(dtep.money)
+nrow(dtep.money2)
+rm(dtep.money)
+dtep.money <- copy(dtep.money2)
+rm(dtep.money2)
+setkey(dtep.money, match_id, group)
+dtep.money$match_id <- rep(1:(nrow(dtep.money)/3),each=3)  ## they have to be in order.
+
+probit.re <-
+  lme4::glmer(death_flag ~ -1 +
+                I((group=="Colistin case")+0L) +
+                I((group=="Non-Colistin case")+0L)+
+                I((group=="Colistin case") * scale(total_direct_cost) ) +
+                I((group=="Non-Colistin case") * scale(total_direct_cost) ) +
+                (1|match_id),
+              family=binomial(link="probit"),
+              data=dtep.money,
+              nAGQ = 100)
+summary(probit.re)
+
+mean(scale(dtep.money$total_direct_cost),na.rm=TRUE)
+var(scale(dtep.money$total_direct_cost),na.rm=TRUE)
+
+range(scale(dtep.money$total_direct_cost),na.rm=TRUE)
+
+plot(seq(-1,19,0.1), pnorm(-0.59 + 0.156*seq(-1,19,0.1)), ylim=c(0,1))
+points(seq(-1,19,0.1), pnorm(-0.91 + 0.142*seq(-1,19,0.1)), col="red")
+
+## 18 times the central case!
+## https://fooledbyrandomness.com/FT-MandelbrotTaleb.pdf
+range(pnorm(-0.59 + 0.156*seq(-1,19,0.1))- pnorm(-0.91 + 0.142*seq(-1,19,0.1)))
+
+
+## untransformed scale: error
+# probit.re <-
+#   lme4::glmer(death_flag ~ -1 +
+#                 I((group=="Colistin case")+0L) +
+#                 I((group=="Non-Colistin case")+0L)+
+#                 I((group=="Colistin case") * (total_direct_cost) ) +
+#                 I((group=="Non-Colistin case") * (total_direct_cost) ) +
+#                 (1|match_id),
+#               family=binomial(link="probit"),
+#               data=dtep.money,
+#               nAGQ = 100)
+# summary(probit.re)
+#
+# Error in pwrssUpdate(pp, resp, tol = tolPwrss, GQmat = GQmat, compDev = compDev,  :
+#                        PIRLS loop resulted in NaN value
+#                      In addition: Warning message:
+#                        Some predictor variables are on very different scales: consider rescaling
+
+
+#can gnlrim help? A: had some hiccups that weren't untransformed scale so try untransformed scale
+##A: okay htat bombed so try transfomred scale()
+
+b0.cc <-   with(dtep.money, I((group=="Colistin case")+0L))
+b0.nc <-   with(dtep.money, I((group=="Non-Colistin case")+0L))
+
+b1.cc <-   as.numeric(with(dtep.money, I((group=="Colistin case")*scale(total_direct_cost))))
+b1.nc <-   as.numeric(with(dtep.money, I((group=="Non-Colistin case")*scale(total_direct_cost))))
+
+id <- rep(1:(nrow(dtep.money)/3),each=3) ##dtep.money$match_id
+o.value <- with(dtep.money, cbind(death_flag,1-death_flag))
+
+## if you have NA's in the data it may complain about initial values.
+## if your ids are not sequential you'll get a likelihood is NA INF or probs too small error
+(rand.int.probit <-
+    gnlrim::gnlrim(y=o.value,
+                   mu = ~ pnorm(beta0.nc*b0.nc + beta0.cc*b0.cc + slope1.nc*b1.nc + slope1.cc*b1.cc + rand1),
+                   pmu = c(beta0.nc=0, beta0.cc=0, slope1.nc=0, slope1.cc=0),
+                   pmix=c(var1=1),
+                   p_uppb = c(  1,   1,  1, 1, 4),
+                   p_lowb = c( -1,  -1, -1,-1, 0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="normal-var",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+## errors out with conv code 9999 after 0: iteration if you dont use scale
+
+## if you have NA's in the data it may complain about initial values.
+## if your ids are not sequential you'll get a likelihood is NA INF or probs too small error
+(rand.int.stable <-
+    gnlrim::gnlrim(y=o.value,
+                   mu = ~ stable_cdf2(beta0.nc*b0.nc + beta0.cc*b0.cc + beta1.nc*b1.nc + beta1.cc*b1.cc  + rand1, c(alp,0,1,0)),
+                   pmu = c(beta0.nc=-1.31, beta0.cc=-0.83,beta1.nc=0.20, beta1.cc=0.20, alp=2),
+                   pmix=c(alp=2,scl=0.25),
+                   p_uppb = c(  1,1,1,1,    2, 3),
+                   p_lowb = c( -2,-2,-1,-1, 0.800, 0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="libstableR-subgauss-scl",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+#errors with 9999 code. if you dont use scale
+## use scale but the bound on alpha is wrong, causing you to re-run:
+# beta0.nc beta0.cc beta1.nc beta1.cc      alp      scl
+# -1.0      0.0      0.0      0.0      1.5      1.0
+# [1] 5214.961
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -2   <? -1   <? 1     In Bounds
+# par[ 2 ]:  -1   <? 0   <? 1     In Bounds
+# par[ 3 ]:  -1   <? 0   <? 1     In Bounds
+# par[ 4 ]:  -1   <? 0   <? 1     In Bounds
+# par[ 5 ]:  0.1   <? 1.5   <? 1.9     In Bounds
+# par[ 6 ]:  0.05   <? 1   <? 3     In Bounds
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.1760913   log bounds ratio= 0.2218487
+# Method:  nlminb
+# 0:     5214.9612: -1.00000  0.00000  0.00000  0.00000  1.50000  1.00000
+# 1:     4736.6571: -1.48754 -0.604270 0.173822 0.187670  1.61612 0.435870
+# 2:     4698.3961: -1.45533 -0.730714 0.194348 0.200567  1.65183 0.317871
+# 3:     4684.4352: -1.36766 -0.854100 0.215510 0.228318  1.67765 0.228327
+# 4:     4683.8708: -1.33907 -0.844905 0.206427 0.243941  1.68579 0.223985
+# 5:     4683.7849: -1.34276 -0.841232 0.208917 0.238532  1.71119 0.199382
+# 6:     4683.5561: -1.31762 -0.839319 0.200911 0.227781  1.72802 0.214046
+# 7:     4683.3524: -1.32819 -0.835579 0.209620 0.248460  1.75226 0.223881
+# 8:     4683.1410: -1.32729 -0.845423 0.196354 0.231659  1.77856 0.231979
+# 9:     4683.0315: -1.31361 -0.839682 0.209551 0.235920  1.80343 0.248778
+# 10:     4682.7915: -1.32730 -0.836349 0.203799 0.236994  1.83588 0.243509
+# 11:     4682.6147: -1.31335 -0.843177 0.192263 0.230491  1.85977 0.261554
+# 12:     4682.4350: -1.31542 -0.842499 0.208571 0.220794  1.89057 0.261364
+# 13:     4682.3314: -1.31329 -0.837779 0.198387 0.226003  1.89518 0.264884
+# 14:     4682.3041: -1.31345 -0.836506 0.199597 0.225166  1.89984 0.265632
+# 15:     4682.3020: -1.31297 -0.836873 0.199407 0.224655  1.90000 0.266507
+# 16:     4682.3015: -1.31341 -0.837402 0.199622 0.224267  1.90000 0.267526
+# 17:     4682.3014: -1.31356 -0.837414 0.199339 0.224495  1.90000 0.267622
+# 18:     4682.3014: -1.31360 -0.837451 0.199359 0.224474  1.90000 0.267779
+
+
+
+
+
+
+
+
+####################################################
+## END Sameer XDR COP idea                ##########
+####################################################
+
+
+
+
+
+
+
+
+####################################################
+## the ol' cop == 1.89, 1.2 stable        ##########
+####################################################
+## is there better plogis approx than 1.89 1.2 ####
+dens_diff <- function(THETA){
+
+  a <- THETA[1]
+  c <- THETA[2]
+
+  s <- seq(0.0001,0.9999,0.0001)
+  s <- seq(0.001 ,0.999 ,0.001 )
+  s <- seq(0.01  ,0.99  ,0.01  )
+  sqrt(mean(abs(qlogis(s) - libstableR::stable_q(s, c(a,0,c,0),1))))
+
+}
+
+## depends on s in the function
+optim(c(1.89,1.2),
+      dens_diff,
+      lower=c(1,0.1),
+      upper=c(2,10),
+      method="L-BFGS-B"
+)
+
+
+a <- 1.80
+x <- seq(-3,3,1)
+plot(x,dlogis(x))
+points(x,libstableR::stable_pdf(x, c(a,0,1.158,0),1), col="blue")
+
+s <- seq(0.0001,0.9999,0.0001)
+plot(qlogis(s),
+     libstableR::stable_q(s, c(a,0,1.2,0),1)
+)
+abline(a=0,b=1,col="blue")
+
+
+####################################################
+## the ol' cop == 1.89, 1.2 stable        ##########
+####################################################
+
+library(data.table)
+library(mvtnorm)
+
+## this file contains a subset of the models ran for the COP paper with coauthors
+## Caffo and Crainiceanu.
+
+## data from Kung-Yee Liang JRSS-B paper
+## n.(left eye).(right eye).(race) is the number
+## of people that had eye disease configuration
+## and race b (black) or w (white)
+n.1.1.b <- sum(10, 14, 28, 56)
+n.1.1.w <- sum( 4,  9, 11, 79)
+n.1.0.b <- sum(19, 24, 22, 29)
+n.1.0.w <- sum(11, 15, 31, 60)
+n.0.1.b <- sum(21, 23, 21, 37)
+n.0.1.w <- sum(15, 16, 37, 67)
+n.0.0.b <- sum(729, 551, 452, 307)
+n.0.0.w <- sum(602, 541, 752, 606)
+
+## Example 3.11
+## note: can connect to past example of Restricted
+T <- function(x, phi) qnorm( pnorm(x), sd = 1/phi )
+## T <- function(x, phi) qnorm( pnorm(x), sd = 1 )
+
+## FJ being evaluated over partition subsets with borders T
+p.1.1 <-function(x, Beta0, Beta1, rho, phi){
+  pmvnorm(c(-Inf,-Inf), c(T(Beta0 + x*Beta1, phi), T(Beta0 + x*Beta1, phi)),
+          sigma=(1/phi)^2*matrix(c(1,rho,rho,1), nrow=2))[1]
+}
+p.1.0 <-function(x, Beta0, Beta1, rho, phi){
+  pmvnorm(c(-Inf,T(Beta0 + x*Beta1, phi)), c(T(Beta0 + x*Beta1, phi), Inf),
+          sigma=(1/phi)^2*matrix(c(1,rho,rho,1), nrow=2))[1]
+}
+p.0.1 <-function(x, Beta0, Beta1, rho, phi){
+  pmvnorm(c(T(Beta0 + x*Beta1, phi), -Inf), c(Inf, T(Beta0 + x*Beta1, phi)),
+          sigma=(1/phi)^2*matrix(c(1,rho,rho,1), nrow=2))[1]
+}
+p.0.0 <-function(x, Beta0, Beta1, rho, phi){
+  pmvnorm(c(T(Beta0 + x*Beta1, phi), T(Beta0 + x*Beta1, phi)), c(Inf, Inf),
+          sigma=(1/phi)^2*matrix(c(1,rho,rho,1), nrow=2))[1]
+}
+p.1.1.b <- function(Beta0, Beta1, rho, phi) p.1.1(x=1, Beta0, Beta1, rho, phi)
+p.1.1.w <- function(Beta0, Beta1, rho, phi) p.1.1(x=0, Beta0, Beta1, rho, phi)
+p.1.0.b <- function(Beta0, Beta1, rho, phi) p.1.0(x=1, Beta0, Beta1, rho, phi)
+p.1.0.w <- function(Beta0, Beta1, rho, phi) p.1.0(x=0, Beta0, Beta1, rho, phi)
+p.0.1.b <- function(Beta0, Beta1, rho, phi) p.0.1(x=1, Beta0, Beta1, rho, phi)
+p.0.1.w <- function(Beta0, Beta1, rho, phi) p.0.1(x=0, Beta0, Beta1, rho, phi)
+p.0.0.b <- function(Beta0, Beta1, rho, phi) p.0.0(x=1, Beta0, Beta1, rho, phi)
+p.0.0.w <- function(Beta0, Beta1, rho, phi) p.0.0(x=0, Beta0, Beta1, rho, phi)
+
+## function of log-likelihood depending on 'theta'
+logl.theta <- function(theta){
+  Beta0 <- theta[1]
+  Beta1 <- theta[2]
+  rho   <- theta[3] / (1+theta[3])
+  phi   <- 1 / (sqrt(1+theta[3]))
+  ##rho <- .4363368
+  -(n.1.1.b*log(p.1.1.b(Beta0, Beta1, rho, phi)) +
+      n.1.1.w*log(p.1.1.w(Beta0, Beta1, rho, phi)) +
+      n.1.0.b*log(p.1.0.b(Beta0, Beta1, rho, phi)) +
+      n.1.0.w*log(p.1.0.w(Beta0, Beta1, rho, phi)) +
+      n.0.1.b*log(p.0.1.b(Beta0, Beta1, rho, phi)) +
+      n.0.1.w*log(p.0.1.w(Beta0, Beta1, rho, phi)) +
+      n.0.0.b*log(p.0.0.b(Beta0, Beta1, rho, phi)) +
+      n.0.0.w*log(p.0.0.w(Beta0, Beta1, rho, phi)))
+}
+
+## maximize the likelihood, theta[3] is tau^2 (see logl.theta above)
+probitprobitnormal <- optim(c( 0,0,1),
+                            logl.theta,
+                            method="L-BFGS-B",
+                            control= list(maxit=100),
+                            upper=c( 3, 1, 10),
+                            lower=c(-3,-1,-10))
+# > probitprobitnormal
+# $par
+# [1] -1.39879349  0.03942097  2.87840414
+#
+# $value
+# [1] 2699.798
+#
+# $counts
+# function gradient
+# 21       21
+#
+# $convergence
+# [1] 0
+#
+# $message
+# [1] "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
+
+probitprobitnormal$val
+probitprobitnormal$par
+## rho and phi
+(tau2 <- probitprobitnormal$par[3])
+(rho   <- tau2 / (1+tau2))
+(phi   <- 1 / (sqrt(1+tau2)))
+(margBeta1 <- probitprobitnormal$par[2])
+(condBeta1 <- phi^(-1)*probitprobitnormal$par[2])
+(margBeta0 <- probitprobitnormal$par[1])
+(condBeta0 <- phi^(-1)*probitprobitnormal$par[1])
+
+
+data(bwVI)
+lme4::glmer(value ~ black + (1|id), data=bwVI, family=binomial("probit"), nAGQ = 100)
+1.697^2
+setDT(bwVI)
+
+attach(bwVI)
+o.value <- value ## lesson learned!  got an error when I used "value"
+(rand.int.stable <-
+    gnlrim::gnlrim(y=cbind(o.value, 1-o.value), ## lesson learned!  got an error when I used "value"
+                   mu = ~ stable_cdf2(Intercept + black*b_p + rand1, c(alpha, 0, 1.2, 0)),
+                   ##pmu = c(Intercept = -2.7, b_p=0.08, alpha=1.89),
+                   ## -4.75073 0.129755  1.89000  1.97264
+                   pmu = c(Intercept = -4.88, b_p=0.134, alpha=1.89),
+                   pmix=c(alpha=1.89,scl=2.03),
+                   p_uppb = c(  50,   9, 1.89, 20.00),
+                   p_lowb = c( -50,  -9, 1.89,  0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="libstableR-subgauss-scl",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+#
+# Intercept       b_p     alpha       scl
+# -2.70      0.08      1.89      2.88
+# [1] 3461.13
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  4  arguments
+# par[ 1 ]:  -50   <? -2.7   <? 50     In Bounds
+# par[ 2 ]:  -9   <? 0.08   <? 9     In Bounds
+# par[ 3 ]:  1.89   <? 1.89   <? 1.89     In Bounds
+# par[ 4 ]:  0.05   <? 2.88   <? 20     In Bounds
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 1.556303   log bounds ratio= 0.7447275
+# Method:  nlminb
+# 0:     3461.1303: -2.70000 0.0800000  1.89000  2.88000
+# 1:     2934.5180: -3.47493 -0.267695  1.89000  2.35219
+# 2:     2715.0814: -3.98848 -0.466517  1.89000  1.78837
+# 3:     2707.0199: -4.37736 0.201170  1.89000  1.63311
+# 4:     2705.6610: -4.31865 0.218105  1.89000  1.79977
+# 5:     2701.2813: -4.49575 0.209398  1.89000  1.80807
+# 6:     2700.4145: -4.60898 0.0878555  1.89000  1.87063
+# 7:     2700.1183: -4.59699 0.0963923  1.89000  1.90390
+# 8:     2699.9953: -4.63191 0.104887  1.89000  1.90952
+# 9:     2699.9209: -4.68627 0.127812  1.89000  1.95209
+# 10:     2699.8230: -4.75394 0.148075  1.89000  1.96950
+# 11:     2699.8154: -4.75496 0.130339  1.89000  1.97386
+# 12:     2699.8150: -4.75091 0.129788  1.89000  1.97273
+# 13:     2699.8150: -4.75071 0.129752  1.89000  1.97263
+# 14:     2699.8150: -4.75073 0.129755  1.89000  1.97264
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p      alpha        scl
+# -4.7507258  0.1297551  1.8900000  1.9726394
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 2699.815
+#
+# $fevals
+# function
+# 23
+#
+# $gevals
+# gradient
+# 55
+#
+# $nitns
+# [1] 14
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 15429.81
+#
+# Assemble the answers
+#        Intercept       b_p alpha      scl    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -4.750726 0.1297551  1.89 1.972639 2699.815     23     55    14        0   NA   NA
+# xtime
+# nlminb 15429.81
+
+lme4::glmer(value ~ black + (1|id), data=bwVI, family=binomial("logit"), nAGQ = 100)
+# > lme4::glmer(value ~ black + (1|id), data=bwVI, family=binomial("logit"), nAGQ = 100)
+# Generalized linear mixed model fit by maximum likelihood (Adaptive Gauss-Hermite
+#                                                           Quadrature, nAGQ = 100) [glmerMod]
+# Family: binomial  ( logit )
+# Formula: value ~ black + (1 | id)
+# Data: bwVI
+# AIC       BIC    logLik  deviance  df.resid
+# 5405.531  5427.279 -2699.765  5399.531     10395
+# Random effects:
+#   Groups Name        Std.Dev.
+# id     (Intercept) 3.043
+# Number of obs: 10398, groups:  id, 5199
+# Fixed Effects:
+#   (Intercept)        black
+# -4.9409       0.1462
+####################################################
+## END                  ######            ##########
+####################################################
+
+####################################################
+## the ol' cop == gnlmm trick for stable? ##########
+####################################################
+
+
+
+## Bruce Swihart (bswihart@jhsph.edu)
+library(data.table)
+library(mvtnorm)
+
+## this file contains a subset of the models ran for the COP paper with coauthors
+## Caffo and Crainiceanu.
+
+## data from Kung-Yee Liang JRSS-B paper
+## n.(left eye).(right eye).(race) is the number
+## of people that had eye disease configuration
+## and race b (black) or w (white)
+n.1.1.b <- sum(10, 14, 28, 56)
+n.1.1.w <- sum( 4,  9, 11, 79)
+n.1.0.b <- sum(19, 24, 22, 29)
+n.1.0.w <- sum(11, 15, 31, 60)
+n.0.1.b <- sum(21, 23, 21, 37)
+n.0.1.w <- sum(15, 16, 37, 67)
+n.0.0.b <- sum(729, 551, 452, 307)
+n.0.0.w <- sum(602, 541, 752, 606)
+
+## Example 3.11
+## note: can connect to past example of Restricted
+T <- function(x, phi) qnorm( pnorm(x), sd = 1/phi )
+## T <- function(x, phi) qnorm( pnorm(x), sd = 1 )
+
+## FJ being evaluated over partition subsets with borders T
+p.1.1 <-function(x, Beta0, Beta1, rho, phi){
+  pmvnorm(c(-Inf,-Inf), c(T(Beta0 + x*Beta1, phi), T(Beta0 + x*Beta1, phi)),
+          sigma=(1/phi)^2*matrix(c(1,rho,rho,1), nrow=2))[1]
+}
+p.1.0 <-function(x, Beta0, Beta1, rho, phi){
+  pmvnorm(c(-Inf,T(Beta0 + x*Beta1, phi)), c(T(Beta0 + x*Beta1, phi), Inf),
+          sigma=(1/phi)^2*matrix(c(1,rho,rho,1), nrow=2))[1]
+}
+p.0.1 <-function(x, Beta0, Beta1, rho, phi){
+  pmvnorm(c(T(Beta0 + x*Beta1, phi), -Inf), c(Inf, T(Beta0 + x*Beta1, phi)),
+          sigma=(1/phi)^2*matrix(c(1,rho,rho,1), nrow=2))[1]
+}
+p.0.0 <-function(x, Beta0, Beta1, rho, phi){
+  pmvnorm(c(T(Beta0 + x*Beta1, phi), T(Beta0 + x*Beta1, phi)), c(Inf, Inf),
+          sigma=(1/phi)^2*matrix(c(1,rho,rho,1), nrow=2))[1]
+}
+p.1.1.b <- function(Beta0, Beta1, rho, phi) p.1.1(x=1, Beta0, Beta1, rho, phi)
+p.1.1.w <- function(Beta0, Beta1, rho, phi) p.1.1(x=0, Beta0, Beta1, rho, phi)
+p.1.0.b <- function(Beta0, Beta1, rho, phi) p.1.0(x=1, Beta0, Beta1, rho, phi)
+p.1.0.w <- function(Beta0, Beta1, rho, phi) p.1.0(x=0, Beta0, Beta1, rho, phi)
+p.0.1.b <- function(Beta0, Beta1, rho, phi) p.0.1(x=1, Beta0, Beta1, rho, phi)
+p.0.1.w <- function(Beta0, Beta1, rho, phi) p.0.1(x=0, Beta0, Beta1, rho, phi)
+p.0.0.b <- function(Beta0, Beta1, rho, phi) p.0.0(x=1, Beta0, Beta1, rho, phi)
+p.0.0.w <- function(Beta0, Beta1, rho, phi) p.0.0(x=0, Beta0, Beta1, rho, phi)
+
+## function of log-likelihood depending on 'theta'
+logl.theta <- function(theta){
+  Beta0 <- theta[1]
+  Beta1 <- theta[2]
+  rho   <- theta[3] / (1+theta[3])
+  phi   <- 1 / (sqrt(1+theta[3]))
+  ##rho <- .4363368
+  -(n.1.1.b*log(p.1.1.b(Beta0, Beta1, rho, phi)) +
+      n.1.1.w*log(p.1.1.w(Beta0, Beta1, rho, phi)) +
+      n.1.0.b*log(p.1.0.b(Beta0, Beta1, rho, phi)) +
+      n.1.0.w*log(p.1.0.w(Beta0, Beta1, rho, phi)) +
+      n.0.1.b*log(p.0.1.b(Beta0, Beta1, rho, phi)) +
+      n.0.1.w*log(p.0.1.w(Beta0, Beta1, rho, phi)) +
+      n.0.0.b*log(p.0.0.b(Beta0, Beta1, rho, phi)) +
+      n.0.0.w*log(p.0.0.w(Beta0, Beta1, rho, phi)))
+}
+
+## maximize the likelihood, theta[3] is tau^2 (see logl.theta above)
+probitprobitnormal <- optim(c( 0,0,1),
+                            logl.theta,
+                            method="L-BFGS-B",
+                            control= list(maxit=100),
+                            upper=c( 3, 1, 10),
+                            lower=c(-3,-1,-10))
+# > probitprobitnormal
+# $par
+# [1] -1.39879349  0.03942097  2.87840414
+#
+# $value
+# [1] 2699.798
+#
+# $counts
+# function gradient
+# 21       21
+#
+# $convergence
+# [1] 0
+#
+# $message
+# [1] "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
+
+probitprobitnormal$val
+probitprobitnormal$par
+## rho and phi
+(tau2 <- probitprobitnormal$par[3])
+(rho   <- tau2 / (1+tau2))
+(phi   <- 1 / (sqrt(1+tau2)))
+(margBeta1 <- probitprobitnormal$par[2])
+(condBeta1 <- phi^(-1)*probitprobitnormal$par[2])
+(margBeta0 <- probitprobitnormal$par[1])
+(condBeta0 <- phi^(-1)*probitprobitnormal$par[1])
+
+
+data(bwVI)
+lme4::glmer(value ~ black + (1|id), data=bwVI, family=binomial("probit"), nAGQ = 100)
+1.697^2
+setDT(bwVI)
+#summed_binom <- bwVI[,{j=list(eyes_impaired=sum(value),eyes_tested=.N)}, by=c("id","black")]
+#attach(summed_binom)
+## PPN -- initially I didn't get the "expected likelihood" so I tested to make sure
+##        gnlrim and gnlrem gave same answers.  See below where I don't sum things...
+# (rand.int <-
+#     gnlrim::gnlrem(y=cbind(eyes_impaired, eyes_tested - eyes_impaired),
+#                    mu = ~ pnorm(Intercept + black*b_p + rand1),
+#                    pmu = c(Intercept=-0.95, b_p=0.55),
+#                    pmix=c(var1=1),
+#                    p_uppb = c(  0,   2, 4.00),
+#                    p_lowb = c( -4,  -2, 0.05),
+#                    distribution="binomial",
+#                    nest=id,
+#                    random=c("rand1"),
+#                    mixture="normal-var",
+#                    ooo=TRUE,
+#                    compute_hessian = FALSE,
+#                    compute_kkt = FALSE,
+#                    trace=1,
+#                    method='nlminb',
+#     )
+# )
+# Assemble the answers
+# Intercept        b_p     var1    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -2.754239 0.07762926 2.876914 2389.273     31     72    20        0   NA   NA
+# xtime
+# nlminb 1658.171
+# (rand.int.gnlrim <-
+#     gnlrim::gnlrim(y=cbind(eyes_impaired, eyes_tested - eyes_impaired),
+#                    mu = ~ pnorm(Intercept + black*b_p + rand1),
+#                    pmu = c(Intercept=-0.95, b_p=0.55),
+#                    pmix=c(var1=1),
+#                    p_uppb = c(  0,   2, 4.00),
+#                    p_lowb = c( -4,  -2, 0.05),
+#                    distribution="binomial",
+#                    nest=id,
+#                    random=c("rand1"),
+#                    mixture="normal-var",
+#                    ooo=TRUE,
+#                    compute_hessian = FALSE,
+#                    compute_kkt = FALSE,
+#                    trace=1,
+#                    method='nlminb',
+#     )
+# )
+# Assemble the answers
+# Intercept        b_p     var1    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -2.754237 0.07762872 2.876913 2389.273     21     64    17        0   NA   NA
+# xtime
+# nlminb 1333.852
+
+#detach(summed_binom)
+attach(bwVI)
+o.value <- value ## lesson learned!  got an error when I used "value"
+(rand.int.gnlrim <-
+    gnlrim::gnlrim(y=cbind(o.value, 1-o.value),
+                   mu = ~ pnorm(Intercept + black*b_p + rand1),
+                   pmu = c(Intercept=-0.95, b_p=0.55),
+                   pmix=c(var1=1),
+                   p_uppb = c(  0,   2, 4.00),
+                   p_lowb = c( -4,  -2, 0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="normal-var",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+# Assemble the answers
+# Intercept        b_p     var1    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -2.754237 0.07762872 2.876913 2699.803     21     64    17        0   NA   NA
+
+(rand.int.stable <-
+    gnlrim::gnlrim(y=cbind(o.value, 1-o.value), ## lesson learned!  got an error when I used "value"
+                   mu = ~ stable_cdf2(Intercept + black*b_p + rand1, c(alpha, 0, 1, 0)),
+                   pmu = c(Intercept = -2.7, b_p=0.08, alpha=1.8),
+                   pmix=c(alpha=1.8,scl=2.88),
+                   p_uppb = c(  50,   9, 1.99, 20.00),
+                   p_lowb = c( -50,  -9, 1.05,  0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="libstableR-subgauss-scl",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+
+# Method:  nlminb
+# 0:     2745.8764: -5.00000 -3.24000  1.25000  1.52000
+# 1:     2737.7009: -5.20990 -2.56549  1.01000  1.14402
+# 2:     2725.4479: -5.34348 -2.24165  1.13678 0.904028
+# 3:     2713.3670: -5.52718 -1.84601  1.06002 0.918473
+# 4:     2711.8555: -5.54324 -1.88506  1.11478  1.09971
+# 5:     2711.5921: -5.61401 -1.71030  1.06926  1.10168
+# 6:     2708.1815: -5.68973 -1.53588  1.10251  1.08248
+# 7:     2703.3790: -5.96875 -0.813365  1.08192  1.04080
+# 8:     2700.0922: -5.75068 -0.0843337  1.16032  1.17062
+# 9:     2699.5341: -5.95969 0.0846123  1.16950  1.17735
+# 10:     2699.5101: -5.82060 0.313741  1.19095  1.18469
+# 11:     2699.4617: -5.97930 0.183156  1.17878  1.23352
+# 12:     2699.4160: -5.94655 0.181168  1.17476  1.19521
+# 13:     2699.4112: -5.94868 0.207219  1.17623  1.20046
+# 14:     2699.4103: -5.96215 0.207706  1.17457  1.19995
+# 15:     2699.4049: -6.11683 0.219983  1.15559  1.19040
+# 16:     2699.4042: -6.12561 0.222487  1.15524  1.18992
+# 17:     2699.4040: -6.15028 0.225216  1.15259  1.18817
+# 18:     2699.4040: -6.14895 0.225096  1.15276  1.18826
+# 19:     2699.4040: -6.14913 0.224992  1.15274  1.18826
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p      alpha        scl
+# -6.1491302  0.2249925  1.1527411  1.1882609
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 2699.404
+#
+# $fevals
+# function
+# 26
+#
+# $gevals
+# gradient
+# 102
+#
+# $nitns
+# [1] 19
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 12956.43
+#
+# Assemble the answers
+#        Intercept       b_p    alpha      scl    value fevals gevals niter convcode kkt1
+# nlminb  -6.14913 0.2249925 1.152741 1.188261 2699.404     26    102    19        0   NA
+
+## tried a re-run:
+# > o.value <- value ## lesson learned!  got an error when I used "value"
+# > (rand.int.stable <-
+#      +     gnlrim::gnlrim(y=cbind(o.value, 1-o.value), ## lesson learned!  got an error when I used "value"
+#                           +                    mu = ~ stable_cdf2(Intercept + black*b_p + rand1, c(alpha, 0, 1, 0)),
+#                           +                    pmu = c(Intercept = -2.7, b_p=0.08, alpha=1.8),
+#                           +                    pmix=c(alpha=1.8,scl=2.88),
+#                           +                    p_uppb = c(  50,   9, 1.99, 20.00),
+#                           +                    p_lowb = c( -50,  -9, 1.05,  0.05),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1"),
+#                           +                    mixture="libstableR-subgauss-scl",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +     )
+#    + )
+# [1] 4
+# Intercept       b_p     alpha       scl
+# -2.70      0.08      1.80      2.88
+# [1] 3430.29
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  4  arguments
+# par[ 1 ]:  -50   <? -2.7   <? 50     In Bounds
+# par[ 2 ]:  -9   <? 0.08   <? 9     In Bounds
+# par[ 3 ]:  1.05   <? 1.8   <? 1.99     In Bounds
+# par[ 4 ]:  0.05   <? 2.88   <? 20     In Bounds
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 1.556303   log bounds ratio= 2.026872
+# Method:  nlminb
+# 0:     3430.2898: -2.70000 0.0800000  1.80000  2.88000
+# 1:     2884.1373: -3.42798 -0.246897  1.99000  2.32575
+# 2:     2727.5734: -3.71540 -0.355767  1.99000  1.94951
+# 3:     2708.5006: -3.83659 -0.373315  1.99000  1.74881
+# 4:     2703.0968: -3.89486 -0.161453  1.90695  1.73893
+# 5:     2702.4809: -3.91506 -0.150820  1.93647  1.69825
+# 6:     2701.4776: -3.89743 -0.102593  1.93890  1.71837
+# 7:     2700.9524: -3.89844 -0.0231217  1.99000  1.69087
+# 8:     2700.2269: -3.86544 0.170356  1.99000  1.67962
+# 9:     2700.1937: -4.04618 0.179886  1.99000  1.75697
+# 10:     2700.1016: -4.02595 0.154927  1.99000  1.73926
+# 11:     2699.9558: -4.00552 0.138957  1.96788  1.72570
+# 12:     2699.8339: -3.93927 0.137515  1.99000  1.70717
+# 13:     2699.8253: -3.88489 0.0811044  1.99000  1.69049
+# 14:     2699.7956: -3.90269 0.110038  1.99000  1.69314
+# 15:     2699.7956: -3.90272 0.109646  1.99000  1.69323
+# 16:     2699.7956: -3.90269 0.109644  1.99000  1.69321
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p      alpha        scl
+# -3.9026857  0.1096438  1.9900000  1.6932125
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 2699.796
+#
+# $fevals
+# function
+# 23
+#
+# $gevals
+# gradient
+# 78
+#
+# $nitns
+# [1] 16
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 21196.23
+#
+# Assemble the answers
+# Intercept       b_p alpha      scl    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -3.902686 0.1096438  1.99 1.693212 2699.796     23     78    16        0   NA   NA
+
+library(stable, lib.loc="~/RLIBS")
+#
+# T <- function(eta_m, g_g=gam_g, g_d=gam_d, g_h=gam_h, aa=a){
+#   phi <- g_d / (g_h^aa + g_g^aa)^(1/aa)
+#   eta_m / phi
+# }
+#
+# ## Here we do for Ji=2.  We have graphical evidence suggesting a spectral measure at the usual basis (axis)
+# ## as well as (1/sqrt(2),1/sqrt(2)) and (-1/sqrt(2),-1/sqrt(2))
+#
+# ## assign the lambda weights...
+# lambda.vec <- c(rep(gam_h^a,Ji),
+#                 Ji^(a/2)*gam_g^a  )
+# ## assign the positions of the weights on the unit sphere
+# s.vec <- matrix(cbind(diag(Ji),
+#                       rep(1,Ji)/sqrt(Ji)),
+#                 nrow=Ji)
+# ## define the corresponding discrete spectral measure stable dist.
+#
+#
+# dist.specJ <- mvstable.discrete.spec.meas  (alpha=a,
+#                                             s=s.vec,
+#                                             lambda=lambda.vec,
+#                                             beta=rep(0,length(lambda.vec)) )#read the manual - length(beta) == length(lambda)
+# mvstable.info(dist.specJ)
+
+
+## data from Kung-Yee Liang JRSS-B paper
+## n.(left eye).(right eye).(race) is the number
+## of people that had eye disease configuration
+## and race b (black) or w (white)
+n.1.1.b <- sum(10, 14, 28, 56)
+n.1.1.w <- sum( 4,  9, 11, 79)
+n.1.0.b <- sum(19, 24, 22, 29)
+n.1.0.w <- sum(11, 15, 31, 60)
+n.0.1.b <- sum(21, 23, 21, 37)
+n.0.1.w <- sum(15, 16, 37, 67)
+n.0.0.b <- sum(729, 551, 452, 307)
+n.0.0.w <- sum(602, 541, 752, 606)
+
+## Example 3.11
+## note: can connect to past example of Restricted
+## T <- function(x, phi) qnorm( pnorm(x), sd = 1/phi )
+## T <- function(x, phi) qnorm( pnorm(x), sd = 1 )
+T <- function(x, a, gam_g) (1+gam_g^a)^(1/a) * x
+
+## FJ being evaluated over partition subsets with borders T
+p.1.1 <-function(x, Beta0, Beta1, a, gam_g){
+  big.val <- 100000
+  gam_h <- 1
+  Ji <- 2
+
+  ## assign the lambda weights...
+  lambda.vec <- c(rep(gam_h^a,Ji),
+                  Ji^(a/2)*gam_g^a  )
+  ## assign the positions of the weights on the unit sphere
+  s.vec <- matrix(cbind(diag(Ji),
+                        rep(1,Ji)/sqrt(Ji)),
+                  nrow=Ji)
+  ## define the corresponding discrete spectral measure stable dist.
+
+
+  dist.specJ <- mvstable.discrete.spec.meas  (alpha=a,
+                                              s=s.vec,
+                                              lambda=lambda.vec,
+                                              beta=rep(0,length(lambda.vec)) )#read the manual - length(beta) == length(lambda)
+  mvstable.info(dist.specJ)
+
+  ## pmvstable(dist.specJ, c(-big.val,-big.val), c(T(Beta0 + x*Beta1, a, gam_g), T(Beta0 + x*Beta1, a, gam_g)), epsabs=1e-4)
+  pmvstable.MC(dist.specJ, c(-big.val,-big.val), c(T(Beta0 + x*Beta1, a, gam_g), T(Beta0 + x*Beta1, a, gam_g)), n=4e6)
+
+}
+#
+# T(x=-6.1, a=1.15, gam_g=1.18)
+# p.1.1(x=0,-6.14,0.225, 1.15, 1.18)
+# p.1.1(x=1,-6.14,0.225, 1.15, 1.18)
+#
+p.1.0 <-function(x, Beta0, Beta1, a, gam_g){
+  big.val <- 100000
+  gam_h <- 1
+  Ji <- 2
+
+  ## assign the lambda weights...
+  lambda.vec <- c(rep(gam_h^a,Ji),
+                  Ji^(a/2)*gam_g^a  )
+  ## assign the positions of the weights on the unit sphere
+  s.vec <- matrix(cbind(diag(Ji),
+                        rep(1,Ji)/sqrt(Ji)),
+                  nrow=Ji)
+  ## define the corresponding discrete spectral measure stable dist.
+
+
+  dist.specJ <- mvstable.discrete.spec.meas  (alpha=a,
+                                              s=s.vec,
+                                              lambda=lambda.vec,
+                                              beta=rep(0,length(lambda.vec)) )#read the manual - length(beta) == length(lambda)
+  mvstable.info(dist.specJ)
+
+  ## pmvstable(dist.specJ, c(-big.val,-big.val), c(T(Beta0 + x*Beta1, a, gam_g), T(Beta0 + x*Beta1, a, gam_g)), epsabs=1e-4)
+
+  pmvstable.MC(dist.specJ,c( -big.val,T(Beta0 + x*Beta1, a, gam_g)), c(T(Beta0 + x*Beta1, a, gam_g),big.val),  n=4e6)
+}
+p.0.1 <-function(x, Beta0, Beta1, a, gam_g){
+  big.val <-100000
+  gam_h <- 1
+  Ji <- 2
+
+  ## assign the lambda weights...
+  lambda.vec <- c(rep(gam_h^a,Ji),
+                  Ji^(a/2)*gam_g^a  )
+  ## assign the positions of the weights on the unit sphere
+  s.vec <- matrix(cbind(diag(Ji),
+                        rep(1,Ji)/sqrt(Ji)),
+                  nrow=Ji)
+  ## define the corresponding discrete spectral measure stable dist.
+
+
+  dist.specJ <- mvstable.discrete.spec.meas  (alpha=a,
+                                              s=s.vec,
+                                              lambda=lambda.vec,
+                                              beta=rep(0,length(lambda.vec)) )#read the manual - length(beta) == length(lambda)
+  mvstable.info(dist.specJ)
+
+  ## pmvstable(dist.specJ, c(-big.val,-big.val), c(T(Beta0 + x*Beta1, a, gam_g), T(Beta0 + x*Beta1, a, gam_g)), epsabs=1e-4)
+
+  pmvstable.MC(dist.specJ,c(T(Beta0 + x*Beta1, a, gam_g), -big.val), c(big.val,T(Beta0 + x*Beta1, a, gam_g)),  n=4e6)
+}
+p.0.0 <-function(x, Beta0, Beta1, a, gam_g){
+  big.val <- 100000
+  gam_h <- 1
+  Ji <- 2
+
+  ## assign the lambda weights...
+  lambda.vec <- c(rep(gam_h^a,Ji),
+                  Ji^(a/2)*gam_g^a  )
+  ## assign the positions of the weights on the unit sphere
+  s.vec <- matrix(cbind(diag(Ji),
+                        rep(1,Ji)/sqrt(Ji)),
+                  nrow=Ji)
+  ## define the corresponding discrete spectral measure stable dist.
+
+
+  dist.specJ <- mvstable.discrete.spec.meas  (alpha=a,
+                                              s=s.vec,
+                                              lambda=lambda.vec,
+                                              beta=rep(0,length(lambda.vec)) )#read the manual - length(beta) == length(lambda)
+  mvstable.info(dist.specJ)
+
+  ## pmvstable(dist.specJ, c(-big.val,-big.val), c(T(Beta0 + x*Beta1, a, gam_g), T(Beta0 + x*Beta1, a, gam_g)), epsabs=1e-4)
+
+  pmvstable.MC(dist.specJ,c(T(Beta0 + x*Beta1, a, gam_g), T(Beta0 + x*Beta1, a, gam_g)), c(big.val,big.val),  n=4e6)
+}
+T(x=-6.1, a=1.15, gam_g=1.18)
+
+p.1.1(x=0,-6.14,0.225, 1.15, 1.18)
+p.1.1(x=1,-6.14,0.225, 1.15, 1.18)
+
+p.0.0(x=0,-6.14,0.225, 1.15, 1.18)
+p.0.0(x=1,-6.14,0.225, 1.15, 1.18)
+
+p.1.0(x=0,-6.14,0.225, 1.15, 1.18)
+p.1.0(x=1,-6.14,0.225, 1.15, 1.18)
+
+p.0.1(x=0,-6.14,0.225, 1.15, 1.18)
+p.0.1(x=1,-6.14,0.225, 1.15, 1.18)
+
+
+
+p.1.1.b <- function(Beta0, Beta1, a, gam_g) p.1.1(x=1, Beta0, Beta1, a, gam_g)
+p.1.1.w <- function(Beta0, Beta1, a, gam_g) p.1.1(x=0, Beta0, Beta1, a, gam_g)
+p.1.0.b <- function(Beta0, Beta1, a, gam_g) p.1.0(x=1, Beta0, Beta1, a, gam_g)
+p.1.0.w <- function(Beta0, Beta1, a, gam_g) p.1.0(x=0, Beta0, Beta1, a, gam_g)
+p.0.1.b <- function(Beta0, Beta1, a, gam_g) p.0.1(x=1, Beta0, Beta1, a, gam_g)
+p.0.1.w <- function(Beta0, Beta1, a, gam_g) p.0.1(x=0, Beta0, Beta1, a, gam_g)
+p.0.0.b <- function(Beta0, Beta1, a, gam_g) p.0.0(x=1, Beta0, Beta1, a, gam_g)
+p.0.0.w <- function(Beta0, Beta1, a, gam_g) p.0.0(x=0, Beta0, Beta1, a, gam_g)
+
+## function of log-likelihood depending on 'theta'
+logl.theta <- function(theta){
+  Beta0 <- theta[1]
+  Beta1 <- theta[2]
+    a   <- theta[3]
+  gam_g <- theta[4]
+  ##rho <- .4363368
+  # -(n.1.1.b*log(p.1.1.b(Beta0, Beta1, a, gam_g)) +
+  #     n.1.1.w*log(p.1.1.w(Beta0, Beta1, a, gam_g)) +
+  #     n.1.0.b*log(p.1.0.b(Beta0, Beta1, a, gam_g)) +
+  #     n.1.0.w*log(p.1.0.w(Beta0, Beta1, a, gam_g)) +
+  #     n.0.1.b*log(p.0.1.b(Beta0, Beta1, a, gam_g)) +
+  #     n.0.1.w*log(p.0.1.w(Beta0, Beta1, a, gam_g)) +
+  #     n.0.0.b*log(p.0.0.b(Beta0, Beta1, a, gam_g)) +
+  #     n.0.0.w*log(p.0.0.w(Beta0, Beta1, a, gam_g)))
+
+
+
+  ## smarten this up a bit; it will quicken and be more accurate
+  ## if you realize 1.0 nad 0.1 are the same and should make 0.0+1.1
+  ## equal 1.
+
+  Kp.1.1.b <- p.1.1.b(Beta0, Beta1, a, gam_g)
+  Kp.1.1.w <- p.1.1.w(Beta0, Beta1, a, gam_g)
+
+  Kp.0.0.b <- p.0.0.b(Beta0, Beta1, a, gam_g)
+  Kp.0.0.w <- p.0.0.w(Beta0, Beta1, a, gam_g)
+
+  remainder.b <- 1 - Kp.1.1.b - Kp.0.0.b
+  remainder.w <- 1 - Kp.1.1.w - Kp.0.0.w
+
+  Kp.0.1.b <- Kp.1.0.b <- remainder.b / 2
+  Kp.0.1.w <- Kp.1.0.w <- remainder.w / 2
+
+
+  -(n.1.1.b*log(Kp.1.1.b) +
+      n.1.1.w*log(Kp.1.1.w) +
+      n.1.0.b*log(Kp.1.0.b) +
+      n.1.0.w*log(Kp.1.0.w) +
+      n.0.1.b*log(Kp.0.1.b) +
+      n.0.1.w*log(Kp.0.1.w) +
+      n.0.0.b*log(Kp.0.0.b) +
+      n.0.0.w*log(Kp.0.0.w))
+
+}
+
+# Hoping for 2699.404?
+#        Intercept       b_p    alpha      scl    value fevals gevals niter convcode kkt1
+# nlminb  -6.14913 0.2249925 1.152741 1.188261 2699.404     26    102    19        0   NA
+# T <- function(x, a, gam_g) (1+gam_g^a)^(1/a) * x
+# logl.theta(c(-6.14913,0.2249925,1.152741,1.188261))
+#
+# logl.theta(c(-5,0.22,1.15,1.18))
+
+
+T <- function(x, a, gam_g)  x
+logl.theta(c(-6.14913,0.2249925,1.152741,1.188261))
+## 2700.102
+
+
+# Assemble the answers
+# Intercept       b_p alpha      scl    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -3.902686 0.1096438  1.99 1.693212 2699.796     23     78    16        0   NA   NA
+T <- function(x, a, gam_g) (1+gam_g^a)^(1/a) * x
+T <- function(x, a, gam_g)  x
+logl.theta(c(-3.902686,0.1096438,1.99,1.693212 ))
+
+
+T <- function(x, a, gam_g) sqrt(2) * (1/sqrt(2)^2+(gam_g)^2)^(1/2) * x
+logl.theta(c(-1.398793,0.03942097,1.99999,sqrt(2.87)/sqrt(2))) ## if approaching PPN
+
+
+## maximize the likelihood
+T <- function(x, a, gam_g)  x
+sss <- optim(c( -5.1,0.21,1.15,1.1),
+                            logl.theta,
+                            method="L-BFGS-B",
+                            control= list(maxit=100),
+                            upper=c(-5, 0.23,  1.2, 3),
+                            lower=c(-7, 0.20,  1.1, 1))
+
+sss
+sss$val
+sss$par
+#$par
+# [1] -6.4589171  0.2041944  1.1000000  1.1043536
+#
+# $value
+# [1] 2700.217
+#
+# $counts
+# function gradient
+# 33       33
+#
+# $convergence
+# [1] 0
+#
+# $message
+# [1] "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
+
+
+##https://www.r-bloggers.com/2013/07/optimising-a-noisy-objective-function/#google_vignette
+
+library(DEoptim)
+set.seed(1)
+R0 = DEoptim(logl.theta,
+             lower = c(-4, 0, 1.01, 0.05),
+             upper = c(0, 1, 1.99, 5),
+             control = DEoptim.control(trace = 10)
+             )
+# Error in x[, i] : invalid subscript type 'closure'
+# Error during wrapup: incorrect number of dimensions
+# Error: no more error handlers available (recursive errors?); invoking 'abort' restart
+
+
+
+########################################$$$$#########
+## 2022-02-17E                                     ##
+## START two random parameters: CAUCHY MARGINAL COEFF
+#####################################################
+
+## 2022-02-17D was ambition and it bit me.  Let's
+## start by doing a cauchy-cauchy-cauchy using
+## dmvt(df=1) and then verify it with an alpha=1 locked
+
+library(mvsubgaussPD)
+library(libstableR)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+
+
+detach(summed_binom_dat)
+set.seed(1709)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+## glmer -- only random intercept
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## SSS
+(rand.int <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1, c(alpha, 0, 1, 0)),
+                   pmu = c(Intercept=-1.2, b_p=1, alpha=1),
+                   pmix=c(alpha=1, scl=0.25),
+                   p_uppb = c(  0,   4, 1, 4.00),
+                   p_lowb = c( -4,  -2, 1, 0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="libstableR-subgauss-scl",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+# Assemble the answers
+#        Intercept      b_p alpha      scl    value fevals gevals niter convcode kkt1 kkt2  xtime
+# nlminb -2.262357 2.035221     1 1.140446 3727.372     15     51    12        0   NA   NA 20.332
+
+## excuse the 1^alpha; had to do it to get alpha to appear before phi in `mu` argument.
+(rand.int.marg.phi <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2((Intercept + period_numeric*b_p)*1^alpha/phi + rand1, c(alpha, 0, 1, 0)),
+                   pmu = c(Intercept=-0.95, b_p=0.55,  alpha=1.0, phi=0.3),
+                   pmix=c(alpha=1.0, phi=0.3),
+                   p_uppb = c(  0,   4, 1, 0.99),
+                   p_lowb = c( -4,  -2, 1, 0.01),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="libstableR-subgauss-phi",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+# Assemble the answers
+# Intercept       b_p alpha       phi    value fevals gevals niter convcode kkt1 kkt2  xtime
+# nlminb -1.056956 0.9508394     1 0.4671921 3727.372     21     60    16        0   NA   NA 26.287
+1/(1+1.140446 ^(1))^(1/1)
+#> This is phi from the marginal phi model:  [1]
+
+
+
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+
+## run it with bivariate CAUCHY and lock alpha=1 ... note pmix doesn't have alpha in it
+## we'll verify this with bivariate stable in next chunk
+(rand.int.rand.slopes.nonzero.corr.CUBA <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+
+                   pmu = c(Intercept=-1.2, b_p=1, alpha=1.0),
+                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   4, 1.0, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-cauchy-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba"
+    )
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## takes 3.5 hours to run.
+(rand.int.rand.slopes.nonzero.corr.CUBA <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+
+                   pmu = c(Intercept=-1.2, b_p=1, alpha=1.0),
+                   pmix=c(alpha=1.7, var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   2, 1.0, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba"
+    )
+)
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  5  arguments
+# par[ 1 ]:  -4   <? -0.95   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.55   <? 2     In Bounds
+# par[ 3 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 4 ]:  0.05   <? 1.3   <? 4     In Bounds
+# par[ 5 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.6368221   log bounds ratio= 0.3467875
+# Method:  nlminb
+#  0:     2712.2660: -0.950000 0.550000  1.00000  1.30000 0.300000
+#  1:     2551.8588: -1.91097 0.564613  1.24340  1.36070 0.415727
+#  2:     2540.4907: -2.08561 0.766148  1.12182  1.43309 0.534328
+#  3:     2539.6569: -1.91468 0.976685  1.00080  1.50592 0.642532
+#  4:     2537.8782: -2.02461 0.944054 0.972437  1.50899 0.618941
+#  5:     2537.8313: -1.98169 0.912124 0.923186  1.56179 0.538668
+#  6:     2537.5632: -2.01604 0.896569 0.949136  1.58691 0.568717
+#  7:     2537.5229: -1.99913 0.892145 0.958570  1.59318 0.574194
+#  8:     2537.4951: -2.01024 0.882361 0.956124  1.60724 0.580601
+#  9:     2537.4433: -1.99579 0.863435 0.952010  1.64238 0.586637
+# 10:     2537.4051: -2.00440 0.859836 0.952438  1.68363 0.578498
+# 11:     2537.3828: -1.99446 0.848237 0.931713  1.71592 0.590764
+# 12:     2537.3725: -1.99310 0.839836 0.944576  1.72247 0.586854
+# 13:     2537.3615: -1.99591 0.841539 0.941970  1.73897 0.584327
+# 14:     2537.3502: -1.99413 0.831356 0.945324  1.77149 0.587329
+# 15:     2537.3444: -1.99242 0.834011 0.940837  1.78887 0.581282
+# 16:     2537.3435: -1.99459 0.832976 0.940084  1.78959 0.581511
+# 17:     2537.3430: -1.99327 0.831268 0.940081  1.79106 0.581831
+# 18:     2537.3399: -1.99139 0.821393 0.932831  1.81239 0.584840
+# 19:     2537.3387: -1.99184 0.819531 0.937044  1.83662 0.581810
+# 20:     2537.3384: -1.99164 0.819911 0.935593  1.83029 0.582834
+# 21:     2537.3384: -1.99164 0.819914 0.935584  1.83022 0.582816
+#
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p       var1       var2     corr12
+# -1.9916400  0.8199140  0.9355840  1.8302160  0.5828159
+#
+# $message
+# [1] "relative convergence (4)"
+
+# Assemble the answers
+#        Intercept      b_p     var1     var2    corr12    value fevals gevals niter convcode kkt1 kkt2
+# nlminb  -1.99164 0.819914 0.935584 1.830216 0.5828159 2537.338     32    143    21        0   NA   NA
+
+
+
+## takes about 3hr45min to run:
+(rand.int.rand.slopes.nonzero.corr.CUBA.MARGINAL <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pnorm(
+                     (Intercept + period_numeric*b_p)*
+                       sqrt(1 + var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric ) +
+                       rand1 + period_numeric*rand2
+                   ),
+                   pmu = c(Intercept=-0.95, b_p=0.55, var1=1, var2=1, corr12= 0.20),
+                   pmix=c(var1=1, var2=1, corr12= 0.20),
+                   p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-normal-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba"
+    )
+)
+## [1] "2022-02-16 21:42:37 EST"
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  5  arguments
+# par[ 1 ]:  -4   <? -0.95   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.55   <? 2     In Bounds
+# par[ 3 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  -0.9   <? 0.2   <? 0.9     In Bounds
+# [1] "2022-02-16 21:43:24 EST"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.69897   log bounds ratio= 0.3467875
+# Method:  nlminb
+#  0:     2624.4797: -0.950000 0.550000  1.00000  1.00000 0.200000
+#  1:     2562.9606: -1.37963 0.615494  1.15864  1.03380 0.262517
+#  2:     2552.5119: -1.23506  1.05587  1.16743  1.08807 0.297671
+#  3:     2542.3105: -1.44351  1.00734  1.20491  1.10583 0.347031
+#  4:     2539.4509: -1.39190  1.05166  1.12312  1.19576 0.521837
+#  5:     2539.0653: -1.47390  1.06191 0.950419  1.30500 0.558917
+#  6:     2538.9093: -1.39239  1.08395 0.930294  1.36602 0.555530
+#  7:     2537.8924: -1.41833  1.06487 0.987916  1.44436 0.583334
+#  8:     2537.7425: -1.41637  1.09756 0.968858  1.54184 0.565155
+#  9:     2537.5635: -1.42303  1.06617 0.949298  1.64112 0.565285
+# 10:     2537.5148: -1.41318  1.08047 0.955722  1.66005 0.582748
+# 11:     2537.5036: -1.42424  1.07913 0.956294  1.66253 0.584436
+# 12:     2537.4869: -1.42027  1.07978 0.951819  1.67225 0.582759
+# 13:     2537.4773: -1.42564  1.08940 0.945028  1.69029 0.589160
+# 14:     2537.4556: -1.42156  1.08470 0.943423  1.71247 0.588605
+# 15:     2537.4479: -1.42067  1.07906 0.939057  1.73378 0.583282
+# 16:     2537.4390: -1.42280  1.08308 0.945738  1.75541 0.582606
+# 17:     2537.4311: -1.42020  1.08397 0.944559  1.77821 0.580317
+# 18:     2537.4289: -1.42185  1.08430 0.937058  1.78136 0.582546
+# 19:     2537.4275: -1.42060  1.08443 0.937152  1.78925 0.585739
+# 20:     2537.4258: -1.42065  1.08632 0.936922  1.80843 0.581730
+# 21:     2537.4255: -1.42129  1.08492 0.936574  1.81418 0.582024
+# 22:     2537.4254: -1.42155  1.08627 0.934905  1.81566 0.583622
+# 23:     2537.4253: -1.42110  1.08577 0.935267  1.81651 0.583067
+# 24:     2537.4253: -1.42124  1.08580 0.935359  1.81593 0.583069
+# 25:     2537.4253: -1.42124  1.08581 0.935325  1.81599 0.583094
+# [1] "2022-02-17 01:23:51 EST"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p       var1       var2     corr12
+# -1.4212356  1.0858135  0.9353249  1.8159932  0.5830943
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 2537.425
+#
+# $fevals
+# function
+# 34
+#
+# $gevals
+# gradient
+# 164
+#
+# $nitns
+# [1] 25
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 12181.54
+#
+# Assemble the answers
+#        Intercept      b_p      var1     var2    corr12    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -1.421236 1.085814 0.9353249 1.815993 0.5830943 2537.425     34    164    25        0   NA   NA
+# xtime
+# nlminb 12181.54
+glm.fit <-
+  glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="probit"))
+summary(glm.fit)
+
+
+phi_x <- function(x, var1=0.935584, var2=1.830216, corr12=0.5828159){
+
+  1/sqrt(1 + var1 + var2*x^2 + 2*corr12*sqrt(var1*var2)*x )
+
+}
+
+xvalueset <- c(0, sort(unique(period_numeric)), 1, 10)
+cbind(
+  xvalue = xvalueset,
+
+  "phi(xvalue)" = phi_x(x=xvalueset),
+
+  beta0_c = -1.99164,
+  beta1_c = 0.819914,
+
+  beta0_m =  -1.99164*  phi_x(x=xvalueset),
+  beta1_m =  0.819914 *  phi_x(x=xvalueset)
+)
+
+xdomain <- seq(-2,4,0.05)
+plot(xdomain, phi_x(xdomain), ylim=c(0,1))
+
+library(data.table)
+dat.interim <- data.table::copy(summed_binom_dat[, r/(r+n_r), by=c("id","period_numeric")])
+
+## do it either way:
+dat.interim2 <- data.table::copy(dat.interim[order(period_numeric),mean(V1), by=period_numeric])
+summed_binom_dat[, mean(r/(r+n_r)), by=c("period_numeric")]
+
+dat.interim2[,marginal.fit:=pnorm( -1.4212364+1.085814*period_numeric)]
+dat.interim2[,conditional.fit:=pnorm( -1.99164+0.819914*period_numeric)]
+setnames(dat.interim2, "V1", "empirical.avg")
+setcolorder(dat.interim2, c("period_numeric", "conditional.fit","empirical.avg","marginal.fit" ))
+
+dat.interim2[, glm.fit:=pnorm(-1.42435 + 1.10648 *period_numeric)]
+
+print(dat.interim2, digits=2)
+plot(x1, r/(r+n_r),col="grey", ylim=c(0,1),xlim=range(xdomain))
+lines(xdomain, pnorm( -1.99164+0.819914*xdomain), ylim=c(0,1))
+lines(xdomain, pnorm((-1.99164+0.819914*xdomain)*phi_x(xdomain)), col="red")
+lines(xdomain, pnorm( -1.4212364+1.085814*xdomain), ylim=c(0,1),col="orange")
+lines(xdomain, phi_x(xdomain), ylim=c(0,1), lty=2, col='cyan')
+text(3.6,0.52, "(b0c+b1c*x)*phi(x)", col="red")
+text(3.6,0.68, "(b0c+b1c*x)       ", col="black")
+text(3.6,0.95, "(b0m+b1m*x)       ", col="orange")
+text(3.6,0.19, "            phi(x)", col="cyan")
+
+
+
+
+
+########################################$$$$#########
+## 2022-02-17E                                     ##
+## END two random parameters: CAUCHY MARGINAL COEFF##
+#####################################################
+
+########################################$$$$#########
+## 2022-02-17D                                     ##
+## START two random parameters: MARGINAL COEFF     ##
+#####################################################
+## next step: do 2022-02-16B with mvsubgauss freely
+## estimating alpha.  Then you are ready to
+## write gapr paper
+
+
+library(mvsubgaussPD)
+library(libstableR)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.7, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+
+
+detach(summed_binom_dat)
+set.seed(39)##set.seed(1709)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1)
+#  sim_mrim_data(10,10, J=100, a0 = -2, a1 = 1)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+## glmer -- only random intercept
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## SSS
+(rand.int <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1, c(alpha, 0, 1, 0)),
+                   pmu = c(Intercept=-1.2, b_p=1, alpha=1.7),
+                   pmix=c(alpha=1.7, scl=0.25),
+                   p_uppb = c(  0,   2, 1.9, 4.00),
+                   p_lowb = c( -4,  -2, 1.4, 0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="libstableR-subgauss-scl",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+
+## excuse the 1^alpha; had to do it to get alpha to appear before phi in `mu` argument.
+(rand.int.marg.phi <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2((Intercept + period_numeric*b_p)*1^alpha/phi + rand1, c(alpha, 0, 1, 0)),
+                   pmu = c(Intercept=-0.95, b_p=0.55,  alpha=1.7, phi=0.3),
+                   pmix=c(alpha=1.7, phi=0.3),
+                   p_uppb = c(  0,   2, 1.9, 0.99),
+                   p_lowb = c( -4,  -2, 1.4, 0.01),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="libstableR-subgauss-phi",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+
+#> This is phi from the marginal phi model:
+rand.int.marg.phi[4]
+#> This is phi calculated from conditional model:
+1/(1 + rand.int[4]^rand.int[3])^(1/rand.int[3])
+
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+
+## takes X.XX hours to run.
+(rand.int.rand.slopes.nonzero.corr.CUBA <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+
+                   #pmu = c(Intercept=-1.2, b_p=1, alpha=1.7),
+                   #pmix=c(alpha=1.7, var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+
+                   ##pmu = c(Intercept= -1.362697, b_p=0.9523764, alpha=1.747751),
+                   ## pmu = c(Intercept= -1.96, b_p=0.90, alpha=1.747751),
+                   #pmu = c(Intercept= -2, b_p=1, alpha=1.747751),
+                   #pmix=c( alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+
+                   pmu = c(Intercept= 0, b_p=-2, alpha=1.7),
+                   pmix=c( alpha=1.7, var1=1, var2=2, corr12= -0.2),
+
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                  int2dmethod="cuba",
+                   abs.tol.nlminb = 0,
+                   xf.tol.nlminb =  1e-1,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2,
+    )
+)
+# > (rand.int.rand.slopes.nonzero.corr.CUBA <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+#                           +
+#                             +
+#                             +                    p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+#                           +
+#                             +
+#                             +                    pmu = c(Intercept= 0, b_p=-2, alpha=1.7),
+#                           +                    pmix=c( alpha=1.7, var1=1, var2=2, corr12= -0.2),
+#                           +
+#                             +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-subgauss-corr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                   int2dmethod="cuba",
+#                           +                    abs.tol.nlminb = 0,
+#                           +                    xf.tol.nlminb =  1e-1,
+#                           +                    x.tol.nlminb =   1e-2,
+#                           +                    rel.tol.nlminb = 1e-2,
+#                           +     )
+#    + )
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? 0   <? 0     In Bounds
+# par[ 2 ]:  -2   <? -2   <? 2     In Bounds
+# par[ 3 ]:  1.4   <? 1.7   <? 1.9     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 2   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? -0.2   <? 0.9     In Bounds
+# [1] "2022-08-10 19:21:01 ... starting pcubature"
+# [1] "2022-08-10 21:22:53 ... ending   pcubature -- tol=0.1 -- ret.val is: 3700.26629"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 1   log bounds ratio= 0.90309
+# Method:  nlminb
+# [1] "2022-08-10 21:22:53 ... starting pcubature"
+# [1] "2022-08-10 23:23:43 ... ending   pcubature -- tol=0.1 -- ret.val is: 3700.26629"
+# [1] "2022-08-10 23:23:43 ... starting pcubature"
+# [1] "2022-08-11 01:23:54 ... ending   pcubature -- tol=0.1 -- ret.val is: 3700.26629"
+# [1] "2022-08-11 01:23:54 ... starting pcubature"
+# [1] "2022-08-11 03:24:37 ... ending   pcubature -- tol=0.1 -- ret.val is: 3700.26629"
+# [1] "2022-08-11 03:24:37 ... starting pcubature"
+# [1] "2022-08-11 05:25:18 ... ending   pcubature -- tol=0.1 -- ret.val is: 3700.26629"
+# [1] "2022-08-11 05:25:18 ... starting pcubature"
+# Timing stopped at: 5.914e+04 2.147e+04 3.35e+04
+# >
+# > (rand.int.rand.slopes.nonzero.corr.CUBA <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+#                           +
+#                             +                    pmu = c(Intercept=-1.2, b_p=1, alpha=1.7),
+#                           +                    pmix=c(alpha=1.7, var1=1, var2=1.3, corr12= 0.30),
+#                           +
+#                             +                    p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-subgauss-corr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                    int2dmethod="cuba",
+#                           +                    abs.tol.nlminb = 1e-2,
+#                           +                    xf.tol.nlminb =  1e-2,
+#                           +                    x.tol.nlminb =   1e-2,
+#                           +                    rel.tol.nlminb = 1e-2,
+#                           +     )
+#    + )
+# [1] "2022-02-18 14:48:46 ... starting pcubature"
+# [1] "2022-02-18 14:56:13 ... ending   pcubature tol=0.01"
+# [1] 6
+# Intercept       b_p     alpha      var1      var2    corr12
+# -1.2       1.0       1.7       1.0       1.3       0.3
+# [1] 3432.649
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 2     In Bounds
+# par[ 3 ]:  1.4   <? 1.7   <? 1.9     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1.3   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2022-02-18 14:56:13 ... starting pcubature"
+# [1] "2022-02-18 15:03:46 ... ending   pcubature tol=0.01"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.7533277   log bounds ratio= 0.90309
+# Method:  nlminb
+# [1] "2022-02-18 15:03:47 ... starting pcubature"
+# [1] "2022-02-18 15:11:48 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 15:11:48 ... starting pcubature"
+# [1] "2022-02-18 15:19:43 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 15:19:43 ... starting pcubature"
+# [1] "2022-02-18 15:27:51 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 15:27:51 ... starting pcubature"
+# [1] "2022-02-18 15:35:57 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 15:35:57 ... starting pcubature"
+# [1] "2022-02-18 15:43:37 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 15:43:37 ... starting pcubature"
+# [1] "2022-02-18 15:51:14 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 15:51:14 ... starting pcubature"
+# [1] "2022-02-18 15:59:29 ... ending   pcubature tol=0.01"
+# 0:     3432.6490: -1.20000  1.00000  1.70000  1.00000  1.30000 0.300000
+# [1] "2022-02-18 15:59:29 ... starting pcubature"
+# [1] "2022-02-18 16:08:36 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 16:08:36 ... starting pcubature"
+# [1] "2022-02-18 16:17:37 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 16:17:37 ... starting pcubature"
+# [1] "2022-02-18 16:27:10 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 16:27:10 ... starting pcubature"
+# [1] "2022-02-18 16:35:14 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 16:35:14 ... starting pcubature"
+# [1] "2022-02-18 16:43:16 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 16:43:16 ... starting pcubature"
+# [1] "2022-02-18 16:51:24 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 16:51:24 ... starting pcubature"
+# [1] "2022-02-18 16:59:27 ... ending   pcubature tol=0.01"
+# 1:     3400.0784: -2.09980 0.908341  1.90000  1.16001  1.33176 0.517222
+# [1] "2022-02-18 16:59:27 ... starting pcubature"
+# [1] "2022-02-18 17:05:05 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 17:05:05 ... starting pcubature"
+# [1] "2022-02-18 17:11:53 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 17:11:53 ... starting pcubature"
+# [1] "2022-02-18 17:18:41 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 17:18:41 ... starting pcubature"
+# [1] "2022-02-18 17:25:41 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 17:25:41 ... starting pcubature"
+# [1] "2022-02-18 17:32:31 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 17:32:31 ... starting pcubature"
+# [1] "2022-02-18 17:39:19 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 17:39:19 ... starting pcubature"
+# [1] "2022-02-18 17:46:06 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 17:46:06 ... starting pcubature"
+# [1] "2022-02-18 17:52:51 ... ending   pcubature tol=0.01"
+# 2:     3381.6564: -2.05560 0.907948  1.66244  1.11724  1.32523 0.499059
+# [1] "2022-02-18 17:52:51 ... starting pcubature"
+# [1] "2022-02-18 18:00:18 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 18:00:18 ... starting pcubature"
+# [1] "2022-02-18 18:07:44 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 18:07:44 ... starting pcubature"
+# [1] "2022-02-18 18:15:11 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 18:15:11 ... starting pcubature"
+# [1] "2022-02-18 18:22:35 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 18:22:35 ... starting pcubature"
+# [1] "2022-02-18 18:30:01 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 18:30:01 ... starting pcubature"
+# [1] "2022-02-18 18:37:44 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 18:37:44 ... starting pcubature"
+# [1] "2022-02-18 18:45:23 ... ending   pcubature tol=0.01"
+# 3:     3379.3622: -1.93967 0.910037  1.73290 0.918896  1.30546 0.548499
+# [1] "2022-02-18 18:45:23 ... starting pcubature"
+# [1] "2022-02-18 18:53:08 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 18:53:08 ... starting pcubature"
+# [1] "2022-02-18 19:00:13 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 19:00:13 ... starting pcubature"
+# [1] "2022-02-18 19:07:18 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 19:07:18 ... starting pcubature"
+# [1] "2022-02-18 19:14:22 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 19:14:22 ... starting pcubature"
+# [1] "2022-02-18 19:21:26 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 19:21:26 ... starting pcubature"
+# [1] "2022-02-18 19:28:20 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 19:28:20 ... starting pcubature"
+# [1] "2022-02-18 19:35:14 ... ending   pcubature tol=0.01"
+# [1] "2022-02-18 19:35:14 ... starting pcubature"
+# [1] "2022-02-18 19:42:09 ... ending   pcubature tol=0.01"
+# 4:     3379.1129: -1.96450 0.893471  1.74994 0.895177  1.30239 0.556624
+# [1] "2022-02-18 19:42:09 ... starting pcubature"
+# [1] "2022-02-18 19:50:00 ... ending   pcubature tol=0.01"
+# 5:     3379.1129: -1.96450 0.893471  1.74994 0.895177  1.30239 0.556624
+# [1] "2022-02-18 19:50:00 ... starting pcubature"
+# nlminb function evaluation failure
+# Post processing for method  nlminb
+# Save results from method  nlminb
+# $fevals
+# [1] NA
+#
+# $convcode
+# [1] 9999
+#
+# $value
+# [1] 8.988466e+307
+#
+# $par
+# [1] NA NA NA NA NA NA
+#
+# $nitns
+# [1] NA
+#
+# $gevals
+# [1] NA
+#
+# $message
+# [1] "nlminb failure"
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 31125.53
+#
+# Assemble the answers
+# Intercept b_p alpha var1 var2 corr12         value fevals gevals niter convcode kkt1 kkt2    xtime
+# nlminb        NA  NA    NA   NA   NA     NA 8.988466e+307     NA     NA    NA     9999   NA   NA 31125.53
+
+## calculate bm_1, bm_0:
+ 0.893471* 1/(1+  (0.895177 + 1.30239*0.33^2 + 2*0.5566*sqrt(0.895177*1.30239)*0.33)^(1.74994/2)     )^(1/1.74994)
+-1.96450 * 1/(1+  (0.895177 + 1.30239*0.00^2 + 2*0.5566*sqrt(0.895177*1.30239)*0.00)^(1.74994/2)     )^(1/1.74994)
+
+ ## takes about XhrXXmin to run:
+(rand.int.rand.slopes.nonzero.corr.CUBA.MARGINAL <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(
+                     (Intercept + period_numeric*b_p)* 1^alpha *
+                       (1^alpha + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(alpha/2) )^(1/alpha) +
+                       rand1 + period_numeric*rand2
+                     , c(alpha, 0, 1, 0)),
+#                   pmu = c(Intercept= -1.268806, b_p=0.7400231, alpha=1.677604, var1=0.8507984, var2=1.301004, corr12= 0.5395131),
+#                   pmix=c(alpha=1.677604, var1=0.8507984, var2=1.301004 , corr12= 0.5395131),
+                   pmu = c(Intercept= -1.362697, b_p=0.9523764, alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+                   pmix=c( alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+                   p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   abs.tol.nlminb = 0,
+                   xf.tol.nlminb =  1e-3,
+                   x.tol.nlminb =   1.5e-8,
+                   rel.tol.nlminb = 1e-1,
+    )
+)
+ # >  ## takes about XhrXXmin to run:
+ #   > (rand.int.rand.slopes.nonzero.corr.CUBA.MARGINAL <-
+ #        +     gnlrim::gnlrem(y=ybind,
+ #                             +                    mu = ~ stable_cdf2(
+ #                               +                      (Intercept + period_numeric*b_p)* 1^alpha *
+ #                                 +                        (1^alpha + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(alpha/2) )^(1/alpha) +
+ #                                 +                        rand1 + period_numeric*rand2
+ #                               +                      , c(alpha, 0, 1, 0)),
+ #                             +                    pmu = c(Intercept= -1.35819, b_p=0.5456027, alpha=1.74994, var1=0.895177, var2=1.30239, corr12= 0.556624),
+ #                             +                    pmix=c(alpha=1.74994, var1=0.895177, var2=1.30239, corr12= 0.556624),
+ #                             +                    p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+ #                             +                    p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+ #                             +                    distribution="binomial",
+ #                             +                    nest=id,
+ #                             +                    random=c("rand1", "rand2"),
+ #                             +                    mixture="bivariate-subgauss-corr",
+ #                             +                    ooo=TRUE,
+ #                             +                    compute_hessian = FALSE,
+ #                             +                    compute_kkt = FALSE,
+ #                             +                    trace=1,
+ #                             +                    method='nlminb',
+ #                             +                    int2dmethod="cuba",
+ #                             +                    abs.tol.nlminb = 1e-1,
+ #                             +                    xf.tol.nlminb =  1e-1,
+ #                             +                    x.tol.nlminb =   1e-1,
+ #                             +                    rel.tol.nlminb = 1e-1,
+ #                             +     )
+ #      + )
+ # [1] "2022-02-18 22:21:05 ... starting pcubature"
+ # [1] "2022-02-18 22:28:36 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+ # [1] 6
+ # Intercept        b_p      alpha       var1       var2     corr12
+ # -1.3581900  0.5456027  1.7499400  0.8951770  1.3023900  0.5566240
+ # [1] 3389.83
+ # fn is  fn
+ # Looking for method =  nlminb
+ # Function has  6  arguments
+ # par[ 1 ]:  -4   <? -1.35819   <? 0     In Bounds
+ # par[ 2 ]:  -2   <? 0.5456027   <? 2     In Bounds
+ # par[ 3 ]:  1.4   <? 1.74994   <? 1.9     In Bounds
+ # par[ 4 ]:  0.05   <? 0.895177   <? 4     In Bounds
+ # par[ 5 ]:  0.05   <? 1.30239   <? 4     In Bounds
+ # par[ 6 ]:  -0.9   <? 0.556624   <? 0.9     In Bounds
+ # [1] "2022-02-18 22:28:36 ... starting pcubature"
+ # [1] "2022-02-18 22:36:18 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+ # Analytic gradient not made available.
+ # Analytic Hessian not made available.
+ # Scale check -- log parameter ratio= 0.5061466   log bounds ratio= 0.90309
+ # Method:  nlminb
+ # [1] "2022-02-18 22:36:18 ... starting pcubature"
+ # [1] "2022-02-18 22:43:41 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+ # [1] "2022-02-18 22:43:41 ... starting pcubature"
+ # [1] "2022-02-18 22:51:08 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+ # [1] "2022-02-18 22:51:08 ... starting pcubature"
+ # [1] "2022-02-18 22:58:29 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+ # [1] "2022-02-18 22:58:29 ... starting pcubature"
+ # [1] "2022-02-18 23:05:54 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+ # [1] "2022-02-18 23:05:54 ... starting pcubature"
+ # [1] "2022-02-18 23:13:43 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+ # [1] "2022-02-18 23:13:43 ... starting pcubature"
+ # [1] "2022-02-18 23:20:44 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+ # [1] "2022-02-18 23:20:44 ... starting pcubature"
+ # [1] "2022-02-18 23:27:47 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+ # 0:     3389.8304: -1.35819 0.545603  1.74994 0.895177  1.30239 0.556624
+ # [1] "2022-02-18 23:27:47 ... starting pcubature"
+ # [1] "2022-02-18 23:30:52 ... ending   pcubature -- tol=0.01 -- ret.val is: 3463.72179"
+ # [1] "2022-02-18 23:30:52 ... starting pcubature"
+ # [1] "2022-02-18 23:39:11 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81883"
+ # [1] "2022-02-18 23:39:11 ... starting pcubature"
+ # [1] "2022-02-18 23:47:23 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81746"
+ # [1] "2022-02-18 23:47:23 ... starting pcubature"
+ # [1] "2022-02-18 23:55:57 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81996"
+ # [1] "2022-02-18 23:55:57 ... starting pcubature"
+ # [1] "2022-02-19 00:03:32 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.83836"
+ # [1] "2022-02-19 00:03:32 ... starting pcubature"
+ # [1] "2022-02-19 00:10:49 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81799"
+ # [1] "2022-02-19 00:10:49 ... starting pcubature"
+ # [1] "2022-02-19 00:17:59 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81871"
+ # [1] "2022-02-19 00:17:59 ... starting pcubature"
+ # [1] "2022-02-19 00:25:05 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81831"
+ # 1:     3383.8188: -1.26881 0.740023  1.67760 0.850798  1.30100 0.539513
+ # [1] "2022-02-19 00:25:05 ... starting pcubature"
+ # [1] "2022-02-19 00:30:42 ... ending   pcubature -- tol=0.01 -- ret.val is: 3414.27633"
+ # 2:     3383.8188: -1.26881 0.740023  1.67760 0.850798  1.30100 0.539513
+ # [1] "2022-02-19 00:30:42 ... starting pcubature"
+ # [1] "2022-02-19 00:37:46 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81883"
+ # Post processing for method  nlminb
+ # Save results from method  nlminb
+ # $par
+ # Intercept        b_p      alpha       var1       var2     corr12
+ # -1.2688059  0.7400231  1.6776039  0.8507984  1.3010037  0.5395131
+ #
+ # $message
+ # [1] "false convergence (8)"
+ #
+ # $convcode
+ # [1] 1
+ #
+ # $value
+ # [1] 3383.819
+ #
+ # $fevals
+ # function
+ # 4
+ #
+ # $gevals
+ # gradient
+ # 12
+ #
+ # $nitns
+ # [1] 2
+ #
+ # $kkt1
+ # [1] NA
+ #
+ # $kkt2
+ # [1] NA
+ #
+ # $xtimes
+ # user.self
+ # 12701.6
+ #
+ # Assemble the answers
+ # Intercept       b_p    alpha      var1     var2    corr12    value fevals
+ # nlminb -1.268806 0.7400231 1.677604 0.8507984 1.301004 0.5395131 3383.819      4
+ # gevals niter convcode kkt1 kkt2   xtime
+ # nlminb     12     2        1   NA   NA 12701.6
+
+
+
+
+glm.fit <-
+  glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="probit"))
+summary(glm.fit)
+
+
+phi_x <- function(x, var1=0.935584, var2=1.830216, corr12=0.5828159){
+
+  1/sqrt(1 + var1 + var2*x^2 + 2*corr12*sqrt(var1*var2)*x )
+
+}
+
+xvalueset <- c(0, sort(unique(period_numeric)), 1, 10)
+cbind(
+  xvalue = xvalueset,
+
+  "phi(xvalue)" = phi_x(x=xvalueset),
+
+  beta0_c = -1.99164,
+  beta1_c = 0.819914,
+
+  beta0_m =  -1.99164*  phi_x(x=xvalueset),
+  beta1_m =  0.819914 *  phi_x(x=xvalueset)
+)
+
+xdomain <- seq(-2,4,0.05)
+plot(xdomain, phi_x(xdomain), ylim=c(0,1))
+
+library(data.table)
+dat.interim <- data.table::copy(summed_binom_dat[, r/(r+n_r), by=c("id","period_numeric")])
+
+## do it either way:
+dat.interim2 <- data.table::copy(dat.interim[order(period_numeric),mean(V1), by=period_numeric])
+summed_binom_dat[, mean(r/(r+n_r)), by=c("period_numeric")]
+
+dat.interim2[,marginal.fit:=pnorm( -1.4212364+1.085814*period_numeric)]
+dat.interim2[,conditional.fit:=pnorm( -1.99164+0.819914*period_numeric)]
+setnames(dat.interim2, "V1", "empirical.avg")
+setcolorder(dat.interim2, c("period_numeric", "conditional.fit","empirical.avg","marginal.fit" ))
+
+dat.interim2[, glm.fit:=pnorm(-1.42435 + 1.10648 *period_numeric)]
+
+print(dat.interim2, digits=2)
+plot(x1, r/(r+n_r),col="grey", ylim=c(0,1),xlim=range(xdomain))
+lines(xdomain, pnorm( -1.99164+0.819914*xdomain), ylim=c(0,1))
+lines(xdomain, pnorm((-1.99164+0.819914*xdomain)*phi_x(xdomain)), col="red")
+lines(xdomain, pnorm( -1.4212364+1.085814*xdomain), ylim=c(0,1),col="orange")
+lines(xdomain, phi_x(xdomain), ylim=c(0,1), lty=2, col='cyan')
+text(3.6,0.52, "(b0c+b1c*x)*phi(x)", col="red")
+text(3.6,0.68, "(b0c+b1c*x)       ", col="black")
+text(3.6,0.95, "(b0m+b1m*x)       ", col="orange")
+text(3.6,0.19, "            phi(x)", col="cyan")
+
+
+
+########################################$$$$#########
+## 2022-02-17D                                     ##
+## END two random parameters     MARGINAL COEFF    ##
+#####################################################
+
+
+
+
+
+
+########################################$$$$#########
+## 2022-02-17C                                     ##
+## START two random parameters: univariate dnorm   ##
+#####################################################
+# TRIED SOME stuff cannot get it to jive.  Not crucial
+# to the overall mission.  Set aside.
+########################################$$$$#########
+## 2022-02-17C                                     ##
+## END two random parameters: univariate dnorm    ##
+#####################################################
+
+########################################$$$$#########
+## 2022-02-16B                                     ##
+## START two random parameters: MARGINAL COEFF     ##
+#####################################################
+## see the hard coded picture at the end of this chunk!
+## explains everything!
+
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Probit-BIVARIATE_NORM", alpha=1.89, gamma=1.2, delta=1){
+
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+
+
+detach(summed_binom_dat)
+set.seed(1709)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+## glmer -- only random intercept
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## PPN
+(rand.int <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pnorm(Intercept + period_numeric*b_p + rand1),
+                   pmu = c(Intercept=-0.95, b_p=0.55),
+                   pmix=c(var1=1),
+                   p_uppb = c(  0,   2, 4.00),
+                   p_lowb = c( -4,  -2, 0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="normal-var",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+# Assemble the answers
+#        Intercept      b_p  var1   value fevals gevals niter convcode kkt1 kkt2  xtime
+# nlminb -2.209654 1.618575 1.472 2571.28     16     43    11        0   NA   NA 35.234
+(rand.int.marg.var1 <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pnorm( (Intercept + period_numeric*b_p)*sqrt(1+var1) + rand1),
+                   pmu = c(Intercept=-0.95, b_p=0.55, var1=1),
+                   pmix=c(var1=1),
+                   p_uppb = c(  0,   2, 4.00),
+                   p_lowb = c( -4,  -2, 0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="normal-var",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+# Assemble the answers
+# Intercept      b_p     var1   value fevals gevals niter convcode kkt1 kkt2  xtime
+# nlminb -1.405397 1.029446 1.471998 2571.28     20     70    14        0   NA   NA 59.092
+(rand.int.marg.phi <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pnorm( (Intercept + period_numeric*b_p)/phi + rand1),
+                   pmu = c(Intercept=-0.95, b_p=0.55, phi=0.3),
+                   pmix=c(phi=0.3),
+                   p_uppb = c(  0,   2, 0.99),
+                   p_lowb = c( -4,  -2, 0.01),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="normal-phi",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+# Assemble the answers
+#        Intercept      b_p       phi   value fevals gevals niter convcode kkt1 kkt2  xtime
+# nlminb -1.405398 1.029448 0.6360282 2571.28     34     97    24        0   NA   NA 80.871
+1/sqrt(1+1.471998)
+#> [1] 0.6360276
+
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+## Generalized linear mixed model fit by maximum likelihood (Adaptive Gauss-Hermite Quadrature, nAGQ =  0)
+# [glmerMod]
+# Family: binomial  ( probit )
+# Formula: cbind(r, n_r) ~ x1 + (x1 | id)
+# Data: summed_binom_dat
+# AIC       BIC    logLik  deviance  df.resid
+# 5114.722  5141.611 -2552.361  5104.722      1595
+# Random effects:
+#   Groups Name        Std.Dev. Corr
+# id     (Intercept) 0.9379
+# x1          1.3202   0.60
+# Number of obs: 1600, groups:  id, 400
+# Fixed Effects:
+#   (Intercept)           x1
+# -1.888        0.907
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+##  Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+# Family: binomial  ( probit )
+# Formula: cbind(r, n_r) ~ x1 + (x1 | id)
+# Data: summed_binom_dat
+# AIC       BIC    logLik  deviance  df.resid
+# 5109.936  5136.825 -2549.968  5099.936      1595
+# Random effects:
+#   Groups Name        Std.Dev. Corr
+# id     (Intercept) 0.9423
+# x1          1.3336   0.60
+# Number of obs: 1600, groups:  id, 400
+# Fixed Effects:
+#   (Intercept)           x1
+# -1.9973       0.7912
+
+## takes 3.5 hours to run.
+(rand.int.rand.slopes.nonzero.corr.CUBA <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pnorm(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+                   pmu = c(Intercept=-0.95, b_p=0.55),
+                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
+                   p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-normal-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba"
+    )
+)
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  5  arguments
+# par[ 1 ]:  -4   <? -0.95   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.55   <? 2     In Bounds
+# par[ 3 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 4 ]:  0.05   <? 1.3   <? 4     In Bounds
+# par[ 5 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.6368221   log bounds ratio= 0.3467875
+# Method:  nlminb
+#  0:     2712.2660: -0.950000 0.550000  1.00000  1.30000 0.300000
+#  1:     2551.8588: -1.91097 0.564613  1.24340  1.36070 0.415727
+#  2:     2540.4907: -2.08561 0.766148  1.12182  1.43309 0.534328
+#  3:     2539.6569: -1.91468 0.976685  1.00080  1.50592 0.642532
+#  4:     2537.8782: -2.02461 0.944054 0.972437  1.50899 0.618941
+#  5:     2537.8313: -1.98169 0.912124 0.923186  1.56179 0.538668
+#  6:     2537.5632: -2.01604 0.896569 0.949136  1.58691 0.568717
+#  7:     2537.5229: -1.99913 0.892145 0.958570  1.59318 0.574194
+#  8:     2537.4951: -2.01024 0.882361 0.956124  1.60724 0.580601
+#  9:     2537.4433: -1.99579 0.863435 0.952010  1.64238 0.586637
+# 10:     2537.4051: -2.00440 0.859836 0.952438  1.68363 0.578498
+# 11:     2537.3828: -1.99446 0.848237 0.931713  1.71592 0.590764
+# 12:     2537.3725: -1.99310 0.839836 0.944576  1.72247 0.586854
+# 13:     2537.3615: -1.99591 0.841539 0.941970  1.73897 0.584327
+# 14:     2537.3502: -1.99413 0.831356 0.945324  1.77149 0.587329
+# 15:     2537.3444: -1.99242 0.834011 0.940837  1.78887 0.581282
+# 16:     2537.3435: -1.99459 0.832976 0.940084  1.78959 0.581511
+# 17:     2537.3430: -1.99327 0.831268 0.940081  1.79106 0.581831
+# 18:     2537.3399: -1.99139 0.821393 0.932831  1.81239 0.584840
+# 19:     2537.3387: -1.99184 0.819531 0.937044  1.83662 0.581810
+# 20:     2537.3384: -1.99164 0.819911 0.935593  1.83029 0.582834
+# 21:     2537.3384: -1.99164 0.819914 0.935584  1.83022 0.582816
+#
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p       var1       var2     corr12
+# -1.9916400  0.8199140  0.9355840  1.8302160  0.5828159
+#
+# $message
+# [1] "relative convergence (4)"
+
+# Assemble the answers
+#        Intercept      b_p     var1     var2    corr12    value fevals gevals niter convcode kkt1 kkt2
+# nlminb  -1.99164 0.819914 0.935584 1.830216 0.5828159 2537.338     32    143    21        0   NA   NA
+
+
+
+## takes about 3hr45min to run:
+(rand.int.rand.slopes.nonzero.corr.CUBA.MARGINAL <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pnorm(
+                     (Intercept + period_numeric*b_p)*
+                       sqrt(1 + var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric ) +
+                       rand1 + period_numeric*rand2
+                   ),
+                   pmu = c(Intercept=-0.95, b_p=0.55, var1=1, var2=1, corr12= 0.20),
+                   pmix=c(var1=1, var2=1, corr12= 0.20),
+                   p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-normal-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba"
+    )
+)
+## [1] "2022-02-16 21:42:37 EST"
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  5  arguments
+# par[ 1 ]:  -4   <? -0.95   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.55   <? 2     In Bounds
+# par[ 3 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  -0.9   <? 0.2   <? 0.9     In Bounds
+# [1] "2022-02-16 21:43:24 EST"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.69897   log bounds ratio= 0.3467875
+# Method:  nlminb
+#  0:     2624.4797: -0.950000 0.550000  1.00000  1.00000 0.200000
+#  1:     2562.9606: -1.37963 0.615494  1.15864  1.03380 0.262517
+#  2:     2552.5119: -1.23506  1.05587  1.16743  1.08807 0.297671
+#  3:     2542.3105: -1.44351  1.00734  1.20491  1.10583 0.347031
+#  4:     2539.4509: -1.39190  1.05166  1.12312  1.19576 0.521837
+#  5:     2539.0653: -1.47390  1.06191 0.950419  1.30500 0.558917
+#  6:     2538.9093: -1.39239  1.08395 0.930294  1.36602 0.555530
+#  7:     2537.8924: -1.41833  1.06487 0.987916  1.44436 0.583334
+#  8:     2537.7425: -1.41637  1.09756 0.968858  1.54184 0.565155
+#  9:     2537.5635: -1.42303  1.06617 0.949298  1.64112 0.565285
+# 10:     2537.5148: -1.41318  1.08047 0.955722  1.66005 0.582748
+# 11:     2537.5036: -1.42424  1.07913 0.956294  1.66253 0.584436
+# 12:     2537.4869: -1.42027  1.07978 0.951819  1.67225 0.582759
+# 13:     2537.4773: -1.42564  1.08940 0.945028  1.69029 0.589160
+# 14:     2537.4556: -1.42156  1.08470 0.943423  1.71247 0.588605
+# 15:     2537.4479: -1.42067  1.07906 0.939057  1.73378 0.583282
+# 16:     2537.4390: -1.42280  1.08308 0.945738  1.75541 0.582606
+# 17:     2537.4311: -1.42020  1.08397 0.944559  1.77821 0.580317
+# 18:     2537.4289: -1.42185  1.08430 0.937058  1.78136 0.582546
+# 19:     2537.4275: -1.42060  1.08443 0.937152  1.78925 0.585739
+# 20:     2537.4258: -1.42065  1.08632 0.936922  1.80843 0.581730
+# 21:     2537.4255: -1.42129  1.08492 0.936574  1.81418 0.582024
+# 22:     2537.4254: -1.42155  1.08627 0.934905  1.81566 0.583622
+# 23:     2537.4253: -1.42110  1.08577 0.935267  1.81651 0.583067
+# 24:     2537.4253: -1.42124  1.08580 0.935359  1.81593 0.583069
+# 25:     2537.4253: -1.42124  1.08581 0.935325  1.81599 0.583094
+# [1] "2022-02-17 01:23:51 EST"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p       var1       var2     corr12
+# -1.4212356  1.0858135  0.9353249  1.8159932  0.5830943
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 2537.425
+#
+# $fevals
+# function
+# 34
+#
+# $gevals
+# gradient
+# 164
+#
+# $nitns
+# [1] 25
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 12181.54
+#
+# Assemble the answers
+#        Intercept      b_p      var1     var2    corr12    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -1.421236 1.085814 0.9353249 1.815993 0.5830943 2537.425     34    164    25        0   NA   NA
+# xtime
+# nlminb 12181.54
+glm.fit <-
+glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="probit"))
+summary(glm.fit)
+
+
+phi_x <- function(x, var1=0.935584, var2=1.830216, corr12=0.5828159){
+
+  1/sqrt(1 + var1 + var2*x^2 + 2*corr12*sqrt(var1*var2)*x )
+
+}
+
+xvalueset <- c(0, sort(unique(period_numeric)), 1, 10)
+cbind(
+  xvalue = xvalueset,
+
+  "phi(xvalue)" = phi_x(x=xvalueset),
+
+  beta0_c = -1.99164,
+  beta1_c = 0.819914,
+
+  beta0_m =  -1.99164*  phi_x(x=xvalueset),
+  beta1_m =  0.819914 *  phi_x(x=xvalueset)
+)
+
+xdomain <- seq(-2,4,0.05)
+plot(xdomain, phi_x(xdomain), ylim=c(0,1))
+
+library(data.table)
+dat.interim <- data.table::copy(summed_binom_dat[, r/(r+n_r), by=c("id","period_numeric")])
+
+## do it either way:
+dat.interim2 <- data.table::copy(dat.interim[order(period_numeric),mean(V1), by=period_numeric])
+summed_binom_dat[, mean(r/(r+n_r)), by=c("period_numeric")]
+
+dat.interim2[,marginal.fit:=pnorm( -1.4212364+1.085814*period_numeric)]
+dat.interim2[,conditional.fit:=pnorm( -1.99164+0.819914*period_numeric)]
+setnames(dat.interim2, "V1", "empirical.avg")
+setcolorder(dat.interim2, c("period_numeric", "conditional.fit","empirical.avg","marginal.fit" ))
+
+dat.interim2[, glm.fit:=pnorm(-1.42435 + 1.10648 *period_numeric)]
+
+print(dat.interim2, digits=2)
+plot(x1, r/(r+n_r),col="grey", ylim=c(0,1),xlim=range(xdomain))
+lines(xdomain, pnorm( -1.99164+0.819914*xdomain), ylim=c(0,1))
+lines(xdomain, pnorm((-1.99164+0.819914*xdomain)*phi_x(xdomain)), col="red")
+lines(xdomain, pnorm( -1.4212364+1.085814*xdomain), ylim=c(0,1),col="orange")
+lines(xdomain, phi_x(xdomain), ylim=c(0,1), lty=2, col='cyan')
+text(3.6,0.52, "(b0c+b1c*x)*phi(x)", col="red")
+text(3.6,0.68, "(b0c+b1c*x)       ", col="black")
+text(3.6,0.95, "(b0m+b1m*x)       ", col="orange")
+text(3.6,0.19, "            phi(x)", col="cyan")
+
+
+
+########################################$$$$#########
+## 2022-02-16B                                     ##
+## END two random parameters     MARGINAL COEFF    ##
+#####################################################
+
+
+
+
+
+########################################$$$$#########
+## 2022-02-16                                      ##
+## START two random parameters: MARGINAL COEFF     ##
+#####################################################
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Probit-BIVARIATE_NORM", alpha=1.89, gamma=1.2, delta=1){
+
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+
+
+detach(summed_binom_dat)
+set.seed(1126)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(12,12, J=100, a0 = -2, a1 = 1)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+## glmer -- only random intercept
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## PPN
+(rand.int <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pnorm(Intercept + period_numeric*b_p + rand1),
+                   pmu = c(Intercept=-0.95, b_p=0.55),
+                   pmix=c(var1=1),
+                   p_uppb = c(  0,   2, 4.00),
+                   p_lowb = c( -4,  -2, 0.05),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1"),
+                   mixture="normal-var",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+    )
+)
+
+
+
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+
+
+
+# (rand.int.nonzero.corr <-
+#     gnlrem(y=ybind,
+#            mu = ~ plogis(Intercept + period_numeric*b_p + rand1),
+#            pmu = c(Intercept=-0.95, b_p=0.55),
+#            pmix=c(var1=1),
+#            p_uppb = c(  0,   2, 4.00),
+#            p_lowb = c( -4,  -2, 0.05),
+#            distribution="binomial",
+#            nest=id,
+#            random=c("rand1"),
+#            mixture="normal-var",
+#            ooo=TRUE,
+#            compute_hessian = FALSE,
+#            compute_kkt = FALSE,
+#            trace=1,
+#            method='nlminb'
+#     )
+# )
+
+# (rand.int.rand.slopes.nonzero.corr <-
+#     gnlrem(y=ybind,
+#            mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+#            pmu = c(Intercept=-0.95, b_p=0.55),
+#            pmix=c(var1=1, var2=1, corr12= 0.20),
+#            p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+#            p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#            distribution="binomial",
+#            nest=id,
+#            random=c("rand1", "rand2"),
+#            mixture="bivariate-normal-corr",
+#            ooo=TRUE,
+#            compute_hessian = FALSE,
+#            compute_kkt = FALSE,
+#            trace=1,
+#            method='nlminb'
+#     )
+# )
+
+(rand.int.rand.slopes.nonzero.corr.CUBA <-
+    gnlrim::gnlrem(y=ybind,
+           mu = ~ pnorm(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+           pmu = c(Intercept=-1.95, b_p=1.55),
+           pmix=c(var1=1, var2=1, corr12= 0.20),
+           p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+           p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+           distribution="binomial",
+           nest=id,
+           random=c("rand1", "rand2"),
+           mixture="bivariate-normal-corr",
+           ooo=TRUE,
+           compute_hessian = FALSE,
+           compute_kkt = FALSE,
+           trace=1,
+           method='nlminb',
+           int2dmethod="cuba"
+    )
+)
+# Assemble the answers
+#         Intercept     b_p    var1     var2    corr12    value fevals gevals niter convcode kkt1 kkt2
+# nlminb  -1.76073 1.83619 1.05234 2.521599 0.1297366 195.0142     18     90    13        0   NA   NA
+
+(rand.int.rand.slopes.nonzero.corr.CUBA.MARGINAL <-
+    gnlrim::gnlrem(y=ybind,
+           mu = ~ pnorm(
+             (Intercept + period_numeric*b_p)*
+               sqrt(1 + var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric ) +
+               rand1 + period_numeric*rand2
+           ),
+           pmu = c(Intercept=-1.95, b_p=1.55, var1=1, var2=1, corr12= 0.20),
+           pmix=c(var1=1, var2=1, corr12= 0.20),
+           p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+           p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+           distribution="binomial",
+           nest=id,
+           random=c("rand1", "rand2"),
+           mixture="bivariate-normal-corr",
+           ooo=TRUE,
+           compute_hessian = FALSE,
+           compute_kkt = FALSE,
+           trace=1,
+           method='nlminb',
+           int2dmethod="cuba"
+    )
+)
+#
+# Assemble the answers
+#        Intercept     b_p     var1     var2    corr12    value fevals gevals niter convcode kkt1 kkt2
+# nlminb -1.229578 1.50625 1.029324 2.531012 0.1703418 194.9702     16     97    14        0   NA   NA
+
+phi_x <- function(x, var1=1.05234, var2=2.521599, corr12=0.1297366){
+
+  1/sqrt(1 + var1 + var2*x^2 + 2*corr12*sqrt(var1*var2)*x )
+
+}
+xvalueset <- c(0, sort(unique(period_numeric)), 1, 10)
+cbind(
+  xvalue = xvalueset,
+
+  "phi(xvalue)" = phi_x(x=xvalueset),
+
+  beta0_c = -1.76073,
+  beta1_c = 1.83619,
+
+  beta0_m =  -1.76073*  phi_x(x=xvalueset),
+  beta1_m =  1.83619 *  phi_x(x=xvalueset)
+)
+
+xdomain <- seq(-2,4,0.05)
+plot(xdomain, phi_x(xdomain), ylim=c(0,1))
+
+plot(x1, r/(r+n_r),col="grey", ylim=c(0,1), xlim=range(xdomain))
+lines(xdomain, pnorm( -1.76073+1.83619*xdomain), ylim=c(0,1))
+lines(xdomain, pnorm(-1.229578+1.50625*xdomain), col="red")
+lines(xdomain, phi_x(xdomain), ylim=c(0,1), lty=2, col='cyan')
+
+
+########################################$$$$#########
+## 2022-02-16                                      ##
+## END two random parameters     MARGINAL COEFF    ##
+#####################################################
+
+
+
+
+
+
+
 ########################################$$$$#########
 ## 2022-02-10                                      ##
 ## START two random parameters                     ##
@@ -52,8 +2977,8 @@ sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Logistic-B
 detach(summed_binom_dat)
 set.seed(6)
 binom_dat <-
-#  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
-#  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
   sim_mrim_data(8,8, J=100, a0 = -2, a1 = 1)
 data.table::setDT(binom_dat)
 
@@ -123,6 +3048,7 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 1
 #     )
 # )
 
+## this is very slow compared to `CUBA` below
 (rand.int.rand.slopes.nonzero.corr <-
     gnlrem(y=ybind,
            mu = ~ plogis(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
@@ -232,7 +3158,7 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id)+(0+x1 | id), summed_binom_dat, binomia
 ## ?MASS::glmmPQL
 library(nlme) # will be loaded automatically if omitted
 summary(MASS::glmmPQL(cbind(r, n_r) ~ x1, random = ~ x1 | id,
-                family = binomial, data = summed_binom_dat))
+                      family = binomial, data = summed_binom_dat))
 lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial, nAGQ = 0)
 ##?GMMAT::glmmkin
 ##GMMAT::glmmkin(cbind(r, n_r) ~ x1, id="id", random.slope="x1")
@@ -3630,7 +6556,21 @@ bm1.true <- a1.true * phi.true
 (p1.true <- stable_cdf2( bm0.true + bm1.true, c(alp.true, 0, 1/sqrt(alp.true), 0)))
 
 (tba.true <- 100*(1-p0.true/p1.true))
-
+#set.seed(10) # converges, LRT_free < LRT_2, but fails confidence interval test
+#set.seed(11) # converges, LRT_free < LRT_2, but coef too close to 0
+#set.seed(12) #converges, LRT_free < LRT_2, but fails confidence interval test
+#set.seed(13) #converges, LRT_free < LRT_2, and has reverse confidence interval test (ppn sig, free nonsig)
+set.seed(14) # passes everything but CIs are both significant -- but PPN closer to 0.  Gives hope.
+#set.seed(15) # FAIL
+#set.seed(16) # FAIL
+#set.seed(17) #FAIL
+#set.seed(18) # FAIL
+#set.seed(19) # FAIL
+#set.seed(20) # FAIL
+#set.seed(21) # FAIL
+#set.seed(22) # this was close enough to make me want to tinker.
+#set.seed(23) # FAIL
+#set.seed(24) ## NICE Likelihood example >400 vs <400
 dputted_dat<-
   dput(data.table::data.table(sim_mrim_data2(n1=25,n2=100,J=JJ,a0=a0.true,a1=a1.true, v = gam.g.true / sqrt(alp.true), mrim="SSS", alpha=1.69, gam=1/sqrt(1.69)))[,sum(y), by=c("id","group")])
 
@@ -3638,6 +6578,15 @@ robby <- data.table::data.table(id=dputted_dat$id, group=dputted_dat$group, y1=d
 
 robby[, mean(y1)  , by=group]
 robby[, median(y1), by=group]
+robby[, median(y1/(y1+y0)), by=group]
+#
+# tail(robby,25)
+# robby[id==23 & group==1, y1:=45]
+# robby[id==23 & group==1, y0:=15]
+# robby[id== 4 & group==1, y1:=55]
+# robby[id== 4 & group==1, y0:= 5]
+# robby[id==10 & group==1, y1:=57]
+# robby[id==10 & group==1, y0:= 3]
 
 ggplot2::ggplot(robby,ggplot2::aes(x=factor(group), y=y1)) + ggplot2::geom_boxplot() + ggbeeswarm::geom_beeswarm(ggplot2::aes(color=factor(group)))
 
