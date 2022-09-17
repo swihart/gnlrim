@@ -160,6 +160,16 @@
 ##' that are constrained optimization.  Lower bounds on parameters.
 ##' Defaults to -Inf.  Can be a vector.
 ##' @param int2dmethod EXPERIMENTAL.  default "romberg_int2d".  Can also be "cuba".
+##' @param tol.pcubature default value 1e-5.
+##' For the case of \code{mixture %in% c("bivariate-normal-corr","bivariate-cauchy-corr",
+##' "bivariate-subgauss-corr")} combined with
+##' \code{int2dmethod=="cuba"} this is the tolerance that is passed to
+##' \code{cuba::pcubature} to control the precision of the likelihood.
+##' For the case of \code{mixture = "bivariate-subgauss-corr"} combined with
+##' \code{int2dmethod=="cuba"}, this value may need to be as big as 0.1.
+##' @param tol.hcubature default value 0.001. This is the maximum tolerance passed
+##' to hcubature which does the integral for the bivariate subgaussian for
+##' \code{mixture = "bivariate-subgauss-corr"}.
 ##' @return If \code{ooo=TRUE}, A list of class \code{gnlm} is
 ##'     returned that contains all of the relevant information
 ##'     calculated, including error codes.  If \code{ooo=FALSE}, then
@@ -226,7 +236,7 @@
 ##' @importFrom VGAM dbetabinom dbetabinom.ab
 ##' @importFrom mvtnorm dmvnorm
 ##' @importFrom cubature pcubature
-##' @importFrom mvsubgaussPD dmvsubgaussPD
+##' @importFrom mvsubgaussPD dmvsubgaussPD dmvsubgaussPD_mat
 ##' @useDynLib gnlrim, .registration = TRUE
 gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                    random=NULL, nest=NULL,
@@ -244,7 +254,9 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                    method="nlminb", ooo=FALSE,
                    p_lowb = -Inf, p_uppb = Inf,
                    points=5, steps=10,
-                   int2dmethod=c("romberg_int2d","cuba")[1]){
+                   int2dmethod=c("romberg_int2d","cuba")[1],
+                   tol.pcubature=1e-5,
+                   tol.hcubature=0.001){
 
   int1 <- function(ff, aa, bb){
     # from_dotc <-
@@ -1022,7 +1034,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                                                   alpha=a,
                                                   Q=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),
                                                   outermost.int = c("stats::integrate", "cubature::adaptIntegrate","cubature::hcubature")[3],
-                                                  tol = 0.001,
+                                                  tol = tol.hcubature,
                                                   fDim = NROW(x),
                                                   maxEval = 0,
                                                   absError=0,
@@ -1155,7 +1167,8 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
       -sum(log(cubature::pcubature(f=fn,
                                    lowerLimit=c(-Inf,-Inf),
                                    upperLimit=c(Inf,Inf),
-                                   fDim=nnest)$integral))
+                                   fDim=nnest,
+                                   tol=tol.pcubature)$integral))
       ## here,bruce
 
 
@@ -1225,7 +1238,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                                    lowerLimit=c(-Inf,-Inf),
                                    upperLimit=c(Inf,Inf),
                                    fDim=nnest,
-                                   tol=0.1)$integral))
+                                   tol=tol.pcubature)$integral))
       ## here,bruce
       print(paste0(Sys.time(), " ... ending   pcubature -- tol=0.1 -- ret.val is: ", round(ret.val,5)));
 

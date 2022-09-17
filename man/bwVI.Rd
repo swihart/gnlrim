@@ -3,7 +3,7 @@
 \docType{data}
 \name{bwVI}
 \alias{bwVI}
-\title{Black White Visual Impairment data set}
+\title{Black White Visual Impairment data set (update the details, Bruce. Still4cohlen)}
 \format{
 A data frame with 320 rows and 10 variables for 74 unique patients:
 \describe{

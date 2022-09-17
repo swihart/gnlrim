@@ -45,7 +45,9 @@ gnlrem(
   p_uppb = Inf,
   points = 5,
   steps = 10,
-  int2dmethod = c("romberg_int2d", "cuba")[1]
+  int2dmethod = c("romberg_int2d", "cuba")[1],
+  tol.pcubature = 1e-05,
+  tol.hcubature = 0.001
 )
 }
 \arguments{
@@ -235,6 +237,18 @@ points=2 is Simpson's rule.}
 default set to 10.}
 
 \item{int2dmethod}{EXPERIMENTAL.  default "romberg_int2d".  Can also be "cuba".}
+
+\item{tol.pcubature}{default value 1e-5.
+For the case of \code{mixture %in% c("bivariate-normal-corr","bivariate-cauchy-corr",
+"bivariate-subgauss-corr")} combined with
+\code{int2dmethod=="cuba"} this is the tolerance that is passed to
+\code{cuba::pcubature} to control the precision of the likelihood.
+For the case of \code{mixture = "bivariate-subgauss-corr"} combined with
+\code{int2dmethod=="cuba"}, this value may need to be as big as 0.1.}
+
+\item{tol.hcubature}{default value 0.001. This is the maximum tolerance passed
+to hcubature which does the integral for the bivariate subgaussian for
+\code{mixture = "bivariate-subgauss-corr"}.}
 }
 \value{
 If \code{ooo=TRUE}, A list of class \code{gnlm} is
