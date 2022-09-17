@@ -1240,7 +1240,8 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                                    fDim=nnest,
                                    tol=tol.pcubature)$integral))
       ## here,bruce
-      print(paste0(Sys.time(), " ... ending   pcubature -- tol=0.1 -- ret.val is: ", round(ret.val,5)));
+      ##print(paste0(Sys.time(), " ... ending   pcubature -- tol=0.1 -- ret.val is: ", round(ret.val,5)));
+      print(paste0(Sys.time(), " ... ending   pcubature -- tol=", round(tol.pcubature,3)," -- ret.val is: ", round(ret.val,5)));
 
 ret.val
 
