@@ -38,8 +38,8 @@
 ##' @param mixture The mixing distribution for the random parameter: logit-bridge-var,
 ##' logit-bridge-phi, normal-var (default), normal-phi,
 ##' Cauchy-scl, Cauchy-phi, stabledist-subgauss-scl, stabledist-subgauss-phi,
-##' libstableR-subgauss-scl, libstableR-subgauss-phi,
-##' libstableR-subgauss-scl-over-sqrt, libstableR-subgauss-scl-over-sqrt-phi,
+##' libstable4u-subgauss-scl, libstable4u-subgauss-phi,
+##' libstable4u-subgauss-scl-over-sqrt, libstable4u-subgauss-scl-over-sqrt-phi,
 ##' logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
 ##' beta, simplex, or two-sided power. The first twelve have zero location
 ##' parameter, the next three have unit location parameter, and the last two
@@ -85,7 +85,7 @@
 ##'     \code{mixture="normal-phi"},
 ##'     \code{mixture="Cauchy-phi"},
 ##'     \code{mixture="stabledist-subgauss-phi"},
-##'     \code{mixture="libstableR-subgauss-phi"}, and
+##'     \code{mixture="libstable4u-subgauss-phi"}, and
 ##'     \code{mixture="logit-bridge-phi"} this is the attenuation
 ##'     factor phi.  Otherwise it is the scale.  The last element must be the scale
 ##'     of the random intercept (`mixture`) distribution,
@@ -231,7 +231,7 @@
 ##' @importFrom graphics lines par plot points
 ##' @importFrom stats as.formula dbeta dbinom dcauchy deriv dexp dgamma dlogis dnbinom dnorm dpois dt dweibull gaussian glm glm.control model.frame model.matrix model.response na.fail nlm pbeta pcauchy pexp pgamma pgeom plogis pnbinom pnorm ppois pt pweibull qnorm summary.glm terms uniroot update.formula
 ##' @importFrom stabledist dstable pstable qstable
-##' @importFrom libstableR stable_pdf stable_cdf stable_q
+##' @importFrom libstable4u stable_pdf stable_cdf stable_q
 ##' @importFrom extraDistr dbetapr
 ##' @importFrom VGAM dbetabinom dbetabinom.ab
 ##' @importFrom mvtnorm dmvnorm
@@ -331,8 +331,8 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                                  "normal-var","normal-phi",
                                  "Cauchy-scl","Cauchy-phi",
                                  "stabledist-subgauss-scl","stabledist-subgauss-phi",
-                                 "libstableR-subgauss-scl","libstableR-subgauss-phi",
-                                 "libstableR-subgauss-scl-over-sqrt", "libstableR-subgauss-scl-over-sqrt-phi",
+                                 "libstable4u-subgauss-scl","libstable4u-subgauss-phi",
+                                 "libstable4u-subgauss-scl-over-sqrt", "libstable4u-subgauss-scl-over-sqrt-phi",
                                  "cloglog-bridge-delta-free","cloglog-bridge-0-mean","cloglog-bridge-delta-eq-alpha",
                                  "logistic","Laplace",
                                  "gamma","inverse gamma","inverse Gauss","Weibull","Levy","beta",
@@ -960,14 +960,14 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                 "stabledist-subgauss-scl"  =function(a,p,r) dstable2(r,a,0,p       ,0),
                 "stabledist-subgauss-phi"  =function(a,p,r) dstable2(r,a,0,(p^(-a)-1)^(1/a),0),
 
-                #"libstableR-subgauss-scl"  =function(a,p,r) libstableR::stable_pdf(r,c(a,0,p       ,0)),
-                #"libstableR-subgauss-phi"  =function(a,p,r) libstableR::stable_pdf(r,c(a,0,(p^(-a)-1)^(1/a),0)),
+                #"libstable4u-subgauss-scl"  =function(a,p,r) libstable4u::stable_pdf(r,c(a,0,p       ,0)),
+                #"libstable4u-subgauss-phi"  =function(a,p,r) libstable4u::stable_pdf(r,c(a,0,(p^(-a)-1)^(1/a),0)),
 
-                "libstableR-subgauss-scl"  =function(a,p,r) stable_pdf2(r,c(a,0,p       ,0)),
-                "libstableR-subgauss-phi"  =function(a,p,r) stable_pdf2(r,c(a,0,(p^(-a)-1)^(1/a),0)),
+                "libstable4u-subgauss-scl"  =function(a,p,r) stable_pdf2(r,c(a,0,p       ,0)),
+                "libstable4u-subgauss-phi"  =function(a,p,r) stable_pdf2(r,c(a,0,(p^(-a)-1)^(1/a),0)),
 
-                "libstableR-subgauss-scl-over-sqrt"=function(a,p,r) stable_pdf2(r,c(a,0,p/sqrt(a),0)),
-                "libstableR-subgauss-scl-over-sqrt-phi"=function(a,p,r) stable_pdf2(r,c(a,0,(p^(-a)-1)^(1/a)/sqrt(a),0)),
+                "libstable4u-subgauss-scl-over-sqrt"=function(a,p,r) stable_pdf2(r,c(a,0,p/sqrt(a),0)),
+                "libstable4u-subgauss-scl-over-sqrt-phi"=function(a,p,r) stable_pdf2(r,c(a,0,(p^(-a)-1)^(1/a)/sqrt(a),0)),
 
                 "cloglog-bridge-delta-free" = function(a,p,r){
                   ## Derived expression for gamma
@@ -980,7 +980,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                   alpha <- a
                   delta <- p
                   mult <- (delta/alpha)^(-1/alpha)
-                  libstableR::stable_pdf((mult * exp(x)),
+                  libstable4u::stable_pdf((mult * exp(x)),
                                          pars = c(alpha, beta=1, gamma=g(alpha), delta=0),
                                          parametrization = 1)*abs( (mult*exp(x)) )
 
@@ -1004,7 +1004,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                   alpha <- alp(p)
                   delta <- del(0,alpha)
                   mult <- (delta/alpha)^(-1/alpha)
-                  libstableR::stable_pdf((mult * exp(x)),
+                  libstable4u::stable_pdf((mult * exp(x)),
                                          pars = c(alpha, beta=1, gamma=g(alpha), delta=0),
                                          parametrization = 1)*abs( (mult*exp(x)) )
 
@@ -1021,7 +1021,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                   alpha <- p
                   delta <- p
                   mult <- (delta/alpha)^(-1/alpha)
-                  libstableR::stable_pdf((mult * exp(x)),
+                  libstable4u::stable_pdf((mult * exp(x)),
                                          pars = c(alpha, beta=1, gamma=g(alpha), delta=0),
                                          parametrization = 1)*abs( (mult*exp(x)) )
 
@@ -1081,7 +1081,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
               mix(p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)
         }
       -sum(log(inta(fn)))}
-  else if(mixture=="cloglog-bridge-delta-free"||mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi"||mixture=="libstableR-subgauss-scl"||mixture=="libstableR-subgauss-phi"||mixture=="libstableR-subgauss-scl-over-sqrt"||mixture=="libstableR-subgauss-scl-over-sqrt-phi")
+  else if(mixture=="cloglog-bridge-delta-free"||mixture=="stabledist-subgauss-scl"||mixture=="stabledist-subgauss-phi"||mixture=="libstable4u-subgauss-scl"||mixture=="libstable4u-subgauss-phi"||mixture=="libstable4u-subgauss-scl-over-sqrt"||mixture=="libstable4u-subgauss-scl-over-sqrt-phi")
     like <- function(p){
       fn <- function(r)
         mix(p[np-1],p[np],r)*capply(fcn(p,r[nest])*delta^cc,nest,prod)

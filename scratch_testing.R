@@ -380,7 +380,7 @@ attach(ab_dat)
                    distribution="binomial",
                    nest=id,
                    random=c("rand1"),
-                   mixture="libstableR-subgauss-scl",
+                   mixture="libstable4u-subgauss-scl",
                    ooo=TRUE,
                    compute_hessian = FALSE,
                    compute_kkt = FALSE,
@@ -589,7 +589,7 @@ o.value <- with(dtep.money, cbind(death_flag,1-death_flag))
                    distribution="binomial",
                    nest=id,
                    random=c("rand1"),
-                   mixture="libstableR-subgauss-scl",
+                   mixture="libstable4u-subgauss-scl",
                    ooo=TRUE,
                    compute_hessian = FALSE,
                    compute_kkt = FALSE,
@@ -665,7 +665,7 @@ dens_diff <- function(THETA){
   s <- seq(0.0001,0.9999,0.0001)
   s <- seq(0.001 ,0.999 ,0.001 )
   s <- seq(0.01  ,0.99  ,0.01  )
-  sqrt(mean(abs(qlogis(s) - libstableR::stable_q(s, c(a,0,c,0),1))))
+  sqrt(mean(abs(qlogis(s) - libstable4u::stable_q(s, c(a,0,c,0),1))))
 
 }
 
@@ -681,11 +681,11 @@ optim(c(1.89,1.2),
 a <- 1.80
 x <- seq(-3,3,1)
 plot(x,dlogis(x))
-points(x,libstableR::stable_pdf(x, c(a,0,1.158,0),1), col="blue")
+points(x,libstable4u::stable_pdf(x, c(a,0,1.158,0),1), col="blue")
 
 s <- seq(0.0001,0.9999,0.0001)
 plot(qlogis(s),
-     libstableR::stable_q(s, c(a,0,1.2,0),1)
+     libstable4u::stable_q(s, c(a,0,1.2,0),1)
 )
 abline(a=0,b=1,col="blue")
 
@@ -816,7 +816,7 @@ o.value <- value ## lesson learned!  got an error when I used "value"
                    distribution="binomial",
                    nest=id,
                    random=c("rand1"),
-                   mixture="libstableR-subgauss-scl",
+                   mixture="libstable4u-subgauss-scl",
                    ooo=TRUE,
                    compute_hessian = FALSE,
                    compute_kkt = FALSE,
@@ -1117,7 +1117,7 @@ o.value <- value ## lesson learned!  got an error when I used "value"
                    distribution="binomial",
                    nest=id,
                    random=c("rand1"),
-                   mixture="libstableR-subgauss-scl",
+                   mixture="libstable4u-subgauss-scl",
                    ooo=TRUE,
                    compute_hessian = FALSE,
                    compute_kkt = FALSE,
@@ -1200,7 +1200,7 @@ o.value <- value ## lesson learned!  got an error when I used "value"
 #                           +                    distribution="binomial",
 #                           +                    nest=id,
 #                           +                    random=c("rand1"),
-#                           +                    mixture="libstableR-subgauss-scl",
+#                           +                    mixture="libstable4u-subgauss-scl",
 #                           +                    ooo=TRUE,
 #                           +                    compute_hessian = FALSE,
 #                           +                    compute_kkt = FALSE,
@@ -1584,7 +1584,7 @@ R0 = DEoptim(logl.theta,
 ## dmvt(df=1) and then verify it with an alpha=1 locked
 
 library(mvsubgaussPD)
-library(libstableR)
+library(libstable4u)
 library(data.table)
 # Derived expression for gamma
 g <- function(a) {
@@ -1679,7 +1679,7 @@ period_numeric <- x1
                    distribution="binomial",
                    nest=id,
                    random=c("rand1"),
-                   mixture="libstableR-subgauss-scl",
+                   mixture="libstable4u-subgauss-scl",
                    ooo=TRUE,
                    compute_hessian = FALSE,
                    compute_kkt = FALSE,
@@ -1702,7 +1702,7 @@ period_numeric <- x1
                    distribution="binomial",
                    nest=id,
                    random=c("rand1"),
-                   mixture="libstableR-subgauss-phi",
+                   mixture="libstable4u-subgauss-phi",
                    ooo=TRUE,
                    compute_hessian = FALSE,
                    compute_kkt = FALSE,
@@ -2020,7 +2020,7 @@ text(3.6,0.19, "            phi(x)", col="cyan")
 
 
 library(mvsubgaussPD)
-library(libstableR)
+library(libstable4u)
 library(data.table)
 # Derived expression for gamma
 g <- function(a) {
@@ -2116,7 +2116,7 @@ period_numeric <- x1
                    distribution="binomial",
                    nest=id,
                    random=c("rand1"),
-                   mixture="libstableR-subgauss-scl",
+                   mixture="libstable4u-subgauss-scl",
                    ooo=TRUE,
                    compute_hessian = FALSE,
                    compute_kkt = FALSE,
@@ -2136,7 +2136,7 @@ period_numeric <- x1
                    distribution="binomial",
                    nest=id,
                    random=c("rand1"),
-                   mixture="libstableR-subgauss-phi",
+                   mixture="libstable4u-subgauss-phi",
                    ooo=TRUE,
                    compute_hessian = FALSE,
                    compute_kkt = FALSE,
@@ -7005,7 +7005,7 @@ gapr_marg_alpha_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7028,7 +7028,7 @@ gapr_marg_alpha_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7053,7 +7053,7 @@ fu_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -7080,7 +7080,7 @@ fu_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -7317,7 +7317,7 @@ gapr_marg_alpha_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7340,7 +7340,7 @@ gapr_marg_alpha_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7359,7 +7359,7 @@ gapr_marg_alpha_1.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7417,7 +7417,7 @@ fu_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -7452,7 +7452,7 @@ fu_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -7585,7 +7585,7 @@ gapr_marg_alpha_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7608,7 +7608,7 @@ gapr_marg_alpha_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7646,7 +7646,7 @@ gapr_marg_alpha_1.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7723,7 +7723,7 @@ fu_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -7758,7 +7758,7 @@ fu_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl-over-sqrt",
+         mixture="libstable4u-subgauss-scl-over-sqrt",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -7884,7 +7884,7 @@ gapr_marg_alpha_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7903,7 +7903,7 @@ gapr_marg_alpha_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7922,7 +7922,7 @@ gapr_marg_alpha_1.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -7980,7 +7980,7 @@ fu_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -8015,7 +8015,7 @@ fu_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -8155,7 +8155,7 @@ gapr_marg_alpha_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8174,7 +8174,7 @@ gapr_marg_alpha_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8193,7 +8193,7 @@ gapr_marg_alpha_1.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8248,7 +8248,7 @@ fu_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -8283,7 +8283,7 @@ fu_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=FALSE,
          compute_hessian = TRUE,
          compute_kkt = FALSE,
@@ -8372,7 +8372,7 @@ gapr_marg_alpha_free <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8394,7 +8394,7 @@ gapr_marg_alpha_2.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8413,7 +8413,7 @@ gapr_marg_alpha_1.00 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-scl",
+         mixture="libstable4u-subgauss-scl",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8451,7 +8451,7 @@ gapr_marg_lbfgs <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-phi",
+         mixture="libstable4u-subgauss-phi",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8475,7 +8475,7 @@ gapr_marg_bobyqa <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-phi",
+         mixture="libstable4u-subgauss-phi",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8504,7 +8504,7 @@ gapr_marg_nlminb <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-phi",
+         mixture="libstable4u-subgauss-phi",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8533,7 +8533,7 @@ gapr_marg_bobyqa2 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-phi",
+         mixture="libstable4u-subgauss-phi",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8560,7 +8560,7 @@ gapr_marg_nlminb2 <-
          distribution="binomial",
          nest=id,
          random="rand",
-         mixture="libstableR-subgauss-phi",
+         mixture="libstable4u-subgauss-phi",
          ooo=TRUE,
          compute_hessian = FALSE,
          compute_kkt = FALSE,
@@ -8582,7 +8582,7 @@ time.taken
 ## this section tests conditional vs. marginal inference
 ## hint:  definitely need to name pmu and pmix starting values:
 ## more specifically trying to get this to work
-## when using libstableR-subgauss-phi
+## when using libstable4u-subgauss-phi
 ##############################################################
 ##############################################################
 ##############################################################
@@ -8653,7 +8653,7 @@ sort(unique(cond_PPN_phi$fitted.values))
 ## but as a Nolan parameterized stable distribution a standard normal has a scale
 ## of 1/sqrt(2)
 
-cond_PPN_phi_libstableR <- gnlrim(y=y_cbind,
+cond_PPN_phi_libstable4u <- gnlrim(y=y_cbind,
                                   mu=~stable_cdf2( a_cond+b_cond*dose+rand, c(alpha,0,1/sqrt(2),0)),
                                   pmu=c(a_cond=0,b_cond=0,alpha=2),
                                   pmix=c(alpha=2, phi=0.5),
@@ -8662,7 +8662,7 @@ cond_PPN_phi_libstableR <- gnlrim(y=y_cbind,
                                   distribution="binomial",
                                   nest=id,
                                   random="rand",
-                                  mixture="libstableR-subgauss-phi")
+                                  mixture="libstable4u-subgauss-phi")
 
 
 
@@ -8670,14 +8670,14 @@ cond_PPN_phi_libstableR <- gnlrim(y=y_cbind,
 ## and to get same beta coeffs you must assume the 1/sqrt(2)
 ## so not surprising that betas are the same but phi is different.
 cond_PPN_phi$coefficients
-cond_PPN_phi_libstableR$coefficients
+cond_PPN_phi_libstable4u$coefficients
 
 cond_PPN_phi$maxlike
-cond_PPN_phi_libstableR$maxlike
+cond_PPN_phi_libstable4u$maxlike
 
 
 
-marg_PPN_phi_libstableR1 <- gnlrim(y=y_cbind,
+marg_PPN_phi_libstable4u1 <- gnlrim(y=y_cbind,
                                    mu=~stable_cdf2( (a_marg+b_marg*dose)/phi+rand, c(alpha,0,1,0)),
                                    pmu=c(a_marg=0,b_marg=0,phi=0.5,alpha=2),
                                    pmix=c(alpha=2, phi=0.5),
@@ -8686,18 +8686,18 @@ marg_PPN_phi_libstableR1 <- gnlrim(y=y_cbind,
                                    distribution="binomial",
                                    nest=id,
                                    random="rand",
-                                   mixture="libstableR-subgauss-phi")
+                                   mixture="libstable4u-subgauss-phi")
 
 
 
 ## next two lines the same? No, because phi assumes scale=1
 ## and to get same beta coeffs you must assume the 1/sqrt(2)
-cond_PPN_phi_libstableR1$coefficients
-marg_PPN_phi_libstableR1$coefficients
+cond_PPN_phi_libstable4u1$coefficients
+marg_PPN_phi_libstable4u1$coefficients
 ## no agreement.
 
 ##If alpha is 1?
-cond_CCC_phi_libstableR1 <- gnlrim(y=y_cbind,
+cond_CCC_phi_libstable4u1 <- gnlrim(y=y_cbind,
                                    mu=~stable_cdf2( a_cond+b_cond*dose+rand, c(alpha,0,1,0)),
                                    pmu=c(a_cond=0,b_cond=0,alpha=1),
                                    pmix=c(alpha=1, phi=0.5),
@@ -8706,9 +8706,9 @@ cond_CCC_phi_libstableR1 <- gnlrim(y=y_cbind,
                                    distribution="binomial",
                                    nest=id,
                                    random="rand",
-                                   mixture="libstableR-subgauss-phi")
+                                   mixture="libstable4u-subgauss-phi")
 
-marg_CCC_phi_libstableR1 <- gnlrim(y=y_cbind,
+marg_CCC_phi_libstable4u1 <- gnlrim(y=y_cbind,
                                    mu=~stable_cdf2( (a_marg+b_marg*dose)*((1^alpha)/phi)+rand, c(alpha,0,1,0)),
                                    pmu=c(a_marg=0,b_marg=0,alpha=1,phi=0.5),
                                    pmix=c(alpha=1, phi=0.5),
@@ -8717,17 +8717,17 @@ marg_CCC_phi_libstableR1 <- gnlrim(y=y_cbind,
                                    distribution="binomial",
                                    nest=id,
                                    random="rand",
-                                   mixture="libstableR-subgauss-phi",
+                                   mixture="libstable4u-subgauss-phi",
                                    compute_hessian=TRUE,
                                    compute_kkt=FALSE,
                                    trace=1)
 
-cond_CCC_phi_libstableR1$coefficients
-marg_CCC_phi_libstableR1$coefficients
-marg_CCC_phi_libstableR1$se
+cond_CCC_phi_libstable4u1$coefficients
+marg_CCC_phi_libstable4u1$coefficients
+marg_CCC_phi_libstable4u1$se
 
-cond_CCC_phi_libstableR1$maxlike
-marg_CCC_phi_libstableR1$maxlike
+cond_CCC_phi_libstable4u1$maxlike
+marg_CCC_phi_libstable4u1$maxlike
 
 
 
@@ -8737,7 +8737,7 @@ marg_CCC_phi_libstableR1$maxlike
 ## match the order the parameters appear in `mu`.  This means you might have to do a `1^alpha/phi` trick
 ## as opposed to `1/phi` because phi has to be last in pmix and pmu.  Note:  even the "trick" doesn't work for
 ## conditional models -- I put in alpha and phi explicitly:
-# cond_CCC_phi_libstableR1_trick <- gnlrim(y=y_cbind,
+# cond_CCC_phi_libstable4u1_trick <- gnlrim(y=y_cbind,
 #                                          mu=~stable_cdf2( (a_cond+b_cond*dose)*1^alpha*1^phi +rand, c(alpha,0,1,0)),
 #                                          pmu=c(a_cond=0,b_cond=0,alpha=1,phi=0.5),
 #                                          pmix=c(alpha=1, phi=0.5),
@@ -8746,10 +8746,10 @@ marg_CCC_phi_libstableR1$maxlike
 #                                          distribution="binomial",
 #                                          nest=id,
 #                                          random="rand",
-#                                          mixture="libstableR-subgauss-phi")
-# > cond_CCC_phi_libstableR1_trick$maxlike
+#                                          mixture="libstable4u-subgauss-phi")
+# > cond_CCC_phi_libstable4u1_trick$maxlike
 # [1] 9.989502 ## should be 10.03177
-# > cond_CCC_phi_libstableR1$maxlike
+# > cond_CCC_phi_libstable4u1$maxlike
 # [1] 9.989502 ## should be 10.03177
 
 
@@ -8807,7 +8807,7 @@ sort(unique(cond_PPN_var$fitted.values))
 ## but as a Nolan parameterized stable distribution a standard normal has a scale
 ## of 1/sqrt(2)
 
-cond_PPN_scl_libstableR <- gnlrim(y=y_cbind,
+cond_PPN_scl_libstable4u <- gnlrim(y=y_cbind,
                                   mu=~stable_cdf2( a_cond+b_cond*dose+rand, c(alpha,0,1/sqrt(2),0)),
                                   pmu=c(a_cond=0,b_cond=0,alpha=2),
                                   pmix=c(alpha=2, scl=0.5),
@@ -8816,7 +8816,7 @@ cond_PPN_scl_libstableR <- gnlrim(y=y_cbind,
                                   distribution="binomial",
                                   nest=id,
                                   random="rand",
-                                  mixture="libstableR-subgauss-scl")
+                                  mixture="libstable4u-subgauss-scl")
 
 
 
@@ -8824,13 +8824,13 @@ cond_PPN_scl_libstableR <- gnlrim(y=y_cbind,
 c(cond_PPN_var$coefficients[1:2], 2, cond_PPN_var$coefficients[3],
   sqrt(cond_PPN_var$coefficients[3]/2))
 
-c(cond_PPN_scl_libstableR$coefficients[1:3],
-  2*cond_PPN_scl_libstableR$coefficients[4]^2 ,
-  cond_PPN_scl_libstableR$coefficients[4])
+c(cond_PPN_scl_libstable4u$coefficients[1:3],
+  2*cond_PPN_scl_libstable4u$coefficients[4]^2 ,
+  cond_PPN_scl_libstable4u$coefficients[4])
 
-## can we do marginal with libstableR?
+## can we do marginal with libstable4u?
 ## YES!, if we are sure to make sure to have alpha appear before scl in the `mu` statement
-marg_PPN_scl_libstableR <- gnlrim(y=y_cbind,
+marg_PPN_scl_libstable4u <- gnlrim(y=y_cbind,
                                   mu=~stable_cdf2( (a_marg+b_marg*dose)*sqrt((1/sqrt(2))^alpha+scl^2)/(1/sqrt(2)) +rand, c(alpha,0,1/sqrt(2),0)),
                                   pmu=c(a_marg=0,b_marg=0,alpha=2, scl=0.5),
                                   pmix=c(alpha=2, scl=0.5),
@@ -8839,10 +8839,10 @@ marg_PPN_scl_libstableR <- gnlrim(y=y_cbind,
                                   distribution="binomial",
                                   nest=id,
                                   random="rand",
-                                  mixture="libstableR-subgauss-scl")
+                                  mixture="libstable4u-subgauss-scl")
 
 ## next two lines the same? Yes!
-marg_PPN_scl_libstableR$coefficients[1:2] * sqrt((1/sqrt(2))^2+marg_PPN_scl_libstableR$coefficients[4]^2)/(1/sqrt(2))
+marg_PPN_scl_libstable4u$coefficients[1:2] * sqrt((1/sqrt(2))^2+marg_PPN_scl_libstable4u$coefficients[4]^2)/(1/sqrt(2))
 
 c(cond_PPN_var$coefficients[1:2], 2, cond_PPN_var$coefficients[3],
   sqrt(cond_PPN_var$coefficients[3]/2))
@@ -8850,8 +8850,8 @@ c(cond_PPN_var$coefficients[1:2], 2, cond_PPN_var$coefficients[3],
 
 cond_PPN_var$maxlike
 marg_PPN_var$maxlike
-marg_PPN_scl_libstableR$maxlike
-cond_PPN_scl_libstableR$maxlike
+marg_PPN_scl_libstable4u$maxlike
+cond_PPN_scl_libstable4u$maxlike
 
 
 
@@ -8972,7 +8972,7 @@ id <- rep(1:8, each=5)
 y_cbind = cbind(y_01, 1-y_01)
 
 
-fit_PPN_libstableR_scl <- gnlrim(y=y_cbind,
+fit_PPN_libstable4u_scl <- gnlrim(y=y_cbind,
                                  mu=~ stable_cdf2(a+b*dose+rand, c(alpha, 0, 1/sqrt(2), 0)),
                                  pmu=c(a=0,b=0, alpha=2),
                                  pmix=c(alpha=2, scl=1),
@@ -8981,14 +8981,14 @@ fit_PPN_libstableR_scl <- gnlrim(y=y_cbind,
                                  distribution="binomial",
                                  nest=id,
                                  random="rand",
-                                 mixture="libstableR-subgauss-scl",
+                                 mixture="libstable4u-subgauss-scl",
                                  ooo=TRUE,
                                  compute_hessian = FALSE,
                                  compute_kkt = FALSE,
                                  trace=1
 )
 
-fit_PPN_libstableR_scl
+fit_PPN_libstable4u_scl
 
 ##
 
@@ -9057,7 +9057,7 @@ gnlrim_fit2$se
 ##############################################################
 ##############################################################
 ##############################################################
-## this section tests the libstableR implementation of
+## this section tests the libstable4u implementation of
 ## subgauss and compares it to stabledist implementation of
 ## subgauss and compares to PPN with [dp]norm
 ##############################################################
@@ -9105,9 +9105,9 @@ fit_PPN_stabledist_scl <- gnlrim(y=y_cbind,
 fit_PPN_stabledist_scl$coefficients
 fit_PPN_stabledist_scl$se
 
-#Now try reproducing PPN with **libstableR** subgauss:
+#Now try reproducing PPN with **libstable4u** subgauss:
 
-fit_PPN_libstableR_scl <- gnlrim(y=y_cbind,
+fit_PPN_libstable4u_scl <- gnlrim(y=y_cbind,
                                  mu=~ stable_cdf2(a+b*dose+rand, c(alpha, 0, 1/sqrt(2), 0)),
                                  pmu=c(a=0,b=0, alpha=2),
                                  pmix=c(alpha=2, scl=1),
@@ -9116,7 +9116,7 @@ fit_PPN_libstableR_scl <- gnlrim(y=y_cbind,
                                  distribution="binomial",
                                  nest=id,
                                  random="rand",
-                                 mixture="libstableR-subgauss-scl"#,
+                                 mixture="libstable4u-subgauss-scl"#,
                                  # ooo=TRUE,
                                  # compute_hessian = FALSE,
                                  # compute_kkt = FALSE,
@@ -9124,8 +9124,8 @@ fit_PPN_libstableR_scl <- gnlrim(y=y_cbind,
 )
 
 ## should be 0s, not NAs.
-attr(fit_PPN_libstableR_scl, "details")[1,]$nhatend
-bonk <- attr(fit_PPN_libstableR_scl, "details")[1,]$nhatend
+attr(fit_PPN_libstable4u_scl, "details")[1,]$nhatend
+bonk <- attr(fit_PPN_libstable4u_scl, "details")[1,]$nhatend
 bonk_no_na <- matrix(bonk[!is.na(bonk)], nrow=3)
 bonk_no_na_cov <- solve(bonk_no_na)
 bonk_se <- sqrt(diag(bonk_no_na_cov))
@@ -9135,16 +9135,16 @@ fit_PPN_scl$se
 
 
 
-fit_PPN_libstableR_scl$coefficients
-fit_PPN_libstableR_scl$se
+fit_PPN_libstable4u_scl$coefficients
+fit_PPN_libstable4u_scl$se
 
 
 # next two function are now in the package gnlrim
-# ## what if we made a wrapper for libstableR
+# ## what if we made a wrapper for libstable4u
 # ## that would take out of bound pars and force them in bounds
 # ## ***internally***
 # stable_cdf2 <- function(x, pars, parameterization=0L, tol=1e-12){
-#   libstableR::stable_cdf(x,
+#   libstable4u::stable_cdf(x,
 #                          c(min(max(pars[1],0+1e-20),2),
 #                            min(max(pars[2],-1),1),
 #                            min(max(pars[3],0+1e-20),Inf),
@@ -9155,7 +9155,7 @@ fit_PPN_libstableR_scl$se
 # }
 #
 # stable_pdf2 <- function(x, pars, parameterization=0L, tol=1e-12){
-#   libstableR::stable_pdf(x,
+#   libstable4u::stable_pdf(x,
 #                          c(min(max(pars[1],0+1e-20),2),
 #                            min(max(pars[2],-1),1),
 #                            min(max(pars[3],0+1e-20),Inf),
@@ -9182,7 +9182,7 @@ stable_cdf2(1, c( 1,-1.1,1,0))
 stable_cdf2(1, c( 1,-2,1,0))
 
 
-fit2_PPN_libstableR_scl <- gnlrim(y=y_cbind,
+fit2_PPN_libstable4u_scl <- gnlrim(y=y_cbind,
                                  mu=~ stable_cdf2(a+b*dose+rand, c(alpha, 0, 1/sqrt(2), 0)),
                                  pmu=c(a=0,b=0, alpha=2),
                                  pmix=c(alpha=2, scl=1),
@@ -9191,14 +9191,14 @@ fit2_PPN_libstableR_scl <- gnlrim(y=y_cbind,
                                  distribution="binomial",
                                  nest=id,
                                  random="rand",
-                                 mixture="libstableR-subgauss-scl"#,
+                                 mixture="libstable4u-subgauss-scl"#,
                                  #ooo=TRUE,
                                  #trace=1
 )
 
 ## should be 0s, not NAs.
-attr(fit2_PPN_libstableR_scl, "details")[1,]$nhatend
-bonk <- attr(fit2_PPN_libstableR_scl, "details")[1,]$nhatend
+attr(fit2_PPN_libstable4u_scl, "details")[1,]$nhatend
+bonk <- attr(fit2_PPN_libstable4u_scl, "details")[1,]$nhatend
 bonk_no_na <- matrix(bonk[!is.na(bonk)], nrow=3)
 bonk_no_na_cov <- solve(bonk_no_na)
 bonk_se <- sqrt(diag(bonk_no_na_cov))
@@ -9206,8 +9206,8 @@ bonk_se <- sqrt(diag(bonk_no_na_cov))
 bonk_se
 fit_PPN_scl$se
 
-fit2_PPN_libstableR_scl$coefficients
-fit2_PPN_libstableR_scl$se
+fit2_PPN_libstable4u_scl$coefficients
+fit2_PPN_libstable4u_scl$se
 
 fit_PPN_scl$coefficients
 fit_PPN_scl$se
@@ -9218,17 +9218,17 @@ fit_PPN_scl$se
 ## all the same?
 fit_PPN_scl$coefficients
 fit_PPN_stabledist_scl$coefficients
-fit2_PPN_libstableR_scl$coefficients
+fit2_PPN_libstable4u_scl$coefficients
 
 fit_PPN_scl$se
 fit_PPN_stabledist_scl$se
-fit2_PPN_libstableR_scl$se
+fit2_PPN_libstable4u_scl$se
 
 
 ##############################################################
 ##############################################################
 ##############################################################
-## this section tests the libstableR implementation of
+## this section tests the libstable4u implementation of
 ## subgauss and compares it to stabledist implementation of
 ## subgauss and compares to CCC with [dp]cauchy
 ##############################################################
@@ -9273,9 +9273,9 @@ fit_CCC_stabledist_scl <- gnlrim(y=y_cbind,
 fit_CCC_stabledist_scl$coefficients
 fit_CCC_stabledist_scl$se
 
-#Now try reproducing CCC with **libstableR** subgauss:
+#Now try reproducing CCC with **libstable4u** subgauss:
 
-fit_CCC_libstableR_scl <- gnlrim(y=y_cbind,
+fit_CCC_libstable4u_scl <- gnlrim(y=y_cbind,
                                  mu=~ stable_cdf(a+b*dose+rand, c(alpha, 0, 1, 0)),
                                  pmu=c(a=0,b=0, alpha=1),
                                  pmix=c(alpha=1, scl=1),
@@ -9284,19 +9284,19 @@ fit_CCC_libstableR_scl <- gnlrim(y=y_cbind,
                                  distribution="binomial",
                                  nest=id,
                                  random="rand",
-                                 mixture="libstableR-subgauss-scl")
-fit_CCC_libstableR_scl$coefficients
-fit_CCC_libstableR_scl$se
+                                 mixture="libstable4u-subgauss-scl")
+fit_CCC_libstable4u_scl$coefficients
+fit_CCC_libstable4u_scl$se
 
 
 ## all the same?
 fit_CCC_scl$coefficients
 fit_CCC_stabledist_scl$coefficients
-fit_CCC_libstableR_scl$coefficients
+fit_CCC_libstable4u_scl$coefficients
 
 fit_CCC_scl$se
 fit_CCC_stabledist_scl$se
-fit_CCC_libstableR_scl$se
+fit_CCC_libstable4u_scl$se
 
 
 
@@ -9330,9 +9330,9 @@ fit_CCC_stabledist_phi <- gnlrim(y=y_cbind,
 fit_CCC_stabledist_phi$coefficients
 fit_CCC_stabledist_phi$se
 
-#Now try reproducing CCC with **libstableR** subgauss:
+#Now try reproducing CCC with **libstable4u** subgauss:
 
-fit_CCC_libstableR_phi <- gnlrim(y=y_cbind,
+fit_CCC_libstable4u_phi <- gnlrim(y=y_cbind,
                                  mu=~ stable_cdf(a+b*dose+rand, c(alpha, 0, 1, 0)),
                                  pmu=c(a=0,b=0, alpha=1),
                                  pmix=c(alpha=1, phi=0.5),
@@ -9341,19 +9341,19 @@ fit_CCC_libstableR_phi <- gnlrim(y=y_cbind,
                                  distribution="binomial",
                                  nest=id,
                                  random="rand",
-                                 mixture="libstableR-subgauss-phi")
-fit_CCC_libstableR_phi$coefficients
-fit_CCC_libstableR_phi$se
+                                 mixture="libstable4u-subgauss-phi")
+fit_CCC_libstable4u_phi$coefficients
+fit_CCC_libstable4u_phi$se
 
 
 ## all the same?
 fit_CCC_phi$coefficients
 fit_CCC_stabledist_phi$coefficients
-fit_CCC_libstableR_phi$coefficients
+fit_CCC_libstable4u_phi$coefficients
 
 fit_CCC_phi$se
 fit_CCC_stabledist_phi$se
-fit_CCC_libstableR_phi$se
+fit_CCC_libstable4u_phi$se
 
 
 

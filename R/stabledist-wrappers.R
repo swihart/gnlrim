@@ -18,7 +18,7 @@
 #'         Maintainer: Javier Royuela del Val <jroyval@@lpi.tel.uva.es>
 #' @references Nolan JP (1997). Numerical Calculation of Stable Densities and Distribution Functions. Stochastic Models, 13(4) 759-774.
 #' @keywords distribution
-#' @importFrom libstableR stable_pdf stable_cdf stable_q
+#' @importFrom stabledist dstable pstable qstable
 #' @export
 #' @examples
 #' ##take out of bound pars and force them in bounds

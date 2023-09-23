@@ -22,7 +22,7 @@
 #'         Maintainer: Javier Royuela del Val <jroyval@@lpi.tel.uva.es>
 #' @references Nolan JP (1997). Numerical Calculation of Stable Densities and Distribution Functions. Stochastic Models, 13(4) 759-774.
 #' @keywords distribution
-#' @importFrom libstableR stable_pdf stable_cdf stable_q
+#' @importFrom libstable4u stable_pdf stable_cdf stable_q
 #' @export
 #' @examples
 #' ##take out of bound pars and force them in bounds
@@ -40,7 +40,7 @@
 #' cdf <- stable_cdf2(x, pars)
 #' }
 stable_pdf2 <- function(x, pars, parametrization=0L, tol=1e-12){
-  libstableR::stable_pdf(x,
+  libstable4u::stable_pdf(x,
                          c(min(max(pars[1],0+1e-20),2),
                            min(max(pars[2],-1),1),
                            min(max(pars[3],0+1e-20),Inf),
@@ -51,7 +51,7 @@ stable_pdf2 <- function(x, pars, parametrization=0L, tol=1e-12){
 }
 #' @export
 stable_cdf2 <- function(x, pars, parametrization=0L, tol=1e-12){
-  libstableR::stable_cdf(x,
+  libstable4u::stable_cdf(x,
                          c(min(max(pars[1],0+1e-20),2),
                            min(max(pars[2],-1),1),
                            min(max(pars[3],0+1e-20),Inf),

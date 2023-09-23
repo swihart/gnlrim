@@ -77,8 +77,8 @@ is experimental (see blogpost).}
 \item{mixture}{The mixing distribution for the random parameter: logit-bridge-var,
 logit-bridge-phi, normal-var (default), normal-phi,
 Cauchy-scl, Cauchy-phi, stabledist-subgauss-scl, stabledist-subgauss-phi,
-libstableR-subgauss-scl, libstableR-subgauss-phi,
-libstableR-subgauss-scl-over-sqrt, libstableR-subgauss-scl-over-sqrt-phi,
+libstable4u-subgauss-scl, libstable4u-subgauss-phi,
+libstable4u-subgauss-scl-over-sqrt, libstable4u-subgauss-scl-over-sqrt-phi,
 logistic, Laplace, inverse Gauss, gamma, inverse gamma, Weibull,
 beta, simplex, or two-sided power. The first twelve have zero location
 parameter, the next three have unit location parameter, and the last two
@@ -134,7 +134,7 @@ of the dispersion parameter of the mixing distribution.  For
 \code{mixture="normal-phi"},
 \code{mixture="Cauchy-phi"},
 \code{mixture="stabledist-subgauss-phi"},
-\code{mixture="libstableR-subgauss-phi"}, and
+\code{mixture="libstable4u-subgauss-phi"}, and
 \code{mixture="logit-bridge-phi"} this is the attenuation
 factor phi.  Otherwise it is the scale.  The last element must be the scale
 of the random intercept (`mixture`) distribution,
