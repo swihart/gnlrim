@@ -1,12 +1,17 @@
-#' Black White Visual Impairment data set (update the details, Bruce. Still4cohlen)
+#' Black White Visual Impairment data set
 #'
-#' A dataset containing the visual impairment dataset
-#' Acquired from Supplementary materials of
+#' Visual impairment dataset acquired from
+#' supplementary materials of https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4203426/
+#'
 #' References
-#' Tielsch JM, Sommer A, Katz J, Quigley H, Ezrine S. Socioeconomic status and visual impairment among urban Americans. Archives of ophthalmology. 1991;109:637–641.
-#' Liang KY, Zeger SL. Longitudinal data analysis using generalized linear models. Biometrika. 1986;73:13–22.
-#' Swihart, B. J., Caffo, B. S. and Crainiceanu, C. M. (2014) A unifying framework for marginalised random-476
+#'
+#'  - Tielsch JM, Sommer A, Katz J, Quigley H, Ezrine S. Socioeconomic status and visual impairment among urban Americans. Archives of ophthalmology. 1991;109:637–641.
+#'
+#'  - Liang KY, Zeger SL. Longitudinal data analysis using generalized linear models. Biometrika. 1986;73:13–22.
+#'
+#'  - Swihart, B. J., Caffo, B. S. and Crainiceanu, C. M. (2014) A unifying framework for marginalised random-476
 #' intercept models of correlated binary outcomes. International Statistical Review, 82, 275–295
+#'
 #' @format A data frame with 10398 rows and 4 variables for 5199 unique patients:
 #' \describe{
 #'   \item{id}{subject id}
@@ -17,6 +22,7 @@
 #' @source \url{https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4203426/}
 #' @examples
 #' \donttest{
+#' ## Example 3.5 from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4203426/
 #' attach(bwVI)
 #' head(bwVI)
 #' o.value <- value ## lesson learned!  got an error when I used "value"
