@@ -236,7 +236,7 @@
 ##' @importFrom VGAM dbetabinom dbetabinom.ab
 ##' @importFrom mvtnorm dmvnorm
 ##' @importFrom cubature pcubature
-##' @importFrom mvsubgaussPD dmvsubgaussPD dmvsubgaussPD_mat
+##' @importFrom mvpd dmvss dmvss_mat
 ##' @useDynLib gnlrim, .registration = TRUE
 gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                    random=NULL, nest=NULL,
@@ -1030,7 +1030,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                 "bivariate-normal-corr"=function(s1,s2,corr,r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),checkSymmetry=FALSE,log=FALSE),
                 "bivariate-cauchy-corr" =function(s1,s2,corr,r1,r2) mvtnorm::dmvt   (x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),checkSymmetry=FALSE,log=FALSE,df=1),
                 "bivariate-subgauss-corr"=function(a,s1,s2,corr,r1,r2){
-                  mvsubgaussPD::dmvsubgaussPD_mat(x=matrix(c(r1,r2),ncol=2),
+                  mvpd::dmvss_mat(x=matrix(c(r1,r2),ncol=2),
                                                   alpha=a,
                                                   Q=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),
                                                   outermost.int = c("stats::integrate", "cubature::adaptIntegrate","cubature::hcubature")[3],
@@ -1163,16 +1163,19 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
       #print(nnest)
       #print(fn(c(1,2)))
       #print(cubature::pcubature(f=fn,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf), fDim=nnest))
-      print(Sys.time())
+      #print(Sys.time())
+      print(paste0(Sys.time()," ... starting pcubature for bivariate normal or cauchy"))
+      ret.val <-
       -sum(log(cubature::pcubature(f=fn,
                                    lowerLimit=c(-Inf,-Inf),
                                    upperLimit=c(Inf,Inf),
                                    fDim=nnest,
                                    tol=tol.pcubature)$integral))
       ## here,bruce
+      print(paste0(Sys.time(), " ... ending   pcubature -- tol=", round(tol.pcubature,3)," -- ret.val is: ", round(ret.val,5)));
 
 
-
+      ret.val
 
 
     }
@@ -1231,7 +1234,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
       #print(nnest)
       #print(fn(c(1,2)))
       #print(cubature::pcubature(f=fn,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf), fDim=nnest))
-      print(paste0(Sys.time()," ... starting pcubature"))
+      print(paste0(Sys.time()," ... starting pcubature for bivariate-subgauss-corr"))
 
       ret.val <-
       -sum(log(cubature::pcubature(f=fn,

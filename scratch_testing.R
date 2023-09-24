@@ -1583,7 +1583,7 @@ R0 = DEoptim(logl.theta,
 ## start by doing a cauchy-cauchy-cauchy using
 ## dmvt(df=1) and then verify it with an alpha=1 locked
 
-library(mvsubgaussPD)
+library(mvpd)
 library(libstable4u)
 library(data.table)
 # Derived expression for gamma
@@ -1745,7 +1745,12 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
                    compute_kkt = FALSE,
                    trace=1,
                    method='nlminb',
-                   int2dmethod="cuba"
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.1,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
     )
 )
 
@@ -1757,8 +1762,161 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
 
 
 
+## 3hr20min
+(rand.int.rand.slopes.nonzero.corr.CUBA <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
 
+                   pmu = c(Intercept=-1.2, b_p=1, alpha=1.0),
+                   pmix=c(alpha=1.0, var1=1, var2=1.3, corr12= 0.30),
 
+                   p_uppb = c(  0,   2, 1.0, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.1,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+##
+# > (rand.int.rand.slopes.nonzero.corr.CUBA <-
+#      +   gnlrim::gnlrem(y=ybind,
+#                         +                  mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+#                         +
+#                           +                  pmu = c(Intercept=-1.2, b_p=1, alpha=1.0),
+#                         +                  pmix=c(alpha=1.0, var1=1, var2=1.3, corr12= 0.30),
+#                         +
+#                           +                  p_uppb = c(  0,   2, 1.0, 4.00, 4.00, 0.90),
+#                         +                  p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
+#                         +                  distribution="binomial",
+#                         +                  nest=id,
+#                         +                  random=c("rand1", "rand2"),
+#                         +                  mixture="bivariate-subgauss-corr",
+#                         +                  ooo=TRUE,
+#                         +                  compute_hessian = FALSE,
+#                         +                  compute_kkt = FALSE,
+#                         +                  trace=1,
+#                         +                  method='nlminb',
+#                         +                  int2dmethod="cuba",
+#                         +                  tol.pcubature = 0.1,
+#                         +                  abs.tol.nlminb = 1e-2,
+#                         +                  xf.tol.nlminb =  1e-2,
+#                         +                  x.tol.nlminb =   1e-2,
+#                         +                  rel.tol.nlminb = 1e-2
+#                         +   )
+#    + )
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 2     In Bounds
+# par[ 3 ]:  1   <? 1   <? 1     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1.3   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2023-09-23 11:17:12 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 11:21:37 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.6368221   log bounds ratio= 0.3467875
+# Method:  nlminb
+# [1] "2023-09-23 11:21:37 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 11:26:02 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-23 11:26:02 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 11:30:31 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69603"
+# [1] "2023-09-23 11:30:31 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 11:34:58 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-23 11:34:58 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 11:39:24 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-23 11:39:24 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 11:43:49 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-23 11:43:49 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 11:48:14 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# 0:     3718.6960: -1.20000  1.00000  1.00000  1.00000  1.30000 0.300000
+# [1] "2023-09-23 11:48:14 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 11:52:37 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22428"
+# [1] "2023-09-23 11:52:37 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 11:57:01 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22655"
+# [1] "2023-09-23 11:57:01 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:01:26 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22426"
+# [1] "2023-09-23 12:01:26 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:05:42 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22385"
+# [1] "2023-09-23 12:05:42 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:09:58 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22464"
+# [1] "2023-09-23 12:09:58 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:14:14 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22485"
+# 1:     3681.2243: -1.69075 0.948139  1.00000  1.02489  1.33680 0.367106
+# [1] "2023-09-23 12:14:14 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:18:31 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27732"
+# [1] "2023-09-23 12:18:31 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:22:49 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27727"
+# [1] "2023-09-23 12:22:49 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:27:07 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27739"
+# [1] "2023-09-23 12:27:07 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:31:25 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27732"
+# [1] "2023-09-23 12:31:25 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:35:42 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27749"
+# [1] "2023-09-23 12:35:42 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 12:40:02 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27757"
+# 2:     3672.2773: -2.06343  1.03255  1.00000 0.780039  1.45334 0.541597
+# [1] "2023-09-23 12:40:02 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 14:40:10 ... ending   pcubature -- tol=0.1 -- ret.val is: 3678.6125"
+# 3:     3672.2773: -2.06343  1.03255  1.00000 0.780039  1.45334 0.541597
+# [1] "2023-09-23 14:40:10 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-09-23 14:44:54 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27732"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p      alpha       var1       var2     corr12
+# -2.0634324  1.0325505  1.0000000  0.7800393  1.4533409  0.5415967
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 3672.277
+#
+# $fevals
+# function
+# 4
+#
+# $gevals
+# gradient
+# 15
+#
+# $nitns
+# [1] 3
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 4469.231
+#
+# Assemble the answers
+# Intercept      b_p alpha      var1     var2    corr12    value fevals
+# nlminb -2.063432 1.032551     1 0.7800393 1.453341 0.5415967 3672.277      4
+# gevals niter convcode kkt1 kkt2    xtime
+# nlminb     15     3        0   NA   NA 4469.231
 
 
 
@@ -2019,7 +2177,8 @@ text(3.6,0.19, "            phi(x)", col="cyan")
 ## write gapr paper
 
 
-library(mvsubgaussPD)
+##library(mvsubgaussPD)
+library(mvpd)
 library(libstable4u)
 library(data.table)
 # Derived expression for gamma
@@ -2190,6 +2349,7 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
                    xf.tol.nlminb =  1e-1,
                    x.tol.nlminb =   1e-2,
                    rel.tol.nlminb = 1e-2,
+                  tol.pcubature = 0.1
     )
 )
 # > (rand.int.rand.slopes.nonzero.corr.CUBA <-
