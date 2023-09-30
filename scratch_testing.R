@@ -1,3 +1,156 @@
+########################################$$$$#########
+## 2023-09-30A                                     ##
+## START two random parameters: glmer == gnlrim.  ###
+#####################################################
+
+library(mvpd)
+library(libstable4u)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+
+
+detach(summed_binom_dat)
+set.seed(1709001)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1, mrim="Probit-BIVARIATE_NORM")
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+## takes about Yhr XXmin to run:
+(rand.int.rand.slopes.nonzero.corr.CUBA.CONDITIONAL <-
+  gnlrim::gnlrem(y=ybind,
+                 mu = ~ pnorm(
+                   (Intercept + period_numeric*b_p)+
+
+                     rand1 + period_numeric*rand2
+                 ),
+                 pmu = c(Intercept=-0.95, b_p=0.55),
+                 pmix=c(var1=1, var2=1, corr12= 0.20),
+                 p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+                 p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+                 distribution="binomial",
+                 nest=id,
+                 random=c("rand1", "rand2"),
+                 mixture="bivariate-normal-corr",
+                 ooo=TRUE,
+                 compute_hessian = FALSE,
+                 compute_kkt = FALSE,
+                 trace=1,
+                 method='nlminb',
+                 int2dmethod="cuba"
+  )
+)
+
+
+
+########################################$$$$#########
+## 2023-09-30A                                     ##
+## _END_ two random parameters: glmer == gnlrim.  ###
+#####################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ####################################################
 ## BEGIN malcolm idea                      ##########
 ####################################################
@@ -1727,7 +1880,11 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
 
 ## run it with bivariate CAUCHY and lock alpha=1 ... note pmix doesn't have alpha in it
 ## we'll verify this with bivariate stable in next chunk
-(rand.int.rand.slopes.nonzero.corr.CUBA <-
+## this finally ran successfully, after many dead-ends of programming a t(df=1) distribution
+## irony of all ironies -- making a product distribution based function in mvpd was what
+## came through.  Need further sims to make sure it is estimating what it should.
+## about 44 minutes compared to ## 3hr20min for bivariate-subgauss-corr (alpha lock at 1) approach below
+(rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
     gnlrim::gnlrem(y=ybind,
                    mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
 
@@ -1753,7 +1910,131 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
                    rel.tol.nlminb = 1e-2
     )
 )
-
+# > (rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+#                           +
+#                             +                    pmu = c(Intercept=-1.2, b_p=1, alpha=1.0),
+#                           +                    pmix=c(var1=1, var2=1.3, corr12= 0.30),
+#                           +
+#                             +                    p_uppb = c(  0,   4, 1.0, 4.00, 4.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-cauchy-corr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                    int2dmethod="cuba",
+#                           +                    tol.pcubature = 0.1,
+#                           +                    abs.tol.nlminb = 1e-2,
+#                           +                    xf.tol.nlminb =  1e-2,
+#                           +                    x.tol.nlminb =   1e-2,
+#                           +                    rel.tol.nlminb = 1e-2
+#                           +     )
+#    + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 4     In Bounds
+# par[ 3 ]:  1   <? 1   <? 1     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1.3   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2023-09-30 08:58:01 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 08:59:50 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.6368221   log bounds ratio= 0.5228787
+# Method:  nlminb
+# [1] "2023-09-30 08:59:51 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:01:38 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-30 09:01:38 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:03:25 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69603"
+# [1] "2023-09-30 09:03:25 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:05:13 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-30 09:05:13 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:07:03 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-30 09:07:03 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:08:54 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-30 09:08:54 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:10:43 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# 0:     3718.6960: -1.20000  1.00000  1.00000  1.00000  1.30000 0.300000
+# [1] "2023-09-30 09:10:43 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:12:33 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22428"
+# [1] "2023-09-30 09:12:33 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:14:24 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22655"
+# [1] "2023-09-30 09:14:24 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:16:15 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22426"
+# [1] "2023-09-30 09:16:15 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:18:04 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22385"
+# [1] "2023-09-30 09:18:04 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:19:54 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22464"
+# [1] "2023-09-30 09:19:54 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:21:43 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22485"
+# 1:     3681.2243: -1.69075 0.948139  1.00000  1.02489  1.33680 0.367106
+# [1] "2023-09-30 09:21:43 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:23:35 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27732"
+# [1] "2023-09-30 09:23:35 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:25:27 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27727"
+# [1] "2023-09-30 09:25:27 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:27:18 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27739"
+# [1] "2023-09-30 09:27:18 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:29:11 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27732"
+# [1] "2023-09-30 09:29:11 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:30:57 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27749"
+# [1] "2023-09-30 09:30:57 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:32:44 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27757"
+# 2:     3672.2773: -2.06343  1.03255  1.00000 0.780039  1.45334 0.541597
+# [1] "2023-09-30 09:32:44 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:41:17 ... ending   pcubature -- tol=0.1 -- ret.val is: 3678.6125"
+# 3:     3672.2773: -2.06343  1.03255  1.00000 0.780039  1.45334 0.541597
+# [1] "2023-09-30 09:41:17 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-09-30 09:43:11 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27732"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p      alpha       var1       var2     corr12
+# -2.0634324  1.0325505  1.0000000  0.7800393  1.4533409  0.5415967
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 3672.277
+#
+# $fevals
+# function
+# 4
+#
+# $gevals
+# gradient
+# 15
+#
+# $nitns
+# [1] 3
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 2539.906
+#
+# Assemble the answers
+# Intercept      b_p alpha      var1     var2    corr12    value fevals gevals niter convcode kkt1 kkt2    xtime
+# nlminb -2.063432 1.032551     1 0.7800393 1.453341 0.5415967 3672.277      4     15     3        0   NA   NA 2539.906
 
 
 

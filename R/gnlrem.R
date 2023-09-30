@@ -258,6 +258,22 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                    tol.pcubature=1e-5,
                    tol.hcubature=0.001){
 
+
+
+  my_mvcauchy_v <-function(r1,r2,s1,s2,corr){
+
+
+    det <- s1*s2*(1-corr^2)
+    Xt_Qinv_X <- 1/det * (r1*(r1*s2-r2*corr*sqrt(s1*s2)) + r2*(r2*s1-r1*corr*sqrt(s1*s2)))
+
+    matrix(1/(2*pi*sqrt(det)) * 1/(1 + Xt_Qinv_X)^(3/2), ncol=length(r1))
+
+
+
+  }
+
+
+
   int1 <- function(ff, aa, bb){
     # from_dotc <-
     # .C("romberg_c",
@@ -1028,18 +1044,30 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                 },
                 "bivariate-normal-indep"=function(s1,s2,    r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,   0,   0,s2),nrow=2),checkSymmetry=FALSE),
                 "bivariate-normal-corr"=function(s1,s2,corr,r1,r2) mvtnorm::dmvnorm(x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),checkSymmetry=FALSE,log=FALSE),
-                "bivariate-cauchy-corr" =function(s1,s2,corr,r1,r2) mvtnorm::dmvt   (x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),checkSymmetry=FALSE,log=FALSE,df=1),
-                "bivariate-subgauss-corr"=function(a,s1,s2,corr,r1,r2){
+                ##"bivariate-cauchy-corr" =function(s1,s2,corr,r1,r2) mvtnorm::dmvt   (x=matrix(c(r1,r2),ncol=2),sigma=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),checkSymmetry=FALSE,log=FALSE,df=1),
+                ##"bivariate-cauchy-corr" =   function(s1,s2,corr,r1,r2) my_mvcauchy_v(r1=matrix(r1,nrow=1),r2=matrix(r2,nrow=1), s1=s1, s2=s2, corr=corr),
+                 "bivariate-cauchy-corr"=function(s1,s2,corr,r1,r2){
+                  mvpd::dmvt_mat(x=matrix(c(r1,r2),ncol=2),
+                  df=1,
+                  Q=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),
+                  outermost.int = c("stats::integrate", "cubature::adaptIntegrate","cubature::hcubature")[3],
+                  tol = tol.hcubature,
+                  fDim = NROW(x),
+                  maxEval = 0,
+                  absError=0,
+                  doChecking=FALSE)$int
+                   },
+                   "bivariate-subgauss-corr"=function(a,s1,s2,corr,r1,r2){
                   mvpd::dmvss_mat(x=matrix(c(r1,r2),ncol=2),
-                                                  alpha=a,
-                                                  Q=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),
-                                                  outermost.int = c("stats::integrate", "cubature::adaptIntegrate","cubature::hcubature")[3],
-                                                  tol = tol.hcubature,
-                                                  fDim = NROW(x),
-                                                  maxEval = 0,
-                                                  absError=0,
-                                                  doChecking=FALSE)$int
-                },
+                  alpha=a,
+                  Q=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),
+                  outermost.int = c("stats::integrate", "cubature::adaptIntegrate","cubature::hcubature")[3],
+                  tol = tol.hcubature,
+                  fDim = NROW(x),
+                  maxEval = 0,
+                  absError=0,
+                  doChecking=FALSE)$int
+},
                 Laplace=function(p,r) {
                   tmp <- p
                   exp(-abs(r)/tmp)/(2*tmp)},

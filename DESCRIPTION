@@ -1,7 +1,7 @@
 Package: gnlrim
 Type: Package
 Title: Generalized Non-Linear Random Intercept Models
-Version: 0.2.0
+Version: 0.3.0
 Author: Bruce Swihart and Jim Lindsey
 Maintainer: Bruce Swihart <bruce.swihart@gmail.com>
 Description: Based on \code{repeated::gnlmix}.  Provides for a suite of 
