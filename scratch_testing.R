@@ -3484,7 +3484,7 @@ sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIV
   if(mrim=="Stabit-BIVARIATE_STABLE"){
     print("STABLE for the win")
     print(paste0("alpha set to ", alpha))
-    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    G <- function(n, v1, v2, rho){mvpd::rmvss(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
     H <- function(x) stable_cdf(x, c(alpha,0,1,0))
   }
 
