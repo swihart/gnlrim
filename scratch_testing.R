@@ -1,4 +1,1501 @@
 ########################################$$$$#########
+## 2023-10-11A                                     ##
+## START two random parameters: run on cluster    ###
+## bivariate cauchy marg/cond                      ##
+#####################################################
+(rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
+   gnlrim::gnlrem(y=ybind,
+                  mu = ~ pcauchy(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+
+                  pmu = c(Intercept=-1.2, b_p=1),
+                  pmix=c(var1=1, var2=1.3, corr12= 0.30),
+
+                  p_uppb = c(  0,   4, 1.0, 4.00, 4.00, 0.90),
+                  p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
+                  distribution="binomial",
+                  nest=id,
+                  random=c("rand1", "rand2"),
+                  mixture="bivariate-cauchy-corr",
+                  ooo=TRUE,
+                  compute_hessian = FALSE,
+                  compute_kkt = FALSE,
+                  trace=1,
+                  method='nlminb',
+                  int2dmethod="cuba",
+                  tol.pcubature = 0.1,
+                  abs.tol.nlminb = 1e-2,
+                  xf.tol.nlminb =  1e-2,
+                  x.tol.nlminb =   1e-2,
+                  rel.tol.nlminb = 1e-2
+   )
+)
+
+
+(rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pcauchy(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+
+                   pmu = c(Intercept=-1.2, b_p=1),
+                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-cauchy-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.5,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+# Assemble the answers
+#        Intercept      b_p      var1     var2    corr12    value fevals gevals
+# nlminb -1.970935 0.995794 0.7449743 1.677083 0.6275397 3671.545      7     31
+# niter convcode kkt1 kkt2    xtime
+# nlminb     5        0   NA   NA 9763.134
+
+## change tol.pcubature=0.5 -> 0.09
+(rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pcauchy(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+
+                   pmu = c(Intercept=-1.2, b_p=1),
+                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-cauchy-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.09,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+# Assemble the answers
+#        Intercept      b_p      var1     var2    corr12    value fevals gevals
+# nlminb -2.063432 1.032551 0.7800393 1.453341 0.5415967 3672.277      4     15
+# niter convcode kkt1 kkt2    xtime
+# nlminb     3        0   NA   NA 2457.624
+
+
+
+(marginal.CUBA.cauchy <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
+                                     (1.000^1.00 + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(1.00/2) )^(1/1.00) / (1.000)  +
+                                     rand1 + period_numeric*rand2),
+
+                   pmu = c(Intercept=-1.2, b_p=1, var1=1, var2=1.3, corr12= 0.30),
+                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-cauchy-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.5,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+
+#                           > (marginal.CUBA.cauchy <-
+#                                +     gnlrim::gnlrem(y=ybind,
+#                                                     +                    mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
+#                                                                                            +                                     (1.000^1.00 + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(1.00/2) )^(1/1.00) / (1.000)  +
+#                                                                                            +                                     rand1 + period_numeric*rand2),
+#                                                     +
+#                                                       +                    pmu = c(Intercept=-1.2, b_p=1, var1=1, var2=1.3, corr12= 0.30),
+#                                                     +                    pmix=c(var1=1, var2=1.3, corr12= 0.30),
+#                                                     +
+#                                                       +                    p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+#                                                     +                    p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#                                                     +                    distribution="binomial",
+#                                                     +                    nest=id,
+#                                                     +                    random=c("rand1", "rand2"),
+#                                                     +                    mixture="bivariate-cauchy-corr",
+#                                                     +                    ooo=TRUE,
+#                                                     +                    compute_hessian = FALSE,
+#                                                     +                    compute_kkt = FALSE,
+#                                                     +                    trace=1,
+#                                                     +                    method='nlminb',
+#                                                     +                    int2dmethod="cuba",
+#                                                     +                    tol.pcubature = 0.5,
+#                                                     +                    abs.tol.nlminb = 1e-2,
+#                                                     +                    xf.tol.nlminb =  1e-2,
+#                                                     +                    x.tol.nlminb =   1e-2,
+#                                                     +                    rel.tol.nlminb = 1e-2
+#                                                     +     )
+#                              + )
+#                           fn is  fn1
+#                           Looking for method =  nlminb
+#                           Function has  5  arguments
+#                           par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+#                           par[ 2 ]:  -2   <? 1   <? 4     In Bounds
+#                           par[ 3 ]:  0.05   <? 1   <? 4     In Bounds
+#                           par[ 4 ]:  0.05   <? 1.3   <? 4     In Bounds
+#                           par[ 5 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+#                           [1] "2023-10-11 09:59:35.818407 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:01:22.196008 ... ending   pcubature -- tol=0.5 -- ret.val is: 3681.16513"
+#                           Analytic gradient not made available.
+#                           Analytic Hessian not made available.
+#                           Scale check -- log parameter ratio= 0.6368221   log bounds ratio= 0.5228787
+#                           Method:  nlminb
+#                           [1] "2023-10-11 10:01:22.31376 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:03:08.29424 ... ending   pcubature -- tol=0.5 -- ret.val is: 3681.16513"
+#                           [1] "2023-10-11 10:03:08.294467 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:04:54.088164 ... ending   pcubature -- tol=0.5 -- ret.val is: 3681.16513"
+#                           [1] "2023-10-11 10:04:54.088384 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:06:40.152978 ... ending   pcubature -- tol=0.5 -- ret.val is: 3681.16513"
+#                           [1] "2023-10-11 10:06:40.153198 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:08:26.031108 ... ending   pcubature -- tol=0.5 -- ret.val is: 3681.16513"
+#                           [1] "2023-10-11 10:08:26.031319 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:10:11.746651 ... ending   pcubature -- tol=0.5 -- ret.val is: 3681.16513"
+#                           [1] "2023-10-11 10:10:11.746875 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:11:57.636014 ... ending   pcubature -- tol=0.5 -- ret.val is: 3681.16513"
+#                           0:     3681.1651: -1.20000  1.00000  1.00000  1.30000 0.300000
+#                           [1] "2023-10-11 10:11:57.636257 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:13:44.210635 ... ending   pcubature -- tol=0.5 -- ret.val is: 3715.29924"
+#                           [1] "2023-10-11 10:13:44.210861 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:14:09.245176 ... ending   pcubature -- tol=0.5 -- ret.val is: 3679.93606"
+#                           [1] "2023-10-11 10:14:09.245383 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:14:34.419124 ... ending   pcubature -- tol=0.5 -- ret.val is: 3679.93572"
+#                           [1] "2023-10-11 10:14:34.419329 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:14:59.608576 ... ending   pcubature -- tol=0.5 -- ret.val is: 3679.93507"
+#                           [1] "2023-10-11 10:14:59.608788 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:15:24.700667 ... ending   pcubature -- tol=0.5 -- ret.val is: 3679.9363"
+#                           [1] "2023-10-11 10:15:24.700876 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:15:49.68237 ... ending   pcubature -- tol=0.5 -- ret.val is: 3679.9363"
+#                           [1] "2023-10-11 10:15:49.682591 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:16:14.851552 ... ending   pcubature -- tol=0.5 -- ret.val is: 3679.9368"
+#                           1:     3679.9361: -1.07296  1.00420 0.968245  1.30025 0.308327
+#                           [1] "2023-10-11 10:16:14.851787 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:17:59.945832 ... ending   pcubature -- tol=0.5 -- ret.val is: 3674.96344"
+#                           [1] "2023-10-11 10:17:59.946042 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:25:10.437264 ... ending   pcubature -- tol=0.5 -- ret.val is: 3676.03472"
+#                           [1] "2023-10-11 10:25:10.437527 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:26:54.219828 ... ending   pcubature -- tol=0.5 -- ret.val is: 3674.96336"
+#                           [1] "2023-10-11 10:26:54.22003 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:28:37.979184 ... ending   pcubature -- tol=0.5 -- ret.val is: 3674.96342"
+#                           [1] "2023-10-11 10:28:37.979389 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:30:21.665556 ... ending   pcubature -- tol=0.5 -- ret.val is: 3674.96357"
+#                           [1] "2023-10-11 10:30:21.665747 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:32:05.539072 ... ending   pcubature -- tol=0.5 -- ret.val is: 3674.96351"
+#                           [1] "2023-10-11 10:32:05.539284 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:33:49.656699 ... ending   pcubature -- tol=0.5 -- ret.val is: 3674.96359"
+#                           2:     3674.9634: -1.10601 0.906439 0.943690  1.32457 0.381745
+#                           [1] "2023-10-11 10:33:49.656923 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:34:16.118491 ... ending   pcubature -- tol=0.5 -- ret.val is: 3681.85143"
+#                           [1] "2023-10-11 10:34:16.1187 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:34:40.850864 ... ending   pcubature -- tol=0.5 -- ret.val is: 3677.27722"
+#                           [1] "2023-10-11 10:34:40.851061 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:36:25.69031 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.75514"
+#                           [1] "2023-10-11 10:36:25.690536 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:38:10.768688 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.75515"
+#                           [1] "2023-10-11 10:38:10.768896 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:39:55.711218 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.75511"
+#                           [1] "2023-10-11 10:39:55.711422 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:41:40.587735 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.75522"
+#                           [1] "2023-10-11 10:41:40.587938 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:43:25.550888 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.75525"
+#                           [1] "2023-10-11 10:43:25.5511 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:45:10.411189 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.75529"
+#                           3:     3673.7551: -1.05387 0.909284 0.928322  1.32763 0.392125
+#                           [1] "2023-10-11 10:45:10.411428 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:46:55.513955 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.15816"
+#                           [1] "2023-10-11 10:46:55.514173 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:47:20.292275 ... ending   pcubature -- tol=0.5 -- ret.val is: 3676.84165"
+#                           [1] "2023-10-11 10:47:20.29248 ... starting pcubature for bivariate normal or cauchy"
+#                           [1] "2023-10-11 10:49:05.050862 ... ending   pcubature -- tol=0.5 --[1] "2023-10-11 10:49:05.051068 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 10:50:49.948548 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.1582"
+# [1] "2023-10-11 10:50:49.948755 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 10:52:34.816716 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.1582"
+# [1] "2023-10-11 10:52:34.816932 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 10:54:19.350091 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.15831"
+# [1] "2023-10-11 10:54:19.350304 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 10:56:04.111473 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.1584"
+# 4:     3673.1582: -1.03591 0.885063 0.907852  1.34176 0.431520
+# [1] "2023-10-11 10:56:04.111714 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 10:57:50.245139 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.32919"
+# 5:     3673.1582: -1.03591 0.885063 0.907852  1.34176 0.431520
+# [1] "2023-10-11 10:57:50.245365 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 10:59:35.159869 ... ending   pcubature -- tol=0.5 -- ret.val is: 3673.15816"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p       var1       var2     corr12
+# -1.0359081  0.8850626  0.9078518  1.3417596  0.4315196
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 3673.158
+#
+# $fevals
+# function
+# 11
+#
+# $gevals
+# gradient
+# 25
+#
+# $nitns
+# [1] 5
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 3471.885
+#
+# Assemble the answers
+#        Intercept       b_p      var1    var2    corr12    value fevals gevals
+# nlminb -1.035908 0.8850626 0.9078518 1.34176 0.4315196 3673.158     11     25
+# niter convcode kkt1 kkt2    xtime
+# nlminb     5        0   NA   NA 3471.885 ret.val is: 3673.15815"
+#
+
+glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="cauchit"))
+
+## then *Locally* run this part after inputting the values
+## some things are commented out but it should make the graph
+## at the end
+phi_x_deluxe <- function(x, var1=0.9078518, var2=1.34176, corr12=0.4315196, gamma_d = 1, gamma_h=1, a=1.00 ){
+
+  (gamma_d)  / (gamma_h^a + (var1 + var2*x^2 + 2*corr12*sqrt(var1*var2)*x)^(a/2) )^(1/a)
+
+}
+
+datavalueset <- c(0.1, 0.12, 0.2, 0.22, 0.3, 0.32, 0.4, 0.42)
+xvalueset <- c(0, datavalueset, 1, 10)
+xdomain <- seq(-2,4,0.05)
+
+plot(NA, NA,col="grey", ylim=c(0,1),xlim=range(xdomain))
+abline(h=0.50, lty=3, col="lightblue")
+abline(v=min(datavalueset), lty=2, col="lightgray")
+abline(v=max(datavalueset), lty=2, col="lightgray")
+
+lines(xdomain, pcauchy( -1.970935+0.995794*xdomain), ylim=c(0,1), lty=3)
+text(3.6,0.68, "(b0c+b1c*x)       ", col="black")
+
+lines(xdomain, pcauchy( -1.035908+0.8850626*xdomain), ylim=c(0,1),col="orange",lty=3)
+text(3.6,0.95, "(b0m+b1m*x)       ", col="orange")
+
+lines(xdomain, phi_x_deluxe(xdomain), ylim=c(0,1), lty=2, col='cyan')
+text(3.6,0.19, "            phi(x)", col="cyan")
+
+lines(xdomain, pcauchy((-1.970935+0.995794*xdomain)*phi_x_deluxe(xdomain)), col="red",lty=3)
+text(3.6,0.52, "(b0c+b1c*x)*phi(x)", col="red")
+
+
+# lines(xdomain, pcauchy( -0.72507+0.54384*xdomain), ylim=c(0,1), col="darkgreen",lty=3)
+# text(3.6,0.78, "glm(b'0m+b'1m*x)       ", col="darkgreen")
+
+
+## phi ranges over the dataset:
+phi_x_deluxe(min(datavalueset))
+phi_x_deluxe(max(datavalueset))
+abline(h=phi_x_deluxe(min(datavalueset)), lty=2, col="lightpink")
+abline(h=phi_x_deluxe(max(datavalueset)), lty=2, col="lightpink")
+
+
+## change 0.5 to 0.09
+(marginal.CUBA.cauchy <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
+                                     (1.000^1.00 + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(1.00/2) )^(1/1.00) / (1.000)  +
+                                     rand1 + period_numeric*rand2),
+
+                   pmu = c(Intercept=-1.2, b_p=1, var1=1, var2=1.3, corr12= 0.30),
+                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-cauchy-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.09,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+# > (marginal.CUBA.cauchy <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
+#                                                                  +                                      (1.000^1.00 + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(1.00/2) )^(1/1.00) / (1.000)  +
+#                                                                  +                                      rand1 + period_numeric*rand2),
+#                           +
+#                             +                    pmu = c(Intercept=-1.2, b_p=1, var1=1, var2=1.3, corr12= 0.30),
+#                           +                    pmix=c(var1=1, var2=1.3, corr12= 0.30),
+#                           +
+#                             +                    p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-cauchy-corr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                    int2dmethod="cuba",
+#                           +                    tol.pcubature = 0.09,
+#                           +                    abs.tol.nlminb = 1e-2,
+#                           +                    xf.tol.nlminb =  1e-2,
+#                           +                    x.tol.nlminb =   1e-2,
+#                           +                    rel.tol.nlminb = 1e-2
+#                           +     )
+#    + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  5  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 4     In Bounds
+# par[ 3 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 4 ]:  0.05   <? 1.3   <? 4     In Bounds
+# par[ 5 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2023-10-11 11:12:07.634038 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:13:51.242385 ... ending   pcubature -- tol=0.09 -- ret.val is: 3681.16513"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.6368221   log bounds ratio= 0.5228787
+# Method:  nlminb
+# [1] "2023-10-11 11:13:51.356963 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:15:35.11645 ... ending   pcubature -- tol=0.09 -- ret.val is: 3681.16513"
+# [1] "2023-10-11 11:15:35.116672 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:17:19.210105 ... ending   pcubature -- tol=0.09 -- ret.val is: 3681.16513"
+# [1] "2023-10-11 11:17:19.210313 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:19:03.211856 ... ending   pcubature -- tol=0.09 -- ret.val is: 3681.16513"
+# [1] "2023-10-11 11:19:03.212062 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:20:46.897993 ... ending   pcubature -- tol=0.09 -- ret.val is: 3681.16513"
+# [1] "2023-10-11 11:20:46.898191 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:22:31.60603 ... ending   pcubature -- tol=0.09 -- ret.val is: 3681.16513"
+# [1] "2023-10-11 11:22:31.606238 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:24:15.931335 ... ending   pcubature -- tol=0.09 -- ret.val is: 3681.16513"
+# 0:     3681.1651: -1.20000  1.00000  1.00000  1.30000 0.300000
+# [1] "2023-10-11 11:24:15.931557 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:26:02.226034 ... ending   pcubature -- tol=0.09 -- ret.val is: 3715.29924"
+# [1] "2023-10-11 11:26:02.226264 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:27:48.340861 ... ending   pcubature -- tol=0.09 -- ret.val is: 3675.93527"
+# [1] "2023-10-11 11:27:48.341069 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:29:34.63026 ... ending   pcubature -- tol=0.09 -- ret.val is: 3675.93535"
+# [1] "2023-10-11 11:29:34.630479 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:31:20.785568 ... ending   pcubature -- tol=0.09 -- ret.val is: 3675.93438"
+# [1] "2023-10-11 11:31:20.785767 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:33:06.95763 ... ending   pcubature -- tol=0.09 -- ret.val is: 3675.93559"
+# [1] "2023-10-11 11:33:06.957835 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:34:53.189072 ... ending   pcubature -- tol=0.09 -- ret.val is: 3675.93545"
+# [1] "2023-10-11 11:34:53.189271 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:36:39.733939 ... ending   pcubature -- tol=0.09 -- ret.val is: 3675.93591"
+# 1:     3675.9353: -1.07296  1.00420 0.968245  1.30025 0.308327
+# [1] "2023-10-11 11:36:39.734164 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:38:26.339045 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.94682"
+# [1] "2023-10-11 11:38:26.339276 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:40:13.055671 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.94684"
+# [1] "2023-10-11 11:40:13.055882 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:41:59.723995 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.94685"
+# [1] "2023-10-11 11:41:59.724213 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:43:46.18868 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.94689"
+# [1] "2023-10-11 11:43:46.188895 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:45:32.585884 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.94694"
+# [1] "2023-10-11 11:45:32.586107 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:47:19.368291 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.94704"
+# 2:     3673.9468: -1.06407 0.903002 0.932116  1.32084 0.380330
+# [1] "2023-10-11 11:47:19.368532 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:49:06.008158 ... ending   pcubature -- tol=0.09 -- ret.val is: 3674.0785"
+# [1] "2023-10-11 11:49:06.008394 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:50:52.727401 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.46444"
+# [1] "2023-10-11 11:50:52.727631 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:52:39.447943 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.46438"
+# [1] "2023-10-11 11:52:39.448164 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:54:26.282312 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.46448"
+# [1] "2023-10-11 11:54:26.282541 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:56:13.098666 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.46449"
+# [1] "2023-10-11 11:56:13.098888 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:57:59.907894 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.46466"
+# [1] "2023-10-11 11:57:59.908113 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 11:59:46.568775 ... ending   pcubature -- tol=0.09 -- ret.val is: 3673.4647"
+# 3:     3673.4644: -1.02243 0.889744 0.910138  1.33277 0.415877
+# [1] "2023-10-11 11:59:46.569013 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:01:33.626545 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.89978"
+# [1] "2023-10-11 12:01:33.626777 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:03:20.704967 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.89975"
+# [1] "2023-10-11 12:03:20.705183 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:05:07.638127 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.89978"
+# [1] "2023-10-11 12:05:07.638347 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:06:54.692795 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.89985"
+# [1] "2023-10-11 12:06:54.693015 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:08:41.499194 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.89991"
+# [1] "2023-10-11 12:08:41.49941 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:10:28.325247 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.89995"
+# 4:     3672.8998: -1.05423 0.876339 0.900124  1.35249 0.461906
+# [1] "2023-10-11 12:10:28.325492 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:12:15.264472 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.49933"
+# [1] "2023-10-11 12:12:15.264692 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:14:02.190624 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.4993"
+# [1] "2023-10-11 12:14:02.19083 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:15:49.113758 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.49936"
+# [1] "2023-10-11 12:15:49.113969 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:17:36.156631 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.49935"
+# [1] "2023-10-11 12:17:36.156839 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:19:22.935065 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.4995"
+# [1] "2023-10-11 12:19:22.935282 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:21:09.984468 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.49942"
+# 5:     3672.4993: -1.02260 0.878296 0.871742  1.37424 0.500836
+# [1] "2023-10-11 12:21:09.984694 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-11 12:22:56.510018 ... ending   pcubature -- tol=0.09 -- ret.val is: 3672.49933"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p       var1       var2     corr12
+# -1.0225960  0.8782959  0.8717420  1.3742424  0.5008356
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 3672.499
+#
+# $fevals
+# function
+# 8
+#
+# $gevals
+# gradient
+# 30
+#
+# $nitns
+# [1] 5
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 4117.675
+#
+# Assemble the answers
+# Intercept       b_p     var1     var2    corr12    value fevals gevals
+# nlminb -1.022596 0.8782959 0.871742 1.374242 0.5008356 3672.499      8     30
+# niter convcode kkt1 kkt2    xtime
+# nlminb     5        0   NA   NA 4117.675
+# >
+#   > glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="cauchit"))
+#
+# Call:  glm(formula = cbind(r, n_r) ~ x1, family = binomial(link = "cauchit"),
+#            data = summed_binom_dat)
+#
+# Coefficients:
+#   (Intercept)           x1
+# -1.0873       0.9787
+#
+# Degrees of Freedom: 1599 Total (i.e. Null);  1598 Residual
+# Null Deviance:      16340
+# Residual Deviance: 16250        AIC: 20530
+
+
+## then *Locally* run this part after inputting the values
+## some things are commented out but it should make the graph
+## at the end
+phi_x_deluxe <- function(x, var1=0.871, var2=1.37, corr12=0.50, gamma_d = 1, gamma_h=1, a=1.00 ){
+
+  (gamma_d)  / (gamma_h^a + (var1 + var2*x^2 + 2*corr12*sqrt(var1*var2)*x)^(a/2) )^(1/a)
+
+}
+
+datavalueset <- c(0.1, 0.12, 0.2, 0.22, 0.3, 0.32, 0.4, 0.42)
+xvalueset <- c(0, datavalueset, 1, 10)
+xdomain <- seq(-2,4,0.05)
+
+plot(NA, NA,col="grey", ylim=c(0,1),xlim=range(xdomain))
+abline(h=0.50, lty=3, col="lightblue")
+abline(v=min(datavalueset), lty=2, col="lightgray")
+abline(v=max(datavalueset), lty=2, col="lightgray")
+
+lines(xdomain, pcauchy(-2.063432+1.032551*xdomain), ylim=c(0,1), lty=3)
+text(3.6,0.68, "(b0c+b1c*x)       ", col="black")
+
+lines(xdomain, pcauchy( -1.022596+0.8782959*xdomain), ylim=c(0,1),col="orange",lty=3)
+text(3.6,0.95, "(b0m+b1m*x)       ", col="orange")
+
+lines(xdomain, phi_x_deluxe(xdomain), ylim=c(0,1), lty=2, col='cyan')
+text(3.6,0.19, "            phi(x)", col="cyan")
+
+lines(xdomain, pcauchy((-2.063432+1.032551*xdomain)*phi_x_deluxe(xdomain)), col="red",lty=3)
+text(3.6,0.52, "(b0c+b1c*x)*phi(x)", col="red")
+
+
+lines(xdomain, pcauchy(-1.0873+0.9787*xdomain), ylim=c(0,1), col="darkgreen",lty=3)
+text(3.6,0.78, "glm(b'0m+b'1m*x)       ", col="darkgreen")
+
+
+## phi ranges over the dataset:
+phi_x_deluxe(min(datavalueset))
+phi_x_deluxe(max(datavalueset))
+abline(h=phi_x_deluxe(min(datavalueset)), lty=2, col="lightpink")
+abline(h=phi_x_deluxe(max(datavalueset)), lty=2, col="lightpink")
+
+
+
+
+########################################$$$$#########
+## 2023-10-11A                                     ##
+## _END_ two random parameters: run on cluster    ###
+## bivariate cauchy marg/cond                      ##
+#####################################################
+
+########################################$$$$#########
+## 2023-10-10A                                     ##
+## START two random parameters: run on cluster    ###
+## bivariate normal marg/cond                      ##
+#####################################################
+
+
+#
+# > library(gnlrim)
+# > library(mvpd)
+# > library(libstable4u)
+# > library(data.table)
+# data.table 1.14.8 using 1 threads (see ?getDTthreads).  Latest news: r-datatable.com
+# > # Derived expression for gamma
+#   > g <- function(a) {
+#     +   iu <- complex(real=0, imaginary=1)
+#     +   return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+#     + }
+# >
+#   > bridgecloglog_rstable <- function(n, alpha, delta){
+#     +   mult <- (delta/alpha)^(1/alpha)
+#     +   X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+#     +   Z <- log(mult * X)
+#     +   Z
+#     + }
+# > ## add in beta random effect
+#   > sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+#     +
+#       +   if(mrim=="Logistic-BIVARIATE_NORM"){
+#         +     print("HERE")
+#         +     G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+#         +     H <- function(x) plogis(x)
+#         +   }
+#     +   if(mrim=="Probit-BIVARIATE_NORM"){
+#       +     print("Probit for the win")
+#       +     G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+#       +     H <- function(x) pnorm(x)
+#       +   }
+#     +   if(mrim=="Stabit-BIVARIATE_STABLE"){
+#       +     print("STABLE for the win")
+#       +     print(paste0("alpha set to ", alpha))
+#       +     G <- function(n, v1, v2, rho){mvpd::rmvss(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+#       +     H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+#       +   }
+#     +
+#       +   n <- n1 + n2
+#       +   u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+#       +
+#         +   ## x <- c(rep(1, n1*J), rep(0, n2*J))
+#         +   ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+#         +   x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+#         +   eta <- round(a0 + a1*x,2)
+#         +
+#           +   eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+#           +   py1 <- round(H(eta_i),2)
+#           +   y <- rbinom(length(eta_i), 1, prob=py1 )
+#           +
+#             +   data.frame(id=rep(1:n, each=J),
+#                            +              j = rep(1:J),
+#                            +              x1 = x,
+#                            +              eta = eta,
+#                            +              u_i = u,
+#                            +              eta_i = eta_i,
+#                            +              py1 = py1,
+#                            +              y=y
+#                            +   )
+#           +
+#             + }
+# >
+#   >
+#   > detach(summed_binom_dat)
+# Error in detach(summed_binom_dat) : invalid 'name' argument
+# > set.seed(1709)
+# > binom_dat <-
+#   +   #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+#   +   #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+#   +   sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1)
+# [1] "STABLE for the win"
+# [1] "alpha set to 1"
+# > data.table::setDT(binom_dat)
+# >
+#   > summed_binom_dat <-
+#   +   binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+# > data.table::setkey(summed_binom_dat,id, x1)
+# > summed_binom_dat
+# id   x1  r n_r
+# 1:   1 0.10  6  15
+# 2:   1 0.20  5  24
+# 3:   1 0.30  5  16
+# 4:   1 0.40  3  26
+# 5:   2 0.10  8  19
+# ---
+#   1596: 399 0.42 11  19
+# 1597: 400 0.12  7  23
+# 1598: 400 0.22  6  22
+# 1599: 400 0.32  4  17
+# 1600: 400 0.42  2  19
+# > attach(summed_binom_dat)
+# >
+#   > ybind <- cbind(r,n_r)
+# > period_numeric <- x1
+# >
+#   > ## glmer with correlation between random intercept and random slope
+#   > lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+# Generalized linear mixed model fit by maximum likelihood (Adaptive
+#                                                           Gauss-Hermite Quadrature, nAGQ = 0) [glmerMod]
+# Family: binomial  ( probit )
+# Formula: cbind(r, n_r) ~ x1 + (x1 | id)
+# Data: summed_binom_dat
+# AIC       BIC    logLik  deviance  df.resid
+# 7583.362  7610.251 -3786.681  7573.362      1595
+# Random effects:
+#   Groups Name        Std.Dev. Corr
+# id     (Intercept) 0.8478
+# x1          1.3740   0.18
+# Number of obs: 1600, groups:  id, 400
+# Fixed Effects:
+#   (Intercept)           x1
+# -0.8324       0.5497
+# > lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+# Generalized linear mixed model fit by maximum likelihood (Laplace
+#                                                           Approximation) [glmerMod]
+# Family: binomial  ( probit )
+# Formula: cbind(r, n_r) ~ x1 + (x1 | id)
+# Data: summed_binom_dat
+# AIC       BIC    logLik  deviance  df.resid
+# 7583.292  7610.181 -3786.646  7573.292      1595
+# Random effects:
+#   Groups Name        Std.Dev. Corr
+# id     (Intercept) 0.8463
+# x1          1.3683   0.18
+# Number of obs: 1600, groups:  id, 400
+# Fixed Effects:
+#   (Intercept)           x1
+# -0.8440       0.5522
+# >
+#   >
+#   > ## starting at 12:52pm 2023-10-10
+#   > ## starting at 12:52pm 2023-10-10
+#   > ## starting at 12:52pm 2023-10-10
+#   >
+#   >
+#   > (rand.int.rand.slopes.nonzero.corr.CUBA.MARGINAL <-
+#        +     gnlrim::gnlrem(y=ybind,
+#                             +                    mu = ~ pnorm(
+#                               +                      (Intercept + period_numeric*b_p)*
+#                                 +                        sqrt(1 + var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric ) +
+#                                 +                        rand1 + period_numeric*rand2
+#                               +                    ),
+#                             +                    pmu = c(Intercept=-0.95, b_p=0.55, var1=1, var2=1, corr12= 0.20),
+#                             +                    pmix=c(var1=1, var2=1, corr12= 0.20),
+#                             +                    p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+#                             +                    p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#                             +                    distribution="binomial",
+#                             +                    nest=id,
+#                             +                    random=c("rand1", "rand2"),
+#                             +                    mixture="bivariate-normal-corr",
+#                             +                    ooo=TRUE,
+#                             +                    compute_hessian = FALSE,
+#                             +                    compute_kkt = FALSE,
+#                             +                    trace=1,
+#                             +                    method='nlminb',
+#                             +                    int2dmethod="cuba"
+#                             +     )
+#      + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  5  arguments
+# par[ 1 ]:  -4   <? -0.95   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.55   <? 2     In Bounds
+# par[ 3 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  -0.9   <? 0.2   <? 0.9     In Bounds
+# [1] "2023-10-10 12:52:07.246674 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:52:32.692152 ... ending   pcubature -- tol=0 -- ret.val is: 3837.79604"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.69897   log bounds ratio= 0.3467875
+# Method:  nlminb
+# [1] "2023-10-10 12:52:32.807845 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:52:58.244022 ... ending   pcubature -- tol=0 -- ret.val is: 3837.79604"
+# [1] "2023-10-10 12:52:58.244244 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:53:23.578015 ... ending   pcubature -- tol=0 -- ret.val is: 3837.79604"
+# [1] "2023-10-10 12:53:23.578226 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:53:49.220704 ... ending   pcubature -- tol=0 -- ret.val is: 3837.79604"
+# [1] "2023-10-10 12:53:49.220912 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:54:14.938711 ... ending   pcubature -- tol=0 -- ret.val is: 3837.79604"
+# [1] "2023-10-10 12:54:14.938924 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:54:40.390297 ... ending   pcubature -- tol=0 -- ret.val is: 3837.79604"
+# [1] "2023-10-10 12:54:40.390511 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:55:06.003416 ... ending   pcubature -- tol=0 -- ret.val is: 3837.79604"
+# 0:     3837.7960: -0.950000 0.550000  1.00000  1.00000 0.200000
+# [1] "2023-10-10 12:55:06.003663 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:55:18.68468 ... ending   pcubature -- tol=0 -- ret.val is: 3803.95171"
+# [1] "2023-10-10 12:55:18.68491 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:55:31.352621 ... ending   pcubature -- tol=0 -- ret.val is: 3803.94405"
+# [1] "2023-10-10 12:55:31.352834 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:55:44.082723 ... ending   pcubature -- tol=0 -- ret.val is: 3803.94856"
+# [1] "2023-10-10 12:55:44.082931 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:55:56.676746 ... ending   pcubature -- tol=0 -- ret.val is: 3803.95219"
+# [1] "2023-10-10 12:55:56.676961 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:56:09.383235 ... ending   pcubature -- tol=0 -- ret.val is: 3803.95294"
+# [1] "2023-10-10 12:56:09.383454 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:56:22.104123 ... ending   pcubature -- tol=0 -- ret.val is: 3803.95095"
+# 1:     3803.9517: -0.466261 0.609965 0.896501  1.03234 0.174653
+# [1] "2023-10-10 12:56:22.104365 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:56:47.398168 ... ending   pcubature -- tol=0 -- ret.val is: 3795.79822"
+# [1] "2023-10-10 12:56:47.398388 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:57:12.67701 ... ending   pcubature -- tol=0 -- ret.val is: 3795.79823"
+# [1] "2023-10-10 12:57:12.677227 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:57:38.02516 ... ending   pcubature -- tol=0 -- ret.val is: 3795.79761"
+# [1] "2023-10-10 12:57:38.02538 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:58:03.254251 ... ending   pcubature -- tol=0 -- ret.val is: 3795.79756"
+# [1] "2023-10-10 12:58:03.254462 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 12:58:28.607691 ... ending   pcubature -- tol=0 -- ret.val is: 3795.79885"
+# [1] "2023-10-10 12:58:28.607903 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 13:48:46.064348 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 13:48:58.837123 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11016"
+# [1] "2023-10-10 13:48:58.837332 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 13:49:11.603476 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11016"
+# [1] "2023-10-10 13:49:11.603691 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 13:49:24.27714 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11016"
+# [1] "2023-10-10 13:49:24.277344 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 13:49:37.079996 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11016"
+# 28:     3782.1102: -0.645891 0.568588 0.718746  1.92642 0.169825
+# [1] "2023-10-10 13:49:37.080228 ... starting pcubature for bivariate normal or cauchy"
+# [1] "2023-10-10 13:49:49.864315 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11016"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p       var1       var2     corr12
+# -0.6458908  0.5685879  0.7187462  1.9264188  0.1698254
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 3782.11
+#
+# $fevals
+# function
+# 37
+#
+# $gevals
+# gradient
+# 182
+#
+# $nitns
+# [1] 28
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 3420.541
+#
+# Assemble the answers
+# Intercept       b_p      var1     var2    corr12   value fevals gevals
+# nlminb -0.6458908 0.5685879 0.7187462 1.926419 0.1698254 3782.11     37    182
+# niter convcode kkt1 kkt2    xtime
+# nlminb    28        0   NA   NA 3420.541
+# > 0.8463^2
+# [1] 0.7162237
+# > 1.3683^2
+# [1] 1.872245
+# > 1.3740^2
+# [1] 1.887876
+# >
+#   >
+#   > ## now try conditional
+#   > ## now try conditional
+#   > ## now try conditional
+#   >
+#   >
+#   > (rand.int.rand.slopes.nonzero.corr.CUBA.CONDITIONAL <-
+#        +   gnlrim::gnlrem(y=ybind,
+#                           +                  mu = ~ pnorm(
+#                             +                    (Intercept + period_numeric*b_p) +
+#                               +
+#                               +                      rand1 + period_numeric*rand2
+#                             +                  ),
+#                           +                  pmu = c(Intercept=-0.95, b_p=0.55, var1=1, var2=1, corr12= 0.20),
+#                           +                  pmix=c(var1=1, var2=1, corr12= 0.20),
+#                           +                  p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+#                           +                  p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#                           +                  distribution="binomial",
+#                           +                  nest=id,
+#                           +                  random=c("rand1", "rand2"),
+#                           +                  mixture="bivariate-normal-corr",
+#                           +                  ooo=TRUE,
+#                           +                  compute_hessian = FALSE,
+#                           +                  compute_kkt = FALSE,
+#                           +                  trace=1,
+#                           +                  method='nlminb',
+#                           +                  int2dmethod="cuba"
+#                           +   )
+#      + )
+#
+# Parameters are Intercept b_p
+# Error in gnlrim::gnlrem(y = ybind, mu = ~pnorm((Intercept + period_numeric *  :
+#                                                   pmu should have 2 estimates
+#                                                 > (rand.int.rand.slopes.nonzero.corr.CUBA.CONDITIONAL <-
+#                                                      +   gnlrim::gnlrem(y=ybind,
+#                                                                         +                  mu = ~ pnorm(
+#                                                                           +                    (Intercept + period_numeric*b_p) +
+#                                                                             +
+#                                                                             +                      rand1 + period_numeric*rand2
+#                                                                           +                  ),
+#                                                                         +                  pmu = c(Intercept=-0.95, b_p=0.55),
+#                                                                         +                  pmix=c(var1=1, var2=1, corr12= 0.20),
+#                                                                         +                  p_uppb = c(  0,   2, 4.00, 4.00, 0.90),
+#                                                                         +                  p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#                                                                         +                  distribution="binomial",
+#                                                                         +                  nest=id,
+#                                                                         +                  random=c("rand1", "rand2"),
+#                                                                         +                  mixture="bivariate-normal-corr",
+#                                                                         +                  ooo=TRUE,
+#                                                                         +                  compute_hessian = FALSE,
+#                                                                         +                  compute_kkt = FALSE,
+#                                                                         +                  trace=1,
+#                                                                         +                  method='nlminb',
+#                                                                         +                  int2dmethod="cuba"
+#                                                                         +   )
+#                                                    + )
+#                                                 fn is  fn1
+#                                                 Looking for method =  nlminb
+#                                                 Function has  5  arguments
+#                                                 par[ 1 ]:  -4   <? -0.95   <? 0     In Bounds
+#                                                 par[ 2 ]:  -2   <? 0.55   <? 2     In Bounds
+#                                                 par[ 3 ]:  0.05   <? 1   <? 4     In Bounds
+#                                                 par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+#                                                 par[ 5 ]:  -0.9   <? 0.2   <? 0.9     In Bounds
+#                                                 [1] "2023-10-10 14:03:27.258739 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:03:52.162627 ... ending   pcubature -- tol=0 -- ret.val is: 3797.25428"
+#                                                 Analytic gradient not made available.
+#                                                 Analytic Hessian not made available.
+#                                                 Scale check -- log parameter ratio= 0.69897   log bounds ratio= 0.3467875
+#                                                 Method:  nlminb
+#                                                 [1] "2023-10-10 14:03:52.276128 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:04:17.225 ... ending   pcubature -- tol=0 -- ret.val is: 3797.25428"
+#                                                 [1] "2023-10-10 14:04:17.225217 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:04:42.138645 ... ending   pcubature -- tol=0 -- ret.val is: 3797.25428"
+#                                                 [1] "2023-10-10 14:04:42.138861 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:05:07.057225 ... ending   pcubature -- tol=0 -- ret.val is: 3797.25428"
+#                                                 [1] "2023-10-10 14:05:07.057452 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:05:31.96138 ... ending   pcubature -- tol=0 -- ret.val is: 3797.25428"
+#                                                 [1] "2023-10-10 14:05:31.961603 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:05:56.938058 ... ending   pcubature -- tol=0 -- ret.val is: 3797.25428"
+#                                                 [1] "2023-10-10 14:05:56.938272 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:06:21.890938 ... ending   pcubature -- tol=0 -- ret.val is: 3797.25428"
+#                                                 0:     3797.2543: -0.950000 0.550000  1.00000  1.00000 0.200000
+#                                                 [1] "2023-10-10 14:06:21.891178 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:06:34.45409 ... ending   pcubature -- tol=0 -- ret.val is: 3802.27595"
+#                                                 [1] "2023-10-10 14:06:34.45431 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:06:59.321851 ... ending   pcubature -- tol=0 -- ret.val is: 3790.03651"
+#                                                 [1] "2023-10-10 14:06:59.322073 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:07:24.308886 ... ending   pcubature -- tol=0 -- ret.val is: 3790.03562"
+#                                                 [1] "2023-10-10 14:07:24.309094 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:07:49.317374 ... ending   pcubature -- tol=0 -- ret.val is: 3790.03638"
+#                                                 [1] "2023-10-10 14:07:49.317593 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:08:14.283301 ... ending   pcubature -- tol=0 -- ret.val is: 3790.03774"
+#                                                 [1] "2023-10-10 14:08:14.283527 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:08:39.248438 ... ending   pcubature -- tol=0 -- ret.val is: 3790.0375"
+#                                                 [1] "2023-10-10 14:08:39.24866 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:09:04.122351 ... ending   pcubature -- tol=0 -- ret.val is: 3790.03647"
+#                                                 1:     3790.0365: -0.809497 0.581045 0.862906  1.06795 0.171303
+#                                                 [1] "2023-10-10 14:09:04.122596 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:09:29.130384 ... ending   pcubature -- tol=0 -- ret.val is: 3787.82137"
+#                                                 [1] "2023-10-10 14:09:29.130611 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:09:54.070104 ... ending   pcubature -- tol=0 -- ret.val is: 3787.82126"
+#                                                 [1] "2023-10-10 14:09:54.070323 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:10:19.008267 ... ending   pcubature -- tol=0 -- ret.val is: 3787.8213"
+#                                                 [1] "2023-10-10 14:10:19.008483 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:10:43.940641 ... ending   pcubature -- tol=0 -- ret.val is: 3787.82126"
+#                                                 [1] "2023-10-10 14:10:43.940855 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:11:08.967751 ... ending   pcubature -- tol=0 -- ret.val is: 3787.82224"
+#                                                 [1] "2023-10-10 14:11:08.967969 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:11:33.905201 ... ending   pcubature -- tol=0 -- ret.val is: 3787.82155"
+#                                                 2:     3787.8214: -0.913303 0.565213 0.719413  1.18328 0.175914
+#                                                 [1] "2023-10-10 14:11:33.905436 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:11:58.777467 ... ending   pcubature -- tol=0 -- ret.val is: 3785.49372"
+#                                                 [1] "2023-10-10 14:11:58.777699 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:12:23.760679 ... ending   pcubature -- tol=0 -- ret.val is: 3785.49363"
+#                                                 [1] "2023-10-10 14:12:23.760897 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:12:48.611654 ... ending   pcubature -- tol=0 -- ret.val is: 3785.49365"
+#                                                 [1] "2023-10-10 14:12:48.611873 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:13:13.474517 ... ending   pcubature -- tol=0 -- ret.val is: 3785.49367"
+#                                                 [1] "2023-10-10 14:13:13.474731 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:13:38.435634 ... ending   pcubature -- tol=0 -- ret.val is: 3785.49415"
+#                                                 [1] "2023-10-10 14:13:38.435848 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:14:03.361964 ... ending   pcubature -- tol=0 -- ret.val is: 3785.49358"
+#                                                 3:     3785.4937: -0.791894 0.573469 0.751732  1.33583 0.252163
+#                                                 [1] "2023-10-10 14:14:03.362204 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:14:28.270411 ... ending   pcubature -- tol=0 -- ret.val is: 3783.77302"
+#                                                 [1] "2023-10-10 14:14:28.270635 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:14:53.280552 ... ending   pcubature -- tol=0 -- ret.val is: 3783.77297"
+#                                                 [1] "2023-10-10 14:14:53.28076 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:15:18.204954 ... ending   pcubature -- tol=0 -- ret.val is: 3783.77299"
+#                                                 [1] "2023-10-10 14:15:18.20517 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:15:43.110496 ... ending   pcubature -- tol=0 -- ret.val is: 3783.77311"
+#                                                 [1] "2023-10-10 14:15:43.110717 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:16:07.993413 ... ending   pcubature -- tol=0 -- ret.val is: 3783.77316"
+#                                                 [1] "2023-10-10 14:16:07.993634 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:16:32.880492 ... ending   pcubature -- tol=0 -- ret.val is: 3783.7731"
+#                                                 4:     3783.7730: -0.881611 0.559697 0.758799  1.52520 0.224057
+#                                                 [1] "2023-10-10 14:16:32.880732 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:16:45.432345 ... ending   pcubature -- tol=0 -- ret.val is: 3783.86111"
+#                                                 [1] "2023-10-10 14:16:45.432579 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:17:10.269422 ... ending   pcubature -- tol=0 -- ret.val is: 3783.20673"
+#                                                 [1] "2023-10-10 14:17:10.269888 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:17:35.299181 ... ending   pcubature -- tol=0 -- ret.val is: 3783.20669"
+#                                                 [1] "2023-10-10 14:17:35.299394 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:18:00.208107 ... ending   pcubature -- tol=0 -- ret.val is: 3783.2067"
+#                                                 [1] "2023-10-10 14:18:00.20832 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:18:25.20188 ... ending   pcubature -- tol=0 -- ret.val is: 3783.20668"
+#                                                 [1] "2023-10-10 14:18:25.202095 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:18:50.21269 ... ending   pcubature -- tol=0 -- ret.val is: 3783.20687"
+#                                                 [1] "2023-10-10 14:18:50.212903 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:19:15.044116 ... ending   pcubature -- tol=0 -- ret.val is: 3783.2066"
+#                                                 5:     3783.2067: -0.810901 0.558003 0.721573  1.56415 0.171811
+#                                                 [1] "2023-10-10 14:19:15.044357 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:19:27.613025 ... ending   pcubature -- tol=0 -- ret.val is: 3782.66917"
+#                                                 [1] "2023-10-10 14:19:27.613241 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:19:40.153576 ... ending   pcubature -- tol=0 -- ret.val is: 3782.66915"
+#                                                 [1] "2023-10-10 14:19:40.153786 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:19:52.715585 ... ending   pcubature -- tol=0 -- ret.val is: 3782.66909"
+#                                                 [1] "2023-10-10 14:19:52.715798 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:20:05.1999 ... ending   pcubature -- tol=0 -- ret.val is: 3782.66916"
+#                                                 [1] "2023-10-10 14:20:05.200106 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:20:17.757064 ... ending   pcubature -- tol=0 -- ret.val is: 3782.66931"
+#                                                 [1] "2023-10-10 14:20:17.757272 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:20:30.288244 ... ending   pcubature -- tol=0 -- ret.val is: 3782.66921"
+#                                                 6:     3782.6692: -0.851256 0.537617 0.740275  1.65168 0.147714
+#                                                 [1] "2023-10-10 14:20:30.288478 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:20:55.176038 ... ending   pcubature -- tol=0 -- ret.val is: 3782.47647"
+#                                                 [1] "2023-10-10 14:20:55.176261 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:21:20.147663 ... ending   pcubature -- tol=0 -- ret.val is: 3782.47645"
+#                                                 [1] "2023-10-10 14:21:20.147873 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:21:45.074424 ... ending   pcubature -- tol=0 -- ret.val is: 3782.47642"
+#                                                 [1] "2023-10-10 14:21:45.074657 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:22:10.095118 ... ending   pcubature -- tol=0 -- ret.val is: 3782.4765"
+#                                                 [1] "2023-10-10 14:22:10.095335 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:22:35.022801 ... ending   pcubature -- tol=0 -- ret.val is: 3782.47653"
+#                                                 [1] "2023-10-10 14:22:35.023011 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:22:59.917949 ... ending   pcubature -- tol=0 -- ret.val is: 3782.47634"
+#                                                 7:     3782.4765: -0.831999 0.579978 0.725026  1.71807 0.209603
+#                                                 [1] "2023-10-10 14:22:59.918188 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:23:12.465099 ... ending   pcubature -- tol=0 -- ret.val is: 3782.25986"
+#                                                 [1] "2023-10-10 14:23:12.465314 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:23:25.038697 ... ending   pcubature -- tol=0 -- ret.val is: 3782.25985"
+#                                                 [1] "2023-10-10 14:23:25.038913 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:23:37.593635 ... ending   pcubature -- tol=0 -- ret.val is: 3782.25982"
+#                                                 [1] "2023-10-10 14:23:37.593845 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:23:50.190609 ... ending   pcubature -- tol=0 -- ret.val is: 3782.2598"
+#                                                 [1] "2023-10-10 14:23:50.190814 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:24:02.641546 ... ending   pcubature -- tol=0 -- ret.val is: 3782.25989"
+#                                                 [1] "2023-10-10 14:24:02.641755 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:24:15.181537 ... ending   pcubature -- tol=0 -- ret.val is: 3782.25986"
+#                                                 8:     3782.2599: -0.839498 0.519580 0.702422  1.79593 0.190681
+#                                                 [1] "2023-10-10 14:24:15.181767 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:24:27.731253 ... ending   pcubature -- tol=0 -- ret.val is: 3782.17427"
+#                                                 [1] "2023-10-10 14:24:27.731475 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:24:40.193587 ... ending   pcubature -- tol=0 -- ret.val is: 3782.17426"
+#                                                 [1] "2023-10-10 14:24:40.193809 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:24:52.750163 ... ending   pcubature -- tol=0 -- ret.val is: 3782.17426"
+#                                                 [1] "2023-10-10 14:24:52.750376 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:25:05.194252 ... ending   pcubature -- tol=0 -- ret.val is: 3782.17424"
+#                                                 [1] "2023-10-10 14:25:05.194457 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:25:17.729067 ... ending   pcubature -- tol=0 -- ret.val is: 3782.17429"
+#                                                 [1] "2023-10-10 14:25:17.729277 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:25:30.260138 ... ending   pcubature -- tol=0 -- ret.val is: 3782.17425"
+#                                                 9:     3782.1743: -0.841044 0.569436 0.747083  1.85610 0.140360
+#                                                 [1] "2023-10-10 14:25:30.26038 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:25:42.69796 ... ending   pcubature -- tol=0 -- ret.val is: 3782.74231"
+#                                                 [1] "2023-10-10 14:25:42.698185 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:25:55.232464 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11886"
+#                                                 [1] "2023-10-10 14:25:55.232689 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:26:07.650964 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11885"
+#                                                 [1] "2023-10-10 14:26:07.651172 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:26:20.174198 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11887"
+#                                                 [1] "2023-10-10 14:26:20.174407 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:26:32.68154 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11887"
+#                                                 [1] "2023-10-10 14:26:32.681751 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:26:45.19891 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11888"
+#                                                 [1] "2023-10-10 14:26:45.199123 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:26:57.60809 ... ending   pcubature -- tol=0 -- ret.val is: 3782.11889"
+#                                                 10:     3782.1189: -0.844241 0.563709 0.734348  1.85912 0.145594
+#                                                 [1] "2023-10-10 14:26:57.608322 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:27:10.128474 ... ending   pcubature -- tol=0 -- ret.val is: 3782.08646"
+#                                                 [1] "2023-10-10 14:27:10.128696 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:27:22.65741 ... ending   pcubature -- tol=0 -- ret.val is: 3782.08646"
+#                                                 [1] "2023-10-10 14:27:22.657624 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:27:35.18873 ... ending   pcubature -- tol=0 -- ret.val is: 3782.08647"
+#                                                 [1] "2023-10-10 14:27:35.188935 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:27:47.618965 ... ending   pcubature -- tol=0 -- ret.val is: 3782.08647"
+#                                                 [1] "2023-10-10 14:27:47.61919 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:28:00.136037 ... ending   pcubature -- tol=0 -- ret.val is: 3782.08648"
+#                                                 [1] "2023-10-10 14:28:00.136243 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:28:12.665865 ... ending   pcubature -- tol=0 -- ret.val is: 3782.08648"
+#                                                 11:     3782.0865: -0.840023 0.557702 0.726910  1.86430 0.155878
+#                                                 [1] "2023-10-10 14:28:12.666101 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:28:25.097805 ... ending   pcubature -- tol=0 -- ret.val is: 3782.07945"
+#                                                 [1] "2023-10-10 14:28:25.098029 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:28:37.613702 ... ending   pcubature -- tol=0 -- ret.val is: 3782.07944"
+#                                                 [1] "2023-10-10 14:28:37.613924 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:28:50.150319 ... ending   pcubature -- tol=0 -- ret.val is: 3782.07945"
+#                                                 [1] "2023-10-10 14:28:50.150542 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:29:02.569545 ... ending   pcubature -- tol=0 -- ret.val is: 3782.07945"
+#                                                 [1] "2023-10-10 14:29:02.569758 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:29:15.100914 ... ending   pcubature -- tol=0 -- ret.val is: 3782.07946"
+#                                                 [1] "2023-10-10 14:29:15.101122 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:29:27.630985 ... ending   pcubature -- tol=0 -- ret.val is: 3782.07945"
+#                                                 12:     3782.0794: -0.847022 0.551544 0.722916  1.87175 0.165008
+#                                                 [1] "2023-10-10 14:29:27.631229 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:29:40.052481 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06449"
+#                                                 [1] "2023-10-10 14:29:40.052706 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:29:52.577616 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06449"
+#                                                 [1] "2023-10-10 14:29:52.577826 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:30:05.125895 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06449"
+#                                                 [1] "2023-10-10 14:30:05.126102 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:30:17.67471 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06449"
+#                                                 [1] "2023-10-10 14:30:17.674922 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:30:30.222351 ... ending   pcubature -- tol=0 -- ret.val is: 3782.0645"
+#                                                 [1] "2023-10-10 14:30:30.222564 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:30:42.659299 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06446"
+#                                                 [1] "2023-10-10 14:30:42.659515 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:30:55.199368 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06452"
+#                                                 13:     3782.0645: -0.841104 0.546893 0.722105  1.88477 0.161132
+#                                                 [1] "2023-10-10 14:30:55.199603 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:31:07.751467 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06536"
+#                                                 [1] "2023-10-10 14:31:07.751697 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:31:20.204088 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06118"
+#                                                 [1] "2023-10-10 14:31:20.204306 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:31:32.760091 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06119"
+#                                                 [1] "2023-10-10 14:31:32.760303 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:31:45.325174 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06118"
+#                                                 [1] "2023-10-10 14:31:45.325387 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:31:57.778189 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06118"
+#                                                 [1] "2023-10-10 14:31:57.778408 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:32:10.337106 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06119"
+#                                                 [1] "2023-10-10 14:32:10.337536 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:32:23.018048 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06118"
+#                                                 [1] "2023-10-10 14:32:23.018261 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:32:35.468837 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06119"
+#                                                 [1] "2023-10-10 14:32:35.469057 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:32:47.983391 ... ending   pcubature -- tol=0 -- ret.val is: 3782.06118"
+#                                                 14:     3782.0612: -0.839486 0.550043 0.723051  1.88962 0.165212
+#                                                 [1] "2023-10-10 14:32:47.983638 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:33:00.530707 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05788"
+#                                                 [1] "2023-10-10 14:33:00.530922 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:33:13.064824 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05788"
+#                                                 [1] "2023-10-10 14:33:13.065032 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:33:25.61622 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05789"
+#                                                 [1] "2023-10-10 14:33:25.616437 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:33:38.058577 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05788"
+#                                                 [1] "2023-10-10 14:33:38.058796 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:33:50.615139 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05788"
+#                                                 [1] "2023-10-10 14:33:50.615349 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:34:03.064604 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05789"
+#                                                 [1] "2023-10-10 14:34:03.064815 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:34:15.611222 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05788"
+#                                                 [1] "2023-10-10 14:34:15.611443 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:34:28.160015 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05788"
+#                                                 15:     3782.0579: -0.841889 0.551464 0.719984  1.89560 0.164415
+#                                                 [1] "2023-10-10 14:34:28.160245 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:34:40.595241 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05496"
+#                                                 [1] "2023-10-10 14:34:40.595459 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:34:53.139882 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05496"
+#                                                 [1] "2023-10-10 14:34:53.140096 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:35:05.686802 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05496"
+#                                                 [1] "2023-10-10 14:35:05.687012 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:35:18.22707 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05496"
+#                                                 [1] "2023-10-10 14:35:18.227278 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:35:30.777441 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05496"
+#                                                 [1] "2023-10-10 14:35:30.777659 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:35:43.221007 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05496"
+#                                                 [1] "2023-10-10 14:35:43.22122 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:35:55.761081 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05496"
+#                                                 [1] "2023-10-10 14:35:55.761299 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:36:08.2996 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05497"
+#                                                 [1] "2023-10-10 14:36:08.299808 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:36:20.731111 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05496"
+#                                                 [1] "2023-10-10 14:36:20.731322 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:36:33.285393 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05496"
+#                                                 16:     3782.0550: -0.840563 0.549603 0.721710  1.90233 0.164377
+#                                                 [1] "2023-10-10 14:36:33.285631 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:36:45.823858 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05298"
+#                                                 [1] "2023-10-10 14:36:45.824078 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:36:58.255229 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05297"
+#                                                 [1] "2023-10-10 14:36:58.25544 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:37:10.783699 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05298"
+#                                                 [1] "2023-10-10 14:37:10.783908 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:37:23.222308 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05297"
+#                                                 [1] "2023-10-10 14:37:23.222528 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:37:35.803899 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05298"
+#                                                 [1] "2023-10-10 14:37:35.805807 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:37:48.300796 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05297"
+#                                                 [1] "2023-10-10 14:37:48.301009 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:38:00.833806 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05298"
+#                                                 [1] "2023-10-10 14:38:00.834022 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:38:13.361488 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05298"
+#                                                 [1] "2023-10-10 14:38:13.361717 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:38:25.804032 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05297"
+#                                                 [1] "2023-10-10 14:38:25.80425 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:38:38.327992 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05298"
+#                                                 17:     3782.0530: -0.841563 0.550007 0.720042  1.90930 0.163365
+#                                                 [1] "2023-10-10 14:38:38.328326 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:38:50.854653 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05173"
+#                                                 [1] "2023-10-10 14:38:50.854877 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:39:03.383638 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05173"
+#                                                 [1] "2023-10-10 14:39:03.383857 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:39:15.786388 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05173"
+#                                                 [1] "2023-10-10 14:39:15.786617 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:39:28.302895 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05174"
+#                                                 [1] "2023-10-10 14:39:28.303105 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:39:40.826038 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05172"
+#                                                 [1] "2023-10-10 14:39:40.826246 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:39:53.24529 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05173"
+#                                                 [1] "2023-10-10 14:39:53.245497 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:40:05.773686 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05173"
+#                                                 [1] "2023-10-10 14:40:05.773897 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:40:18.305681 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05173"
+#                                                 [1] "2023-10-10 14:40:18.305907 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:40:30.726542 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05173"
+#                                                 [1] "2023-10-10 14:40:30.72676 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:40:43.248691 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05173"
+#                                                 18:     3782.0517: -0.840197 0.552004 0.719670  1.91620 0.163436
+#                                                 [1] "2023-10-10 14:40:43.248935 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:40:55.782885 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 [1] "2023-10-10 14:40:55.783098 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:41:08.186895 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 [1] "2023-10-10 14:41:08.187101 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:41:20.703584 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 [1] "2023-10-10 14:41:20.703806 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:41:33.107345 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 [1] "2023-10-10 14:41:33.107558 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:41:45.620861 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 [1] "2023-10-10 14:41:45.621068 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:41:58.140467 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 [1] "2023-10-10 14:41:58.140683 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:42:10.548711 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 [1] "2023-10-10 14:42:10.548919 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:42:23.066214 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 [1] "2023-10-10 14:42:23.066428 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:42:35.581015 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 [1] "2023-10-10 14:42:35.581228 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:42:47.987924 ... ending   pcubature -- tol=0 -- ret.val is: 3782.05033"
+#                                                 19:     3782.0503: -0.841303 0.549970 0.721372  1.92293 0.163111
+#                                                 [1] "2023-10-10 14:42:47.988168 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:43:00.504992 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 [1] "2023-10-10 14:43:00.505221 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:43:12.919988 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 [1] "2023-10-10 14:43:12.920192 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:43:25.447716 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 [1] "2023-10-10 14:43:25.44792 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:43:37.978465 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 [1] "2023-10-10 14:43:37.978684 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:43:50.511601 ... ending   pcubature -- tol=0 -- ret.val is: 3782.0498"
+#                                                 [1] "2023-10-10 14:43:50.511807 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:44:02.934576 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 [1] "2023-10-10 14:44:02.934785 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:44:15.495779 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 [1] "2023-10-10 14:44:15.495989 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:44:28.017251 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 [1] "2023-10-10 14:44:28.017472 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:44:40.693481 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 [1] "2023-10-10 14:44:40.693715 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:44:53.624917 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 [1] "2023-10-10 14:44:53.625129 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:45:06.54079 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04979"
+#                                                 20:     3782.0498: -0.840529 0.549327 0.721052  1.93013 0.162350
+#                                                 [1] "2023-10-10 14:45:06.541032 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:45:19.347847 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:45:19.348068 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:45:32.185448 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:45:32.185679 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:45:44.986706 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:45:44.986924 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:45:57.977231 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:45:57.977454 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:46:10.914158 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:46:10.914381 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:46:23.598474 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:46:23.598674 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:46:36.486903 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:46:36.487113 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:46:49.271968 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:46:49.272187 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:47:02.020411 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:47:02.020625 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:47:14.874708 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:47:14.874915 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:47:27.568192 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 21:     3782.0497: -0.840853 0.549731 0.720741  1.93217 0.161993
+#                                                 [1] "2023-10-10 14:47:27.568427 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:47:40.424602 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:47:40.424818 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:47:53.278435 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:47:53.278675 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:48:06.124281 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:48:06.124552 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:48:18.69372 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:48:18.693931 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:48:31.444313 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:48:31.444537 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:48:44.186872 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:48:44.187067 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:48:56.946695 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:48:56.946914 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:49:09.568438 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:49:09.568667 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:49:22.326414 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:49:22.326635 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:49:35.105477 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:49:35.105699 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:49:47.827239 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 22:     3782.0497: -0.840792 0.549620 0.720750  1.93197 0.162080
+#                                                 [1] "2023-10-10 14:49:47.82746 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:50:00.599865 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:50:00.600094 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:50:13.35555 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:50:13.355754 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:50:25.90817 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:50:25.908382 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:50:38.543511 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:50:38.543723 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:50:51.251332 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:50:51.251559 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:51:03.85216 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:51:03.852368 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:51:16.570397 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:51:16.570627 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:51:29.253925 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:51:29.254138 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:51:41.943352 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:51:41.943565 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:51:54.534525 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 [1] "2023-10-10 14:51:54.534733 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:52:07.14849 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 23:     3782.0497: -0.840791 0.549632 0.720761  1.93197 0.162068
+#                                                 [1] "2023-10-10 14:52:07.148726 ... starting pcubature for bivariate normal or cauchy"
+#                                                 [1] "2023-10-10 14:52:19.682764 ... ending   pcubature -- tol=0 -- ret.val is: 3782.04974"
+#                                                 Post processing for method  nlminb
+#                                                 Successful convergence!
+#                                                   Save results from method  nlminb
+#                                                 $par
+#                                                 Intercept        b_p       var1       var2     corr12
+#                                                 -0.8407910  0.5496316  0.7207606  1.9319714  0.1620683
+#
+#                                                 $message
+#                                                 [1] "relative convergence (4)"
+#
+#                                                 $convcode
+#                                                 [1] 0
+#
+#                                                 $value
+#                                                 [1] 3782.05
+#
+#                                                 $fevals
+#                                                 function
+#                                                 28
+#
+#                                                 $gevals
+#                                                 gradient
+#                                                 161
+#
+#                                                 $nitns
+#                                                 [1] 23
+#
+#                                                 $kkt1
+#                                                 [1] NA
+#
+#                                                 $kkt2
+#                                                 [1] NA
+#
+#                                                 $xtimes
+#                                                 user.self
+#                                                 2892.59
+#
+#                                                 Assemble the answers
+#                                                 Intercept       b_p      var1     var2    corr12   value fevals gevals
+#                                                 nlminb -0.840791 0.5496316 0.7207606 1.931971 0.1620683 3782.05     28    161
+#                                                 niter convcode kkt1 kkt2   xtime
+#                                                 nlminb    23        0   NA   NA 2892.59
+#
+# > glm.fit <-
+#   +   glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="probit"))
+# > summary(glm.fit)
+#
+# Call:
+#   glm(formula = cbind(r, n_r) ~ x1, family = binomial(link = "probit"),
+#       data = summed_binom_dat)
+#
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept) -0.72507    0.01695 -42.781   <2e-16 ***
+#   x1           0.54384    0.05932   9.168   <2e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#
+# (Dispersion parameter for binomial family taken to be 1)
+#
+# Null deviance: 16336  on 1599  degrees of freedom
+# Residual deviance: 16252  on 1598  degrees of freedom
+# AIC: 20527
+#
+# Number of Fisher Scoring iterations: 4
+
+## then *Locally* run this part after inputting the values
+## some things are commented out but it should make the graph
+## at the end
+phi_x <- function(x, var1=0.72, var2=1.93, corr12=0.162){
+
+  1/sqrt(1 + var1 + var2*x^2 + 2*corr12*sqrt(var1*var2)*x )
+
+}
+
+##xvalueset <- c(0, sort(unique(period_numeric)), 1, 10)
+datavalueset <- c(0.1, 0.12, 0.2, 0.22, 0.3, 0.32, 0.4, 0.42)
+xvalueset <- c(0, datavalueset, 1, 10)
+
+cbind(
+  xvalue = xvalueset,
+
+  "phi(xvalue)" = phi_x(x=xvalueset),
+
+  beta0_c = -0.8407910,
+  beta1_c =   0.5496316,
+
+  beta0_m =  -0.8407910*  phi_x(x=xvalueset),
+  beta1_m =    0.5496316 *  phi_x(x=xvalueset)
+)
+
+xdomain <- seq(-2,4,0.05)
+plot(xdomain, phi_x(xdomain), ylim=c(0,1))
+
+library(data.table)
+#dat.interim <- data.table::copy(summed_binom_dat[, r/(r+n_r), by=c("id","period_numeric")])
+
+## do it either way:
+#dat.interim2 <- data.table::copy(dat.interim[order(period_numeric),mean(V1), by=period_numeric])
+#summed_binom_dat[, mean(r/(r+n_r)), by=c("period_numeric")]
+
+dat.interim2[,marginal.fit:=pnorm( -0.6458908+0.5685879*period_numeric)]
+dat.interim2[,conditional.fit:=pnorm( -0.8407910+0.5496316*period_numeric)]
+setnames(dat.interim2, "V1", "empirical.avg")
+setcolorder(dat.interim2, c("period_numeric", "conditional.fit","empirical.avg","marginal.fit" ))
+
+dat.interim2[, glm.fit:=pnorm(-1.42435 + 1.10648 *period_numeric)]
+
+print(dat.interim2, digits=2)
+## plot(x1, r/(r+n_r),col="grey", ylim=c(0,1),xlim=range(xdomain))
+plot(NA, NA,col="grey", ylim=c(0,1),xlim=range(xdomain))
+abline(h=0.50, lty=3, col="lightblue")
+abline(v=min(datavalueset), lty=2, col="lightgray")
+abline(v=max(datavalueset), lty=2, col="lightgray")
+
+lines(xdomain, pnorm( -0.8407910+0.5496316*xdomain), ylim=c(0,1))
+text(3.6,0.68, "(b0c+b1c*x)       ", col="black")
+
+lines(xdomain, pnorm( -0.6458908+0.5685879*xdomain), ylim=c(0,1),col="orange")
+text(3.6,0.95, "(b0m+b1m*x)       ", col="orange")
+
+lines(xdomain, phi_x(xdomain), ylim=c(0,1), lty=2, col='cyan')
+text(3.6,0.19, "            phi(x)", col="cyan")
+
+lines(xdomain, pnorm((-0.8407910+0.5496316*xdomain)*phi_x(xdomain)), col="red")
+text(3.6,0.52, "(b0c+b1c*x)*phi(x)", col="red")
+
+
+lines(xdomain, pnorm( -0.72507+0.54384*xdomain), ylim=c(0,1), col="darkgreen")
+text(3.6,0.78, "glm(b'0m+b'1m*x)       ", col="darkgreen")
+
+
+## phi ranges over the dataset:
+phi_x(min(datavalueset))
+phi_x(max(datavalueset))
+abline(h=phi_x(min(datavalueset)), lty=2, col="lightpink")
+abline(h=phi_x(max(datavalueset)), lty=2, col="lightpink")
+
+
+
+########################################$$$$#########
+## 2023-10-10A                                     ##
+## _END_ two random parameters: run on cluster    ###
+## bivariate normal marg/cond                      ##
+#####################################################
+
+
+########################################$$$$#########
 ## 2023-10-03A                                     ##
 ## START two random param: QUICKER                ###
 #####################################################
