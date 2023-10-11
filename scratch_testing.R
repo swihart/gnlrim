@@ -3,60 +3,61 @@
 ## START two random parameters: run on cluster    ###
 ## bivariate cauchy marg/cond                      ##
 #####################################################
-(rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
-   gnlrim::gnlrem(y=ybind,
-                  mu = ~ pcauchy(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
-
-                  pmu = c(Intercept=-1.2, b_p=1),
-                  pmix=c(var1=1, var2=1.3, corr12= 0.30),
-
-                  p_uppb = c(  0,   4, 1.0, 4.00, 4.00, 0.90),
-                  p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
-                  distribution="binomial",
-                  nest=id,
-                  random=c("rand1", "rand2"),
-                  mixture="bivariate-cauchy-corr",
-                  ooo=TRUE,
-                  compute_hessian = FALSE,
-                  compute_kkt = FALSE,
-                  trace=1,
-                  method='nlminb',
-                  int2dmethod="cuba",
-                  tol.pcubature = 0.1,
-                  abs.tol.nlminb = 1e-2,
-                  xf.tol.nlminb =  1e-2,
-                  x.tol.nlminb =   1e-2,
-                  rel.tol.nlminb = 1e-2
-   )
-)
-
-
-(rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
-    gnlrim::gnlrem(y=ybind,
-                   mu = ~ pcauchy(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
-
-                   pmu = c(Intercept=-1.2, b_p=1),
-                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
-
-                   p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
-                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
-                   distribution="binomial",
-                   nest=id,
-                   random=c("rand1", "rand2"),
-                   mixture="bivariate-cauchy-corr",
-                   ooo=TRUE,
-                   compute_hessian = FALSE,
-                   compute_kkt = FALSE,
-                   trace=1,
-                   method='nlminb',
-                   int2dmethod="cuba",
-                   tol.pcubature = 0.5,
-                   abs.tol.nlminb = 1e-2,
-                   xf.tol.nlminb =  1e-2,
-                   x.tol.nlminb =   1e-2,
-                   rel.tol.nlminb = 1e-2
-    )
-)
+# (rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
+#    gnlrim::gnlrem(y=ybind,
+#                   mu = ~ pcauchy(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+#
+#                   pmu = c(Intercept=-1.2, b_p=1),
+#                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
+#
+#                   p_uppb = c(  0,   4, 1.0, 4.00, 4.00, 0.90),
+#                   p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
+#                   distribution="binomial",
+#                   nest=id,
+#                   random=c("rand1", "rand2"),
+#                   mixture="bivariate-cauchy-corr",
+#                   ooo=TRUE,
+#                   compute_hessian = FALSE,
+#                   compute_kkt = FALSE,
+#                   trace=1,
+#                   method='nlminb',
+#                   int2dmethod="cuba",
+#                   tol.pcubature = 0.1,
+#                   abs.tol.nlminb = 1e-2,
+#                   xf.tol.nlminb =  1e-2,
+#                   x.tol.nlminb =   1e-2,
+#                   rel.tol.nlminb = 1e-2
+#    )
+# )
+# ## ran this and recorded the results locally (see far below).  change tol.pcubature
+# ## and run a few more times on cluster:
+#
+# (rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
+#     gnlrim::gnlrem(y=ybind,
+#                    mu = ~ pcauchy(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+#
+#                    pmu = c(Intercept=-1.2, b_p=1),
+#                    pmix=c(var1=1, var2=1.3, corr12= 0.30),
+#
+#                    p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+#                    p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#                    distribution="binomial",
+#                    nest=id,
+#                    random=c("rand1", "rand2"),
+#                    mixture="bivariate-cauchy-corr",
+#                    ooo=TRUE,
+#                    compute_hessian = FALSE,
+#                    compute_kkt = FALSE,
+#                    trace=1,
+#                    method='nlminb',
+#                    int2dmethod="cuba",
+#                    tol.pcubature = 0.5,
+#                    abs.tol.nlminb = 1e-2,
+#                    xf.tol.nlminb =  1e-2,
+#                    x.tol.nlminb =   1e-2,
+#                    rel.tol.nlminb = 1e-2
+#     )
+# )
 # Assemble the answers
 #        Intercept      b_p      var1     var2    corr12    value fevals gevals
 # nlminb -1.970935 0.995794 0.7449743 1.677083 0.6275397 3671.545      7     31
@@ -64,69 +65,69 @@
 # nlminb     5        0   NA   NA 9763.134
 
 ## change tol.pcubature=0.5 -> 0.09
-(rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
-    gnlrim::gnlrem(y=ybind,
-                   mu = ~ pcauchy(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
-
-                   pmu = c(Intercept=-1.2, b_p=1),
-                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
-
-                   p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
-                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
-                   distribution="binomial",
-                   nest=id,
-                   random=c("rand1", "rand2"),
-                   mixture="bivariate-cauchy-corr",
-                   ooo=TRUE,
-                   compute_hessian = FALSE,
-                   compute_kkt = FALSE,
-                   trace=1,
-                   method='nlminb',
-                   int2dmethod="cuba",
-                   tol.pcubature = 0.09,
-                   abs.tol.nlminb = 1e-2,
-                   xf.tol.nlminb =  1e-2,
-                   x.tol.nlminb =   1e-2,
-                   rel.tol.nlminb = 1e-2
-    )
-)
+# (rand.int.rand.slopes.nonzero.corr.CUBA.cauchy <-
+#     gnlrim::gnlrem(y=ybind,
+#                    mu = ~ pcauchy(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2),
+#
+#                    pmu = c(Intercept=-1.2, b_p=1),
+#                    pmix=c(var1=1, var2=1.3, corr12= 0.30),
+#
+#                    p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+#                    p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#                    distribution="binomial",
+#                    nest=id,
+#                    random=c("rand1", "rand2"),
+#                    mixture="bivariate-cauchy-corr",
+#                    ooo=TRUE,
+#                    compute_hessian = FALSE,
+#                    compute_kkt = FALSE,
+#                    trace=1,
+#                    method='nlminb',
+#                    int2dmethod="cuba",
+#                    tol.pcubature = 0.09,
+#                    abs.tol.nlminb = 1e-2,
+#                    xf.tol.nlminb =  1e-2,
+#                    x.tol.nlminb =   1e-2,
+#                    rel.tol.nlminb = 1e-2
+#     )
+# )
 # Assemble the answers
 #        Intercept      b_p      var1     var2    corr12    value fevals gevals
 # nlminb -2.063432 1.032551 0.7800393 1.453341 0.5415967 3672.277      4     15
 # niter convcode kkt1 kkt2    xtime
 # nlminb     3        0   NA   NA 2457.624
 
-
-
-(marginal.CUBA.cauchy <-
-    gnlrim::gnlrem(y=ybind,
-                   mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
-                                     (1.000^1.00 + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(1.00/2) )^(1/1.00) / (1.000)  +
-                                     rand1 + period_numeric*rand2),
-
-                   pmu = c(Intercept=-1.2, b_p=1, var1=1, var2=1.3, corr12= 0.30),
-                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
-
-                   p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
-                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
-                   distribution="binomial",
-                   nest=id,
-                   random=c("rand1", "rand2"),
-                   mixture="bivariate-cauchy-corr",
-                   ooo=TRUE,
-                   compute_hessian = FALSE,
-                   compute_kkt = FALSE,
-                   trace=1,
-                   method='nlminb',
-                   int2dmethod="cuba",
-                   tol.pcubature = 0.5,
-                   abs.tol.nlminb = 1e-2,
-                   xf.tol.nlminb =  1e-2,
-                   x.tol.nlminb =   1e-2,
-                   rel.tol.nlminb = 1e-2
-    )
-)
-
+## now do marginal parms for the same 0.5 and 0.09 tol.pcubatures, get parameters for graph
+## run on cluster
+# (marginal.CUBA.cauchy <-
+#     gnlrim::gnlrem(y=ybind,
+#                    mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
+#                                      (1.000^1.00 + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(1.00/2) )^(1/1.00) / (1.000)  +
+#                                      rand1 + period_numeric*rand2),
+#
+#                    pmu = c(Intercept=-1.2, b_p=1, var1=1, var2=1.3, corr12= 0.30),
+#                    pmix=c(var1=1, var2=1.3, corr12= 0.30),
+#
+#                    p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+#                    p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#                    distribution="binomial",
+#                    nest=id,
+#                    random=c("rand1", "rand2"),
+#                    mixture="bivariate-cauchy-corr",
+#                    ooo=TRUE,
+#                    compute_hessian = FALSE,
+#                    compute_kkt = FALSE,
+#                    trace=1,
+#                    method='nlminb',
+#                    int2dmethod="cuba",
+#                    tol.pcubature = 0.5,
+#                    abs.tol.nlminb = 1e-2,
+#                    xf.tol.nlminb =  1e-2,
+#                    x.tol.nlminb =   1e-2,
+#                    rel.tol.nlminb = 1e-2
+#     )
+# )
+## output:
 #                           > (marginal.CUBA.cauchy <-
 #                                +     gnlrim::gnlrem(y=ybind,
 #                                                     +                    mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
@@ -292,7 +293,8 @@
 # nlminb     5        0   NA   NA 3471.885 ret.val is: 3673.15815"
 #
 
-glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="cauchit"))
+## ran this farther below.  see farther below for output.
+##glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="cauchit"))
 
 ## then *Locally* run this part after inputting the values
 ## some things are commented out but it should make the graph
@@ -336,35 +338,38 @@ abline(h=phi_x_deluxe(min(datavalueset)), lty=2, col="lightpink")
 abline(h=phi_x_deluxe(max(datavalueset)), lty=2, col="lightpink")
 
 
-## change 0.5 to 0.09
-(marginal.CUBA.cauchy <-
-    gnlrim::gnlrem(y=ybind,
-                   mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
-                                     (1.000^1.00 + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(1.00/2) )^(1/1.00) / (1.000)  +
-                                     rand1 + period_numeric*rand2),
 
-                   pmu = c(Intercept=-1.2, b_p=1, var1=1, var2=1.3, corr12= 0.30),
-                   pmix=c(var1=1, var2=1.3, corr12= 0.30),
 
-                   p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
-                   p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
-                   distribution="binomial",
-                   nest=id,
-                   random=c("rand1", "rand2"),
-                   mixture="bivariate-cauchy-corr",
-                   ooo=TRUE,
-                   compute_hessian = FALSE,
-                   compute_kkt = FALSE,
-                   trace=1,
-                   method='nlminb',
-                   int2dmethod="cuba",
-                   tol.pcubature = 0.09,
-                   abs.tol.nlminb = 1e-2,
-                   xf.tol.nlminb =  1e-2,
-                   x.tol.nlminb =   1e-2,
-                   rel.tol.nlminb = 1e-2
-    )
-)
+## change 0.5 to 0.09; run on cluster; then make graphic for the 0.09 case marg/cond.
+# (marginal.CUBA.cauchy <-
+#     gnlrim::gnlrem(y=ybind,
+#                    mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
+#                                      (1.000^1.00 + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(1.00/2) )^(1/1.00) / (1.000)  +
+#                                      rand1 + period_numeric*rand2),
+#
+#                    pmu = c(Intercept=-1.2, b_p=1, var1=1, var2=1.3, corr12= 0.30),
+#                    pmix=c(var1=1, var2=1.3, corr12= 0.30),
+#
+#                    p_uppb = c(  0,   4, 4.00, 4.00, 0.90),
+#                    p_lowb = c( -4,  -2, 0.05, 0.05,-0.90),
+#                    distribution="binomial",
+#                    nest=id,
+#                    random=c("rand1", "rand2"),
+#                    mixture="bivariate-cauchy-corr",
+#                    ooo=TRUE,
+#                    compute_hessian = FALSE,
+#                    compute_kkt = FALSE,
+#                    trace=1,
+#                    method='nlminb',
+#                    int2dmethod="cuba",
+#                    tol.pcubature = 0.09,
+#                    abs.tol.nlminb = 1e-2,
+#                    xf.tol.nlminb =  1e-2,
+#                    x.tol.nlminb =   1e-2,
+#                    rel.tol.nlminb = 1e-2
+#     )
+# )
+## output:
 # > (marginal.CUBA.cauchy <-
 #      +     gnlrim::gnlrem(y=ybind,
 #                           +                    mu = ~ pcauchy( (Intercept + period_numeric*b_p) *
