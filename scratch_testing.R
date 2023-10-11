@@ -1,4 +1,1720 @@
 ########################################$$$$#########
+## 2023-10-03A                                     ##
+## START two random param: QUICKER                ###
+#####################################################
+
+## I'm starting to think that one can't estimate df
+## but could still set it and test on a grid (?)
+
+## tl;dr: false convergence?!? let's try not baby-ing the tolerances in 2023-10-02A
+## and we can let df range
+
+library(mvpd)
+library(libstable4u)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="t-BIVARIATE_t_df_gt_2"){
+    print("t-BIVARIATE-t where shape is in terms for variance")
+    a <- alpha
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c((a-2)/a*v1,(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="t-BIVARIATE_t"){
+    print("t-BIVARIATE-t could be fun")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+##detach(summed_binom_dat)
+set.seed(166)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  #sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1, mrim="t-BIVARIATE_t", alpha=8, v1=1, v2=2, rho=0.5)
+  sim_mrim_data(20,20, J=10, a0 = -2, a1 = 1, mrim="t-BIVARIATE_t", alpha=8, v1=1, v2=2, rho=0.5)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+(rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=nu_set),
+
+                   pmu = c(Intercept=-1.2, b_p=1, nu_set=8),
+                   pmix=c(nu_set=8, v1=1, v2=1, corr= 0.30),
+
+                   p_uppb = c(  0,   2,    8, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2,    8, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-t-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba"
+    )
+)
+########################################$$$$#########
+## 2023-10-03A                                     ##
+## END two random param: QUICKER                  ###
+#####################################################
+
+########################################$$$$#########
+## 2023-10-02A                                     ##
+## START two random param: fix-df bivariate-t sim ###
+#####################################################
+
+## I'm starting to think that one can't estimate df
+## but could still set it and test on a grid (?)
+
+## tl;dr: false convergence?!? let's try not baby-ing the tolerances in 2023-10-02A
+## and we can let df range
+
+library(mvpd)
+library(libstable4u)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="t-BIVARIATE_t_df_gt_2"){
+    print("t-BIVARIATE-t where shape is in terms for variance")
+    a <- alpha
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c((a-2)/a*v1,(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="t-BIVARIATE_t"){
+    print("t-BIVARIATE-t could be fun")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+##detach(summed_binom_dat)
+set.seed(166)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1, mrim="t-BIVARIATE_t", alpha=8, v1=1, v2=2, rho=0.5)
+
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+(rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=nu_set),
+
+                   pmu = c(Intercept=-1.2, b_p=1, nu_set=8),
+                   pmix=c(nu_set=8, v1=1, v2=1, corr= 0.30),
+
+                   p_uppb = c(  0,   2,   20, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2,    4, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-t-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba"
+    )
+)
+# > (rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=nu_set),
+#                           +
+#                             +                    pmu = c(Intercept=-1.2, b_p=1, nu_set=8),
+#                           +                    pmix=c(nu_set=8, v1=1, v2=1, corr= 0.30),
+#                           +
+#                             +                    p_uppb = c(  0,   2,   20, 4.00, 4.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2,    4, 0.05, 0.05,-0.90),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-t-corr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                    int2dmethod="cuba"
+#                           +     )
+#    + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 2     In Bounds
+# par[ 3 ]:  4   <? 8   <? 20     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2023-10-02 18:46:34 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 18:50:37 ... ending   pcubature -- tol=0 -- ret.val is: 3087.95878"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 1.425969   log bounds ratio= 0.9488475
+# Method:  nlminb
+# [1] "2023-10-02 18:50:37 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 18:54:39 ... ending   pcubature -- tol=0 -- ret.val is: 3087.95878"
+# [1] "2023-10-02 18:54:39 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 18:58:38 ... ending   pcubature -- tol=0 -- ret.val is: 3087.95878"
+# [1] "2023-10-02 18:58:38 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:02:35 ... ending   pcubature -- tol=0 -- ret.val is: 3087.95878"
+# [1] "2023-10-02 19:02:35 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:06:31 ... ending   pcubature -- tol=0 -- ret.val is: 3087.95878"
+# [1] "2023-10-02 19:06:31 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:10:27 ... ending   pcubature -- tol=0 -- ret.val is: 3087.95878"
+# [1] "2023-10-02 19:10:27 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:14:24 ... ending   pcubature -- tol=0 -- ret.val is: 3087.95878"
+# [1] "2023-10-02 19:14:24 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:18:21 ... ending   pcubature -- tol=0 -- ret.val is: 3087.95878"
+# 0:     3087.9588: -1.20000  1.00000  8.00000  1.00000  1.00000 0.300000
+# [1] "2023-10-02 19:18:21 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:26:11 ... ending   pcubature -- tol=0 -- ret.val is: 3019.32991"
+# [1] "2023-10-02 19:26:11 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:34:01 ... ending   pcubature -- tol=0 -- ret.val is: 3019.3336"
+# [1] "2023-10-02 19:34:01 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:41:52 ... ending   pcubature -- tol=0 -- ret.val is: 3019.3309"
+# [1] "2023-10-02 19:41:52 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:49:42 ... ending   pcubature -- tol=0 -- ret.val is: 3019.33005"
+# [1] "2023-10-02 19:49:42 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 19:57:30 ... ending   pcubature -- tol=0 -- ret.val is: 3019.32985"
+# [1] "2023-10-02 19:57:30 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 20:37:40 ... ending   pcubature -- tol=0 -- ret.val is: 3019.33145"
+# [1] "2023-10-02 20:37:40 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 21:04:20 ... ending   pcubature -- tol=0 -- ret.val is: 3019.33093"
+# 1:     3019.3299: -1.67074  1.02083  8.01219  1.10456  1.09636 0.387224
+# [1] "2023-10-02 21:04:20 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 21:12:10 ... ending   pcubature -- tol=0 -- ret.val is: 3000.73981"
+# [1] "2023-10-02 21:12:10 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 21:20:18 ... ending   pcubature -- tol=0 -- ret.val is: 3000.73974"
+# [1] "2023-10-02 21:20:18 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 21:28:30 ... ending   pcubature -- tol=0 -- ret.val is: 3000.74002"
+# [1] "2023-10-02 21:28:30 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 21:36:21 ... ending   pcubature -- tol=0 -- ret.val is: 3000.73981"
+# [1] "2023-10-02 21:36:21 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 21:44:13 ... ending   pcubature -- tol=0 -- ret.val is: 3000.73976"
+# [1] "2023-10-02 21:44:13 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 21:52:05 ... ending   pcubature -- tol=0 -- ret.val is: 3000.74034"
+# [1] "2023-10-02 21:52:05 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 21:59:56 ... ending   pcubature -- tol=0 -- ret.val is: 3000.73981"
+# 2:     3000.7398: -2.06890  1.17818  8.03084  1.04505  1.31049 0.517466
+# [1] "2023-10-02 21:59:56 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 22:07:47 ... ending   pcubature -- tol=0 -- ret.val is: 3000.57675"
+# [1] "2023-10-02 22:07:47 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 22:15:34 ... ending   pcubature -- tol=0 -- ret.val is: 3000.5766"
+# [1] "2023-10-02 22:15:34 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 22:23:22 ... ending   pcubature -- tol=0 -- ret.val is: 3000.57653"
+# [1] "2023-10-02 22:23:22 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 22:31:09 ... ending   pcubature -- tol=0 -- ret.val is: 3000.5767"
+# [1] "2023-10-02 22:31:09 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 22:38:57 ... ending   pcubature -- tol=0 -- ret.val is: 3000.57646"
+# [1] "2023-10-02 22:38:57 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 22:46:46 ... ending   pcubature -- tol=0 -- ret.val is: 3000.57696"
+# [1] "2023-10-02 22:46:46 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 22:54:33 ... ending   pcubature -- tol=0 -- ret.val is: 3000.57686"
+# [1] "2023-10-02 22:54:33 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 23:02:22 ... ending   pcubature -- tol=0 -- ret.val is: 3000.57665"
+# 3:     3000.5768: -1.78921  1.33393  8.03358  1.18573  1.66664 0.547087
+# [1] "2023-10-02 23:02:22 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 23:17:42 ... ending   pcubature -- tol=0 -- ret.val is: 2995.21755"
+# [1] "2023-10-02 23:17:42 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-02 23:33:03 ... ending   pcubature -- tol=0 -- ret.val is: 2995.21752"
+# [1] "2023-10-02 23:33:03 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 06:51:07 ... ending   pcubature -- tol=0 -- ret.val is: 2995.21761"
+# [1] "2023-10-03 06:51:07 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 07:06:51 ... ending   pcubature -- tol=0 -- ret.val is: 2995.21755"
+# [1] "2023-10-03 07:06:51 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 07:22:15 ... ending   pcubature -- tol=0 -- ret.val is: 2995.21759"
+# [1] "2023-10-03 07:22:15 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 07:37:36 ... ending   pcubature -- tol=0 -- ret.val is: 2995.21776"
+# [1] "2023-10-03 07:37:36 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 07:52:56 ... ending   pcubature -- tol=0 -- ret.val is: 2995.21769"
+# 4:     2995.2176: -2.01803  1.28400  8.03998  1.13921  1.71624 0.492481
+# [1] "2023-10-03 07:52:56 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 08:00:38 ... ending   pcubature -- tol=0 -- ret.val is: 2995.42258"
+# [1] "2023-10-03 08:00:38 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 09:46:13 ... ending   pcubature -- tol=0 -- ret.val is: 2994.44042"
+# [1] "2023-10-03 09:46:13 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 09:53:58 ... ending   pcubature -- tol=0 -- ret.val is: 2994.44039"
+# [1] "2023-10-03 09:53:58 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 10:01:40 ... ending   pcubature -- tol=0 -- ret.val is: 2994.44047"
+# [1] "2023-10-03 10:01:40 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 10:09:23 ... ending   pcubature -- tol=0 -- ret.val is: 2994.44039"
+# [1] "2023-10-03 10:09:23 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 10:17:45 ... ending   pcubature -- tol=0 -- ret.val is: 2994.44044"
+# [1] "2023-10-03 10:17:45 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 10:25:52 ... ending   pcubature -- tol=0 -- ret.val is: 2994.44047"
+# [1] "2023-10-03 10:25:52 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 10:34:09 ... ending   pcubature -- tol=0 -- ret.val is: 2994.44068"
+# [1] "2023-10-03 10:34:09 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 10:42:16 ... ending   pcubature -- tol=0 -- ret.val is: 2994.44034"
+# 5:     2994.4404: -1.94494  1.24864  8.03981  1.12016  1.77956 0.438425
+# [1] "2023-10-03 10:42:16 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 10:58:49 ... ending   pcubature -- tol=0 -- ret.val is: 2993.92394"
+# [1] "2023-10-03 10:58:49 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 11:14:55 ... ending   pcubature -- tol=0 -- ret.val is: 2993.92389"
+# [1] "2023-10-03 11:14:55 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 11:30:52 ... ending   pcubature -- tol=0 -- ret.val is: 2993.92398"
+# [1] "2023-10-03 11:30:52 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 11:46:49 ... ending   pcubature -- tol=0 -- ret.val is: 2993.92394"
+# [1] "2023-10-03 11:46:49 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 12:02:45 ... ending   pcubature -- tol=0 -- ret.val is: 2993.92392"
+# [1] "2023-10-03 12:02:45 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 12:19:19 ... ending   pcubature -- tol=0 -- ret.val is: 2993.92415"
+# [1] "2023-10-03 12:19:19 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 12:36:19 ... ending   pcubature -- tol=0 -- ret.val is: 2993.92393"
+# 6:     2993.9239: -2.01876  1.22606  8.04691  1.09538  1.86088 0.463924
+# [1] "2023-10-03 12:36:19 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 12:52:00 ... ending   pcubature -- tol=0 -- ret.val is: 2993.14489"
+# [1] "2023-10-03 12:52:00 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 13:07:40 ... ending   pcubature -- tol=0 -- ret.val is: 2993.14487"
+# [1] "2023-10-03 13:07:40 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 13:23:15 ... ending   pcubature -- tol=0 -- ret.val is: 2993.14494"
+# [1] "2023-10-03 13:23:15 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 13:38:46 ... ending   pcubature -- tol=0 -- ret.val is: 2993.14492"
+# [1] "2023-10-03 13:38:46 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 13:54:18 ... ending   pcubature -- tol=0 -- ret.val is: 2993.14484"
+# [1] "2023-10-03 13:54:18 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 14:09:52 ... ending   pcubature -- tol=0 -- ret.val is: 2993.14507"
+# [1] "2023-10-03 14:09:52 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 14:25:27 ... ending   pcubature -- tol=0 -- ret.val is: 2993.1449"
+# 7:     2993.1449: -1.93671  1.18606  8.05122  1.09239  1.93474 0.472438
+# [1] "2023-10-03 14:25:27 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 14:33:20 ... ending   pcubature -- tol=0 -- ret.val is: 2991.93198"
+# [1] "2023-10-03 14:33:20 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 14:41:11 ... ending   pcubature -- tol=0 -- ret.val is: 2991.93195"
+# [1] "2023-10-03 14:41:11 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 14:49:03 ... ending   pcubature -- tol=0 -- ret.val is: 2991.93194"
+# [1] "2023-10-03 14:49:03 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 14:56:53 ... ending   pcubature -- tol=0 -- ret.val is: 2991.93199"
+# [1] "2023-10-03 14:56:53 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 15:04:44 ... ending   pcubature -- tol=0 -- ret.val is: 2991.93197"
+# [1] "2023-10-03 15:04:44 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 15:12:35 ... ending   pcubature -- tol=0 -- ret.val is: 2991.93214"
+# [1] "2023-10-03 15:12:35 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 15:20:25 ... ending   pcubature -- tol=0 -- ret.val is: 2991.93203"
+# 8:     2991.9320: -1.97204  1.08462  8.07997  1.03511  2.13344 0.492909
+# [1] "2023-10-03 15:20:25 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 15:36:01 ... ending   pcubature -- tol=0 -- ret.val is: 2992.81366"
+# [1] "2023-10-03 15:36:01 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 15:43:50 ... ending   pcubature -- tol=0 -- ret.val is: 2991.41309"
+# [1] "2023-10-03 15:43:50 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 15:53:54 ... ending   pcubature -- tol=0 -- ret.val is: 2991.41307"
+# [1] "2023-10-03 15:53:54 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 16:02:32 ... ending   pcubature -- tol=0 -- ret.val is: 2991.41307"
+# [1] "2023-10-03 16:02:32 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 16:11:02 ... ending   pcubature -- tol=0 -- ret.val is: 2991.41313"
+# [1] "2023-10-03 16:11:02 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 16:19:09 ... ending   pcubature -- tol=0 -- ret.val is: 2991.41311"
+# [1] "2023-10-03 16:19:09 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 16:27:47 ... ending   pcubature -- tol=0 -- ret.val is: 2991.41321"
+# [1] "2023-10-03 16:27:47 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 16:37:00 ... ending   pcubature -- tol=0 -- ret.val is: 2991.41293"
+# 9:     2991.4131: -1.92123  1.13224  8.11508  1.03111  2.27346 0.417036
+# [1] "2023-10-03 16:37:00 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 16:45:48 ... ending   pcubature -- tol=0 -- ret.val is: 2990.88038"
+# [1] "2023-10-03 16:45:48 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 16:53:55 ... ending   pcubature -- tol=0 -- ret.val is: 2990.88039"
+# [1] "2023-10-03 16:53:55 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 17:02:11 ... ending   pcubature -- tol=0 -- ret.val is: 2990.88043"
+# [1] "2023-10-03 17:02:11 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 17:10:42 ... ending   pcubature -- tol=0 -- ret.val is: 2990.8804"
+# [1] "2023-10-03 17:10:42 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 17:19:02 ... ending   pcubature -- tol=0 -- ret.val is: 2990.88024"
+# [1] "2023-10-03 17:19:02 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 17:27:56 ... ending   pcubature -- tol=0 -- ret.val is: 2990.88046"
+# [1] "2023-10-03 17:27:56 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-03 17:37:09 ... ending   pcubature -- tol=0 -- ret.val is: 2990.88034"
+# 10:     2990.8804: -1.93180  1.11665  8.17100  1.08979  2.40599 0.500515
+# [1] "2023-10-03 17:37:09 ... starting pcubature for bivariate-t-corr"
+
+## ... -- > Umm.  It stalled for two hours.  Might need to runs these on biowulf.
+## Also: maybe lock down df...I think print out `8` was the best and
+## maybe got overfit in 9/10 and maybe the reason is that df
+## isn't gaining traction and the algo is spinning its wheels (?)
+
+########################################$$$$#########
+## 2023-10-02A                                     ##
+## _END_ two random param: fix-df bivariate-t sim ###
+#####################################################
+
+########################################$$$$#########
+## 2023-10-01A                                     ##
+## START two random param: fix-df bivariate-t sim ###
+#####################################################
+
+## I'm starting to think that one can't estimate df
+## but could still set it and test on a grid (?)
+
+## tl;dr: false convergence?!? let's try not baby-ing the tolerances in 2023-10-02A
+
+library(mvpd)
+library(libstable4u)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="t-BIVARIATE_t_df_gt_2"){
+    print("t-BIVARIATE-t where shape is in terms for variance")
+    a <- alpha
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c((a-2)/a*v1,(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="t-BIVARIATE_t"){
+    print("t-BIVARIATE-t could be fun")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+##detach(summed_binom_dat)
+set.seed(166)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1, mrim="t-BIVARIATE_t", alpha=8, v1=1, v2=2, rho=0.5)
+
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+(rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=nu_set),
+
+                   pmu = c(Intercept=-1.2, b_p=1, nu_set=8),
+                   pmix=c(nu_set=8, v1=1, v2=1, corr= 0.30),
+
+                   p_uppb = c(  0,   2,    8, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2,    8, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-t-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.1,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+# > (rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=nu_set),
+#                           +
+#                             +                    pmu = c(Intercept=-1.2, b_p=1, nu_set=8),
+#                           +                    pmix=c(nu_set=8, v1=1, v2=1, corr= 0.30),
+#                           +
+#                             +                    p_uppb = c(  0,   2,    8, 4.00, 4.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2,    8, 0.05, 0.05,-0.90),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-t-corr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                    int2dmethod="cuba",
+#                           +                    tol.pcubature = 0.1,
+#                           +                    abs.tol.nlminb = 1e-2,
+#                           +                    xf.tol.nlminb =  1e-2,
+#                           +                    x.tol.nlminb =   1e-2,
+#                           +                    rel.tol.nlminb = 1e-2
+#                           +     )
+#    + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 2     In Bounds
+# par[ 3 ]:  8   <? 8   <? 8     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2023-10-01 22:51:17 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:51:45 ... ending   pcubature -- tol=0.1 -- ret.val is: 3087.95747"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 1.425969   log bounds ratio= 0.3467875
+# Method:  nlminb
+# [1] "2023-10-01 22:51:45 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:52:12 ... ending   pcubature -- tol=0.1 -- ret.val is: 3087.95747"
+# [1] "2023-10-01 22:52:12 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:52:40 ... ending   pcubature -- tol=0.1 -- ret.val is: 3087.95747"
+# [1] "2023-10-01 22:52:40 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:53:07 ... ending   pcubature -- tol=0.1 -- ret.val is: 3087.95747"
+# [1] "2023-10-01 22:53:07 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:53:34 ... ending   pcubature -- tol=0.1 -- ret.val is: 3087.95747"
+# [1] "2023-10-01 22:53:34 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:54:01 ... ending   pcubature -- tol=0.1 -- ret.val is: 3087.95747"
+# [1] "2023-10-01 22:54:01 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:54:28 ... ending   pcubature -- tol=0.1 -- ret.val is: 3087.95747"
+# 0:     3087.9575: -1.20000  1.00000  8.00000  1.00000  1.00000 0.300000
+# [1] "2023-10-01 22:54:28 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:54:55 ... ending   pcubature -- tol=0.1 -- ret.val is: 3019.35227"
+# [1] "2023-10-01 22:54:55 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:55:22 ... ending   pcubature -- tol=0.1 -- ret.val is: 3019.35595"
+# [1] "2023-10-01 22:55:22 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:55:49 ... ending   pcubature -- tol=0.1 -- ret.val is: 3019.35326"
+# [1] "2023-10-01 22:55:49 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:56:16 ... ending   pcubature -- tol=0.1 -- ret.val is: 3019.35221"
+# [1] "2023-10-01 22:56:16 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:56:43 ... ending   pcubature -- tol=0.1 -- ret.val is: 3019.35381"
+# [1] "2023-10-01 22:56:43 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:57:11 ... ending   pcubature -- tol=0.1 -- ret.val is: 3019.35329"
+# 1:     3019.3523: -1.67087  1.02085  8.00000  1.10459  1.09639 0.387244
+# [1] "2023-10-01 22:57:11 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:58:07 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.70614"
+# [1] "2023-10-01 22:58:07 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:59:03 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.70607"
+# [1] "2023-10-01 22:59:03 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 22:59:59 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.70635"
+# [1] "2023-10-01 22:59:59 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:00:55 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.70609"
+# [1] "2023-10-01 23:00:55 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:01:51 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.70666"
+# [1] "2023-10-01 23:01:51 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:02:47 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.70614"
+# 2:     3000.7061: -2.06836  1.17931  8.00000  1.04474  1.31134 0.518033
+# [1] "2023-10-01 23:02:47 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:03:13 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.66054"
+# [1] "2023-10-01 23:03:13 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:03:41 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.66038"
+# [1] "2023-10-01 23:03:41 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:04:08 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.66032"
+# [1] "2023-10-01 23:04:08 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:04:35 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.66025"
+# [1] "2023-10-01 23:04:35 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:05:02 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.66074"
+# [1] "2023-10-01 23:05:02 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:05:29 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.6607"
+# 3:     3000.6605: -1.78792  1.33309  8.00000  1.18654  1.66748 0.545661
+# [1] "2023-10-01 23:05:29 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:07:23 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.21184"
+# [1] "2023-10-01 23:07:23 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:09:18 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.2118"
+# [1] "2023-10-01 23:09:18 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:11:13 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.2119"
+# [1] "2023-10-01 23:11:13 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:13:07 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.21187"
+# [1] "2023-10-01 23:13:07 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:15:02 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.21204"
+# [1] "2023-10-01 23:15:02 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:16:57 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.21198"
+# 4:     2995.2118: -2.01752  1.28412  8.00000  1.14040  1.71718 0.492862
+# [1] "2023-10-01 23:16:57 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:18:51 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.43234"
+# 5:     2995.2118: -2.01752  1.28412  8.00000  1.14040  1.71718 0.492862
+# [1] "2023-10-01 23:18:51 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-10-01 23:20:46 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.21184"
+# Post processing for method  nlminb
+# Save results from method  nlminb
+# $par
+# Intercept        b_p     nu_set         v1         v2       corr
+# -2.0175213  1.2841241  8.0000000  1.1404001  1.7171831  0.4928617
+#
+# $message
+# [1] "false convergence (8)"
+#
+# $convcode
+# [1] 1
+#
+# $value
+# [1] 2995.212
+#
+# $fevals
+# function
+# 6
+#
+# $gevals
+# gradient
+# 25
+#
+# $nitns
+# [1] 5
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 1713.869
+#
+# Assemble the answers
+# Intercept      b_p nu_set     v1       v2      corr    value fevals gevals niter convcode kkt1 kkt2    xtime
+# nlminb -2.017521 1.284124      8 1.1404 1.717183 0.4928617 2995.212      6     25     5        1   NA   NA 1713.869
+########################################$$$$#########
+## 2023-10-01A                                     ##
+## _END_ two random param: fix-df bivariate-t sim ###
+#####################################################
+
+########################################$$$$#########
+## 2023-09-30F                                     ##
+## START two random parameters: bivariate-t sim   ###
+#####################################################
+
+## try framing in terms of variance.
+
+library(mvpd)
+library(libstable4u)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="t-BIVARIATE_t_df_gt_2"){
+    print("t-BIVARIATE-t where shape is in terms for variance")
+    a <- alpha
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c((a-2)/a*v1,(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="t-BIVARIATE_t"){
+    print("t-BIVARIATE-t could be fun")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+##detach(summed_binom_dat)
+set.seed(166)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1, mrim="t-BIVARIATE_t_df_gt_2", alpha=8, v1=1, v2=2, rho=0.5)
+
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+(rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=degfree),
+
+                   pmu = c(Intercept=-1.2, b_p=1, degfree=2.1),
+                   pmix=c(degfree=2.1, v1=1, v2=1, corr= 0.30),
+
+                   p_uppb = c(  0,   2,    200, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2,   2.01, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-t-varcorr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.1,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+
+########################################$$$$#########
+## 2023-09-30F                                     ##
+## START two random parameters: bivariate-t sim   ###
+#####################################################
+
+
+########################################$$$$#########
+## 2023-09-30E                                     ##
+## START two random parameters: bivariate-t sim   ###
+#####################################################
+
+## try framing in terms of variance.
+
+library(mvpd)
+library(libstable4u)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="t-BIVARIATE_t_df_gt_2"){
+    print("t-BIVARIATE-t where shape is in terms for variance")
+    a <- alpha
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c((a-2)/a*v1,(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*rho*sqrt(v1*v2),(a-2)/a*v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="t-BIVARIATE_t"){
+    print("t-BIVARIATE-t could be fun")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=alpha,sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+detach(summed_binom_dat)
+set.seed(166)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1, mrim="t-BIVARIATE_t_df_gt_2", alpha=8, v1=1, v2=1, rho=0.5)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+(rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=degfree),
+
+                   pmu = c(Intercept=-1.2, b_p=1, degfree=40),
+                   pmix=c(degfree=40, v1=1, v2=1, corr= 0.30),
+
+                   p_uppb = c(  0,   2, 200, 1.00, 1.00, 0.90),
+                   p_lowb = c( -4,  -2,   3, 1.00, 1.00,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-t-varcorr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.1,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+# > (rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=degfree),
+#                           +
+#                             +                    pmu = c(Intercept=-1.2, b_p=1, degfree=40),
+#                           +                    pmix=c(degfree=40, v1=1, v2=1, v12= 0.30),
+#                           +
+#                             +                    p_uppb = c(  0,   2, 200, 1.00, 1.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2,   1, 1.00, 1.00,-0.90),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-t-varcorr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                    int2dmethod="cuba",
+#                           +                    tol.pcubature = 0.1,
+#                           +                    abs.tol.nlminb = 1e-2,
+#                           +                    xf.tol.nlminb =  1e-2,
+#                           +                    x.tol.nlminb =   1e-2,
+#                           +                    rel.tol.nlminb = 1e-2
+#                           +     )
+#    + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 2     In Bounds
+# par[ 3 ]:  1   <? 40   <? 200     In Bounds
+# par[ 4 ]:  1   <? 1   <? 1     In Bounds
+# par[ 5 ]:  1   <? 1   <? 1     In Bounds
+# par[ 6 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2023-09-30 20:58:53 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 20:59:36 ... ending   pcubature -- tol=0.1 -- ret.val is: 2998.06627"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 2.124939   log bounds ratio= 2.043581
+# Method:  nlminb
+# [1] "2023-09-30 20:59:36 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:00:16 ... ending   pcubature -- tol=0.1 -- ret.val is: 2998.06627"
+# [1] "2023-09-30 21:00:16 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:00:55 ... ending   pcubature -- tol=0.1 -- ret.val is: 2998.06628"
+# [1] "2023-09-30 21:00:55 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:01:34 ... ending   pcubature -- tol=0.1 -- ret.val is: 2998.06627"
+# [1] "2023-09-30 21:01:34 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:02:16 ... ending   pcubature -- tol=0.1 -- ret.val is: 2998.06627"
+# [1] "2023-09-30 21:02:16 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:02:57 ... ending   pcubature -- tol=0.1 -- ret.val is: 2998.06627"
+# 0:     2998.0663: -1.20000  1.00000  40.0000  1.00000  1.00000 0.300000
+# [1] "2023-09-30 21:02:57 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:05:42 ... ending   pcubature -- tol=0.1 -- ret.val is: 2940.39655"
+# [1] "2023-09-30 21:05:42 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:08:29 ... ending   pcubature -- tol=0.1 -- ret.val is: 2940.39827"
+# [1] "2023-09-30 21:08:29 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:11:14 ... ending   pcubature -- tol=0.1 -- ret.val is: 2940.39601"
+# [1] "2023-09-30 21:11:14 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:13:56 ... ending   pcubature -- tol=0.1 -- ret.val is: 2940.39655"
+# [1] "2023-09-30 21:13:56 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:16:40 ... ending   pcubature -- tol=0.1 -- ret.val is: 2940.39614"
+# 1:     2940.3965: -1.69877 0.965164  40.0004  1.00000  1.00000 0.304061
+# [1] "2023-09-30 21:16:40 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:19:42 ... ending   pcubature -- tol=0.1 -- ret.val is: 2936.41495"
+# [1] "2023-09-30 21:19:42 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:22:41 ... ending   pcubature -- tol=0.1 -- ret.val is: 2936.41493"
+# [1] "2023-09-30 21:22:41 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:25:37 ... ending   pcubature -- tol=0.1 -- ret.val is: 2936.41478"
+# [1] "2023-09-30 21:25:37 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:28:32 ... ending   pcubature -- tol=0.1 -- ret.val is: 2936.41496"
+# [1] "2023-09-30 21:28:32 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:31:28 ... ending   pcubature -- tol=0.1 -- ret.val is: 2936.41494"
+# [1] "2023-09-30 21:31:28 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:34:13 ... ending   pcubature -- tol=0.1 -- ret.val is: 2936.41512"
+# 2:     2936.4150: -1.88723  1.35420  39.9997  1.00000  1.00000 0.0527960
+# [1] "2023-09-30 21:34:13 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:36:53 ... ending   pcubature -- tol=0.1 -- ret.val is: 2951.90746"
+# 3:     2936.4150: -1.88723  1.35420  39.9997  1.00000  1.00000 0.0527960
+# [1] "2023-09-30 21:36:53 ... starting pcubature for bivariate-t-varcorr"
+# [1] "2023-09-30 21:39:32 ... ending   pcubature -- tol=0.1 -- ret.val is: 2936.41495"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept         b_p     degfree          v1          v2         v12
+# -1.88723376  1.35419633 39.99974394  1.00000000  1.00000000  0.05279598
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 2936.415
+#
+# $fevals
+# function
+# 4
+#
+# $gevals
+# gradient
+# 13
+#
+# $nitns
+# [1] 3
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 2355.741
+#
+# Assemble the answers
+# Intercept      b_p  degfree v1 v2        v12    value fevals gevals niter convcode kkt1 kkt2    xtime
+# nlminb -1.887234 1.354196 39.99974  1  1 0.05279598 2936.415      4     13     3        0   NA   NA 2355.741
+
+########################################$$$$#########
+## 2023-09-30E                                     ##
+## _END_ two random parameters: bivariate-t sim   ###
+#####################################################
+
+########################################$$$$#########
+## 2023-09-30DD                                    ##
+## START two random parameters: bivariate-t sim   ###
+#####################################################
+
+##tl;dr: locking corners to 1 still did not get df mixing
+
+library(mvpd)
+library(libstable4u)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="t-BIVARIATE_t"){
+    print("t-BIVARIATE-t could be fun")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=,alpha,sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+detach(summed_binom_dat)
+set.seed(166)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1, mrim="t-BIVARIATE_t", alpha=8, v1=1, v2=1)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+(rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=degfree),
+
+                   pmu = c(Intercept=-1.2, b_p=1, degfree=40),
+                   pmix=c(degfree=40, var1=1, var2=1, corr12= 0.30),
+
+                   p_uppb = c(  0,   2, 200, 1.00, 1.00, 0.90),
+                   p_lowb = c( -4,  -2,   1, 1.00, 1.00,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-t-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.1,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+# > (rand.int.rand.slopes.nonzero.corr.estimate.degfree.corr.mat <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=degfree),
+#                           +
+#                             +                    pmu = c(Intercept=-1.2, b_p=1, degfree=40),
+#                           +                    pmix=c(degfree=40, var1=1, var2=1, corr12= 0.30),
+#                           +
+#                             +                    p_uppb = c(  0,   2, 200, 1.00, 1.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2,   1, 1.00, 1.00,-0.90),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-t-corr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                    int2dmethod="cuba",
+#                           +                    tol.pcubature = 0.1,
+#                           +                    abs.tol.nlminb = 1e-2,
+#                           +                    xf.tol.nlminb =  1e-2,
+#                           +                    x.tol.nlminb =   1e-2,
+#                           +                    rel.tol.nlminb = 1e-2
+#                           +     )
+#    + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 2     In Bounds
+# par[ 3 ]:  1   <? 40   <? 200     In Bounds
+# par[ 4 ]:  1   <? 1   <? 1     In Bounds
+# par[ 5 ]:  1   <? 1   <? 1     In Bounds
+# par[ 6 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2023-09-30 18:58:19 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 18:58:58 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.73074"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 2.124939   log bounds ratio= 2.043581
+# Method:  nlminb
+# [1] "2023-09-30 18:58:58 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 18:59:37 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.73074"
+# [1] "2023-09-30 18:59:37 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:00:16 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.73075"
+# [1] "2023-09-30 19:00:16 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:00:54 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.73074"
+# [1] "2023-09-30 19:00:54 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:01:33 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.73074"
+# [1] "2023-09-30 19:01:33 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:02:16 ... ending   pcubature -- tol=0.1 -- ret.val is: 3000.73074"
+# 0:     3000.7307: -1.20000  1.00000  40.0000  1.00000  1.00000 0.300000
+# [1] "2023-09-30 19:02:16 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:04:58 ... ending   pcubature -- tol=0.1 -- ret.val is: 2948.78076"
+# [1] "2023-09-30 19:04:58 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:07:39 ... ending   pcubature -- tol=0.1 -- ret.val is: 2948.78211"
+# [1] "2023-09-30 19:07:39 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:10:23 ... ending   pcubature -- tol=0.1 -- ret.val is: 2948.77992"
+# [1] "2023-09-30 19:10:23 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:13:16 ... ending   pcubature -- tol=0.1 -- ret.val is: 2948.78076"
+# [1] "2023-09-30 19:13:16 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:16:01 ... ending   pcubature -- tol=0.1 -- ret.val is: 2948.78153"
+# 1:     2948.7808: -1.69552 0.998636  40.0004  1.00000  1.00000 0.366791
+# [1] "2023-09-30 19:16:01 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:18:44 ... ending   pcubature -- tol=0.1 -- ret.val is: 2950.15986"
+# 2:     2948.7808: -1.69552 0.998636  40.0004  1.00000  1.00000 0.366791
+# [1] "2023-09-30 19:18:44 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 19:21:24 ... ending   pcubature -- tol=0.1 -- ret.val is: 2948.78076"
+# Post processing for method  nlminb
+# Save results from method  nlminb
+# $par
+# Intercept        b_p    degfree       var1       var2     corr12
+# -1.6955168  0.9986360 40.0004283  1.0000000  1.0000000  0.3667915
+#
+# $message
+# [1] "false convergence (8)"
+#
+# $convcode
+# [1] 1
+#
+# $value
+# [1] 2948.781
+#
+# $fevals
+# function
+# 3
+#
+# $gevals
+# gradient
+# 8
+#
+# $nitns
+# [1] 2
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 1322.054
+#
+# Assemble the answers
+# Intercept      b_p  degfree var1 var2    corr12    value fevals gevals niter convcode kkt1 kkt2    xtime
+# nlminb -1.695517 0.998636 40.00043    1    1 0.3667915 2948.781      3      8     2        1   NA   NA 1322.054
+########################################$$$$#########
+## 2023-09-30DD                                   ##
+## _END_ two random parameters: bivariate-t sim   ###
+#####################################################
+
+########################################$$$$#########
+## 2023-09-30A                                     ##
+## START two random parameters: bivariate-t sim   ###
+#####################################################
+
+## tl;dr: can't have v1,v2, and df.  will have to do
+## the trick where you lock v1,v2 and estimate
+## df.  See your paper
+
+
+library(mvpd)
+library(libstable4u)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.0, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="t-BIVARIATE_t"){
+    print("t-BIVARIATE-t could be fun")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvt(n=n, df=,alpha,sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pt(x, df=alpha)
+  }
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvsubgaussPD::rmvsubgaussPD(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+detach(summed_binom_dat)
+set.seed(166)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1, mrim="t-BIVARIATE_t", alpha=8)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+
+
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+
+(rand.int.rand.slopes.nonzero.corr.estimate.degfree <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=8),
+
+                   pmu = c(Intercept=-1.2, b_p=1),#, degfree=40),
+                   pmix=c(degfree=40, var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   2, 200, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2,  1, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-t-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.1,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+# > (rand.int.rand.slopes.nonzero.corr.estimate.degfree <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=degfree),
+#                           +
+#                             +                    pmu = c(Intercept=-1.2, b_p=1, degfree=10),
+#                           +                    pmix=c(degfree=10, var1=1, var2=1.3, corr12= 0.30),
+#                           +
+#                             +                    p_uppb = c(  0,   2, 20, 4.00, 4.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2,  1, 0.05, 0.05,-0.90),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-t-corr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                    int2dmethod="cuba",
+#                           +                    tol.pcubature = 0.1,
+#                           +                    abs.tol.nlminb = 1e-2,
+#                           +                    xf.tol.nlminb =  1e-2,
+#                           +                    x.tol.nlminb =   1e-2,
+#                           +                    rel.tol.nlminb = 1e-2
+#                           +     )
+#    + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 2     In Bounds
+# par[ 3 ]:  1   <? 10   <? 20     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1.3   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2023-09-30 12:30:02 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:30:31 ... ending   pcubature -- tol=0.1 -- ret.val is: 3070.54475"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 1.522879   log bounds ratio= 1.023481
+# Method:  nlminb
+# [1] "2023-09-30 12:30:32 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:31:00 ... ending   pcubature -- tol=0.1 -- ret.val is: 3070.54475"
+# [1] "2023-09-30 12:31:00 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:31:29 ... ending   pcubature -- tol=0.1 -- ret.val is: 3070.54475"
+# [1] "2023-09-30 12:31:29 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:31:58 ... ending   pcubature -- tol=0.1 -- ret.val is: 3070.54475"
+# [1] "2023-09-30 12:31:58 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:32:26 ... ending   pcubature -- tol=0.1 -- ret.val is: 3070.54475"
+# [1] "2023-09-30 12:32:26 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:32:55 ... ending   pcubature -- tol=0.1 -- ret.val is: 3070.54475"
+# [1] "2023-09-30 12:32:55 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:33:24 ... ending   pcubature -- tol=0.1 -- ret.val is: 3070.54475"
+# [1] "2023-09-30 12:33:24 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:33:52 ... ending   pcubature -- tol=0.1 -- ret.val is: 3070.54475"
+# 0:     3070.5447: -1.20000  1.00000  10.0000  1.00000  1.30000 0.300000
+# [1] "2023-09-30 12:33:52 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:34:21 ... ending   pcubature -- tol=0.1 -- ret.val is: 3008.19796"
+# [1] "2023-09-30 12:34:21 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:34:49 ... ending   pcubature -- tol=0.1 -- ret.val is: 3008.20096"
+# [1] "2023-09-30 12:34:49 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:35:18 ... ending   pcubature -- tol=0.1 -- ret.val is: 3008.19872"
+# [1] "2023-09-30 12:35:18 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:35:47 ... ending   pcubature -- tol=0.1 -- ret.val is: 3008.19803"
+# [1] "2023-09-30 12:35:47 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:36:16 ... ending   pcubature -- tol=0.1 -- ret.val is: 3008.19762"
+# [1] "2023-09-30 12:36:16 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:36:44 ... ending   pcubature -- tol=0.1 -- ret.val is: 3008.19905"
+# [1] "2023-09-30 12:36:44 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:37:13 ... ending   pcubature -- tol=0.1 -- ret.val is: 3008.19877"
+# 1:     3008.1980: -1.68066  1.00799  10.0075  1.08270  1.37132 0.383195
+# [1] "2023-09-30 12:37:13 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:38:13 ... ending   pcubature -- tol=0.1 -- ret.val is: 2997.863"
+# [1] "2023-09-30 12:38:13 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:39:13 ... ending   pcubature -- tol=0.1 -- ret.val is: 2997.86289"
+# [1] "2023-09-30 12:39:13 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:40:13 ... ending   pcubature -- tol=0.1 -- ret.val is: 2997.86291"
+# [1] "2023-09-30 12:40:13 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:41:12 ... ending   pcubature -- tol=0.1 -- ret.val is: 2997.86297"
+# [1] "2023-09-30 12:41:12 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:42:12 ... ending   pcubature -- tol=0.1 -- ret.val is: 2997.86283"
+# [1] "2023-09-30 12:42:12 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:43:11 ... ending   pcubature -- tol=0.1 -- ret.val is: 2997.86338"
+# [1] "2023-09-30 12:43:11 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:44:11 ... ending   pcubature -- tol=0.1 -- ret.val is: 2997.86326"
+# 2:     2997.8630: -2.01866  1.20247  10.0178 0.910451  1.59362 0.520091
+# [1] "2023-09-30 12:44:11 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:46:19 ... ending   pcubature -- tol=0.1 -- ret.val is: 3004.73148"
+# [1] "2023-09-30 12:46:19 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:48:22 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.64787"
+# [1] "2023-09-30 12:48:22 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:50:25 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.64784"
+# [1] "2023-09-30 12:50:25 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:52:28 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.64795"
+# [1] "2023-09-30 12:52:28 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:54:30 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.64786"
+# [1] "2023-09-30 12:54:30 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:56:32 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.64786"
+# [1] "2023-09-30 12:56:32 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:58:35 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.64811"
+# [1] "2023-09-30 12:58:35 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:00:37 ... ending   pcubature -- tol=0.1 -- ret.val is: 2995.64734"
+# 3:     2995.6479: -1.87396  1.18979  10.0157 0.979392  1.63565 0.570909
+# [1] "2023-09-30 13:00:37 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:02:38 ... ending   pcubature -- tol=0.1 -- ret.val is: 2993.84132"
+# [1] "2023-09-30 13:02:38 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:04:39 ... ending   pcubature -- tol=0.1 -- ret.val is: 2993.84131"
+# [1] "2023-09-30 13:04:39 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:06:40 ... ending   pcubature -- tol=0.1 -- ret.val is: 2993.84128"
+# [1] "2023-09-30 13:06:40 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:08:42 ... ending   pcubature -- tol=0.1 -- ret.val is: 2993.84133"
+# [1] "2023-09-30 13:08:42 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:10:52 ... ending   pcubature -- tol=0.1 -- ret.val is: 2993.84131"
+# [1] "2023-09-30 13:10:52 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:12:57 ... ending   pcubature -- tol=0.1 -- ret.val is: 2993.84177"
+# [1] "2023-09-30 13:12:57 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:15:06 ... ending   pcubature -- tol=0.1 -- ret.val is: 2993.8413"
+# 4:     2993.8413: -1.91147  1.14085  10.0170 0.990261  1.74902 0.455024
+# [1] "2023-09-30 13:15:06 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:17:13 ... ending   pcubature -- tol=0.1 -- ret.val is: 2992.69523"
+# [1] "2023-09-30 13:17:13 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:19:21 ... ending   pcubature -- tol=0.1 -- ret.val is: 2992.69519"
+# [1] "2023-09-30 13:19:21 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:21:26 ... ending   pcubature -- tol=0.1 -- ret.val is: 2992.69519"
+# [1] "2023-09-30 13:21:26 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:23:29 ... ending   pcubature -- tol=0.1 -- ret.val is: 2992.69523"
+# [1] "2023-09-30 13:23:29 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:25:33 ... ending   pcubature -- tol=0.1 -- ret.val is: 2992.69515"
+# [1] "2023-09-30 13:25:33 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:27:37 ... ending   pcubature -- tol=0.1 -- ret.val is: 2992.69555"
+# [1] "2023-09-30 13:27:37 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:29:41 ... ending   pcubature -- tol=0.1 -- ret.val is: 2992.6952"
+# 5:     2992.6952: -1.88295  1.15998  10.0200  1.01825  1.91039 0.501852
+# [1] "2023-09-30 13:29:41 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:31:44 ... ending   pcubature -- tol=0.1 -- ret.val is: 2993.13413"
+# 6:     2992.6952: -1.88295  1.15998  10.0200  1.01825  1.91039 0.501852
+# [1] "2023-09-30 13:31:44 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 13:33:47 ... ending   pcubature -- tol=0.1 -- ret.val is: 2992.69523"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p    degfree       var1       var2     corr12
+# -1.8829471  1.1599813 10.0200049  1.0182483  1.9103897  0.5018522
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 2992.695
+#
+# $fevals
+# function
+# 8
+#
+# $gevals
+# gradient
+# 36
+#
+# $nitns
+# [1] 6
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 3725.777
+#
+# Assemble the answers
+# Intercept      b_p degfree     var1    var2    corr12    value fevals gevals niter convcode kkt1 kkt2    xtime
+# nlminb -1.882947 1.159981   10.02 1.018248 1.91039 0.5018522 2992.695      8     36     6        0   NA   NA 3725.777
+########################################$$$$#########
+## 2023-09-30B                                     ##
+## _END_ two random parameters: bivariate-t sim   ###
+#####################################################
+
+########################################$$$$#########
 ## 2023-09-30A                                     ##
 ## START two random parameters: glmer == gnlrim.  ###
 #####################################################
@@ -2038,8 +3754,159 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
 
 
 
+## test the newly added bivariate-t-corr locking df=1
+## about 50 minutes to run.
+(rand.int.rand.slopes.nonzero.corr.CUBA.tcorr <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=1),
 
+                   pmu = c(Intercept=-1.2, b_p=1),
+                   pmix=c(df=1.0, var1=1, var2=1.3, corr12= 0.30),
 
+                   p_uppb = c(  0,   2, 1.0, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-t-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   tol.pcubature = 0.1,
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2
+    )
+)
+# > (rand.int.rand.slopes.nonzero.corr.CUBA.tcorr <-
+#      +     gnlrim::gnlrem(y=ybind,
+#                           +                    mu = ~ pt(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, df=1),
+#                           +
+#                             +                    pmu = c(Intercept=-1.2, b_p=1),
+#                           +                    pmix=c(df=1.0, var1=1, var2=1.3, corr12= 0.30),
+#                           +
+#                             +                    p_uppb = c(  0,   2, 1.0, 4.00, 4.00, 0.90),
+#                           +                    p_lowb = c( -4,  -2, 1.0, 0.05, 0.05,-0.90),
+#                           +                    distribution="binomial",
+#                           +                    nest=id,
+#                           +                    random=c("rand1", "rand2"),
+#                           +                    mixture="bivariate-t-corr",
+#                           +                    ooo=TRUE,
+#                           +                    compute_hessian = FALSE,
+#                           +                    compute_kkt = FALSE,
+#                           +                    trace=1,
+#                           +                    method='nlminb',
+#                           +                    int2dmethod="cuba",
+#                           +                    tol.pcubature = 0.1,
+#                           +                    abs.tol.nlminb = 1e-2,
+#                           +                    xf.tol.nlminb =  1e-2,
+#                           +                    x.tol.nlminb =   1e-2,
+#                           +                    rel.tol.nlminb = 1e-2
+#                           +     )
+#    + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.2   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 1   <? 2     In Bounds
+# par[ 3 ]:  1   <? 1   <? 1     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1.3   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.3   <? 0.9     In Bounds
+# [1] "2023-09-30 11:23:55 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:25:48 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.6368221   log bounds ratio= 0.3467875
+# Method:  nlminb
+# [1] "2023-09-30 11:25:48 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:27:38 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-30 11:27:38 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:29:29 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69603"
+# [1] "2023-09-30 11:29:29 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:31:25 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-30 11:31:25 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:33:16 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-30 11:33:16 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:35:04 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# [1] "2023-09-30 11:35:04 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:36:54 ... ending   pcubature -- tol=0.1 -- ret.val is: 3718.69602"
+# 0:     3718.6960: -1.20000  1.00000  1.00000  1.00000  1.30000 0.300000
+# [1] "2023-09-30 11:36:54 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:38:42 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22428"
+# [1] "2023-09-30 11:38:42 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:40:30 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22655"
+# [1] "2023-09-30 11:40:30 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:42:19 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22426"
+# [1] "2023-09-30 11:42:19 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:44:08 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22385"
+# [1] "2023-09-30 11:44:08 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:45:56 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22464"
+# [1] "2023-09-30 11:45:56 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:47:45 ... ending   pcubature -- tol=0.1 -- ret.val is: 3681.22485"
+# 1:     3681.2243: -1.69075 0.948139  1.00000  1.02489  1.33680 0.367106
+# [1] "2023-09-30 11:47:45 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:49:35 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27732"
+# [1] "2023-09-30 11:49:35 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:51:52 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27727"
+# [1] "2023-09-30 11:51:52 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 11:59:09 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27739"
+# [1] "2023-09-30 11:59:09 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:01:05 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27732"
+# [1] "2023-09-30 12:01:05 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:03:02 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27749"
+# [1] "2023-09-30 12:03:02 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:04:51 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27757"
+# 2:     3672.2773: -2.06343  1.03255  1.00000 0.780039  1.45334 0.541597
+# [1] "2023-09-30 12:04:51 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:13:26 ... ending   pcubature -- tol=0.1 -- ret.val is: 3678.6125"
+# 3:     3672.2773: -2.06343  1.03255  1.00000 0.780039  1.45334 0.541597
+# [1] "2023-09-30 12:13:26 ... starting pcubature for bivariate-t-corr"
+# [1] "2023-09-30 12:15:17 ... ending   pcubature -- tol=0.1 -- ret.val is: 3672.27732"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p         df       var1       var2     corr12
+# -2.0634324  1.0325505  1.0000000  0.7800393  1.4533409  0.5415967
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 3672.277
+#
+# $fevals
+# function
+# 4
+#
+# $gevals
+# gradient
+# 15
+#
+# $nitns
+# [1] 3
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 2600.974
+#
+# Assemble the answers
+# Intercept      b_p df      var1     var2    corr12    value fevals gevals niter convcode kkt1 kkt2    xtime
+# nlminb -2.063432 1.032551  1 0.7800393 1.453341 0.5415967 3672.277      4     15     3        0   NA   NA 2600.974
 
 
 

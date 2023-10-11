@@ -162,14 +162,14 @@
 ##' @param int2dmethod EXPERIMENTAL.  default "romberg_int2d".  Can also be "cuba".
 ##' @param tol.pcubature default value 1e-5.
 ##' For the case of \code{mixture %in% c("bivariate-normal-corr","bivariate-cauchy-corr",
-##' "bivariate-subgauss-corr")} combined with
+##' "bivariate-subgauss-corr", "bivariate-t-corr", "bivariate-t-varcorr")} combined with
 ##' \code{int2dmethod=="cuba"} this is the tolerance that is passed to
 ##' \code{cuba::pcubature} to control the precision of the likelihood.
-##' For the case of \code{mixture = "bivariate-subgauss-corr"} combined with
+##' For the case of \code{mixture = "bivariate-subgauss-corr" or "bivariate-t-corr" or "bivariate-t-varcorr"} combined with
 ##' \code{int2dmethod=="cuba"}, this value may need to be as big as 0.1.
 ##' @param tol.hcubature default value 0.001. This is the maximum tolerance passed
 ##' to hcubature which does the integral for the bivariate subgaussian for
-##' \code{mixture = "bivariate-subgauss-corr"}.
+##' \code{mixture = "bivariate-subgauss-corr"} and the bivariate-t \code{mixture = "bivariate-t-corr" and "bivariate-t-varcorr"}.
 ##' @return If \code{ooo=TRUE}, A list of class \code{gnlm} is
 ##'     returned that contains all of the relevant information
 ##'     calculated, including error codes.  If \code{ooo=FALSE}, then
@@ -356,7 +356,9 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                                  "bivariate-normal-indep",
                                  "bivariate-normal-corr",
                                  "bivariate-cauchy-corr",
-                                 "bivariate-subgauss-corr"))
+                                 "bivariate-subgauss-corr",
+                                 "bivariate-t-corr",
+                                 "bivariate-t-varcorr"))
   #
   # check random parameters
   #
@@ -1067,7 +1069,29 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
                   maxEval = 0,
                   absError=0,
                   doChecking=FALSE)$int
-},
+                },
+                "bivariate-t-corr" = function(a,s1,s2,corr,r1,r2){
+                  mvpd::dmvt_mat(x=matrix(c(r1,r2),ncol=2),
+                                 df=a,
+                                 Q=matrix(c(s1,corr*sqrt(s1*s2),corr*sqrt(s1*s2),s2),nrow=2),
+                                 outermost.int = c("stats::integrate", "cubature::adaptIntegrate","cubature::hcubature")[3],
+                                 tol = tol.hcubature,
+                                 fDim = NROW(x),
+                                 maxEval = 0,
+                                 absError=0,
+                                 doChecking=FALSE)$int
+                },
+                "bivariate-t-varcorr" = function(a,v1,v2,corr,r1,r2){
+                  mvpd::dmvt_mat(x=matrix(c(r1,r2),ncol=2),
+                                 df=a,
+                                 Q=matrix(c((a-2)/a * v1, (a-2)/a * corr * sqrt(v1*v2), (a-2)/a * corr * sqrt(v1*v2), (a-2)/a * v2),nrow=2),
+                                 outermost.int = c("stats::integrate", "cubature::adaptIntegrate","cubature::hcubature")[3],
+                                 tol = tol.hcubature,
+                                 fDim = NROW(x),
+                                 maxEval = 0,
+                                 absError=0,
+                                 doChecking=FALSE)$int
+                },
                 Laplace=function(p,r) {
                   tmp <- p
                   exp(-abs(r)/tmp)/(2*tmp)},
@@ -1207,7 +1231,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
 
 
     }
-  else if(mixture %in% c("bivariate-subgauss-corr") & int2dmethod=="cuba")
+  else if(mixture %in% c("bivariate-subgauss-corr", "bivariate-t-corr","bivariate-t-varcorr") & int2dmethod=="cuba")
     like <- function(p){
       fn <- function(r){##print("printing `mu1`:");print(mu1);
 
@@ -1262,7 +1286,7 @@ gnlrem <- function(y=NULL, distribution="normal", mixture="normal-var",
       #print(nnest)
       #print(fn(c(1,2)))
       #print(cubature::pcubature(f=fn,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf), fDim=nnest))
-      print(paste0(Sys.time()," ... starting pcubature for bivariate-subgauss-corr"))
+      print(paste0(Sys.time()," ... starting pcubature for ", mixture))
 
       ret.val <-
       -sum(log(cubature::pcubature(f=fn,

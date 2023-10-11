@@ -240,15 +240,15 @@ default set to 10.}
 
 \item{tol.pcubature}{default value 1e-5.
 For the case of \code{mixture %in% c("bivariate-normal-corr","bivariate-cauchy-corr",
-"bivariate-subgauss-corr")} combined with
+"bivariate-subgauss-corr", "bivariate-t-corr", "bivariate-t-varcorr")} combined with
 \code{int2dmethod=="cuba"} this is the tolerance that is passed to
 \code{cuba::pcubature} to control the precision of the likelihood.
-For the case of \code{mixture = "bivariate-subgauss-corr"} combined with
+For the case of \code{mixture = "bivariate-subgauss-corr" or "bivariate-t-corr" or "bivariate-t-varcorr"} combined with
 \code{int2dmethod=="cuba"}, this value may need to be as big as 0.1.}
 
 \item{tol.hcubature}{default value 0.001. This is the maximum tolerance passed
 to hcubature which does the integral for the bivariate subgaussian for
-\code{mixture = "bivariate-subgauss-corr"}.}
+\code{mixture = "bivariate-subgauss-corr"} and the bivariate-t \code{mixture = "bivariate-t-corr" and "bivariate-t-varcorr"}.}
 }
 \value{
 If \code{ooo=TRUE}, A list of class \code{gnlm} is
