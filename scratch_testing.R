@@ -1,4 +1,972 @@
 ########################################$$$$#########
+## 2023-10-11B                                     ##
+## revisiting: 2022-02-17D                         ##
+## START two random parameters: MARGINAL COEFF     ##
+#####################################################
+
+
+##library(mvsubgaussPD)
+library(mvpd)
+library(libstable4u)
+library(data.table)
+# Derived expression for gamma
+g <- function(a) {
+  iu <- complex(real=0, imaginary=1)
+  return(abs(1 - iu * tan(pi * a / 2)) ^ (-1 / a))
+}
+
+bridgecloglog_rstable <- function(n, alpha, delta){
+  mult <- (delta/alpha)^(1/alpha)
+  X <- stabledist::rstable(n , alpha, beta=1, gamma=g(alpha), delta=0, pm=1)
+  Z <- log(mult * X)
+  Z
+}
+
+## add in beta random effect
+sim_mrim_data <- function(n1, n2, J, a0, a1, v1=1,v2=2,rho=0.5, mrim="Stabit-BIVARIATE_STABLE", alpha=1.7, gamma1=1, gamma2=2, gamma12=-4, delta=1){
+
+  if(mrim=="Logistic-BIVARIATE_NORM"){
+    print("HERE")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) plogis(x)
+  }
+  if(mrim=="Probit-BIVARIATE_NORM"){
+    print("Probit for the win")
+    G <- function(n, v1, v2, rho){mvtnorm::rmvnorm(n=n, sigma=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) pnorm(x)
+  }
+  if(mrim=="Stabit-BIVARIATE_STABLE"){
+    print("STABLE for the win")
+    print(paste0("alpha set to ", alpha))
+    G <- function(n, v1, v2, rho){mvpd::rmvss(n=n, alpha=alpha, Q=matrix(c(v1,rho*sqrt(v1*v2),rho*sqrt(v1*v2),v2),nrow=2))}
+    H <- function(x) stable_cdf(x, c(alpha,0,1,0))
+  }
+
+  n <- n1 + n2
+  u <- round(apply(G(n,v1,v2,rho),2, function(W) rep(W,each=J)),2)
+
+  ## x <- c(rep(1, n1*J), rep(0, n2*J))
+  ##  x <-c(runif(n1*J, 0.5,1.5), runif(n2*J, 0,0.60))
+  x <-c(sample(c(1,2,3,4)/10,n1*J,TRUE), sample(c(1.2,2.2,3.2,4.2)/10,n2*J,TRUE))
+  eta <- round(a0 + a1*x,2)
+
+  eta_i <- round( (a0 + u[,1]) + (a1+u[,2])*x, 2)
+  py1 <- round(H(eta_i),2)
+  y <- rbinom(length(eta_i), 1, prob=py1 )
+
+  data.frame(id=rep(1:n, each=J),
+             j = rep(1:J),
+             x1 = x,
+             eta = eta,
+             u_i = u,
+             eta_i = eta_i,
+             py1 = py1,
+             y=y
+  )
+
+}
+
+
+detach(summed_binom_dat)
+set.seed(39)##set.seed(1709)
+binom_dat <-
+  #  sim_mrim_data(800,400, J=100, a0 = -2, a1 = 1)
+  #  sim_mrim_data(4000,2000, J=100, a0 = -2, a1 = 1)
+  sim_mrim_data(200,200, J=100, a0 = -2, a1 = 1)
+#  sim_mrim_data(10,10, J=100, a0 = -2, a1 = 1)
+data.table::setDT(binom_dat)
+
+summed_binom_dat <-
+  binom_dat[, {j=list(r=sum(y), n_r=sum(y==0))}, by=c("id","x1")]
+data.table::setkey(summed_binom_dat,id, x1)
+summed_binom_dat
+## glmer -- only random intercept
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+# > lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+# Generalized linear mixed model fit by maximum likelihood (Adaptive
+#                                                           Gauss-Hermite Quadrature, nAGQ = 0) [glmerMod]
+# Family: binomial  ( probit )
+# Formula: cbind(r, n_r) ~ x1 + (1 | id)
+# Data: summed_binom_dat
+# AIC       BIC    logLik  deviance  df.resid
+# 6807.575  6823.709 -3400.788  6801.575      1597
+# Random effects:
+#   Groups Name        Std.Dev.
+# id     (Intercept) 1.048
+# Number of obs: 1600, groups:  id, 400
+# Fixed Effects:
+#   (Intercept)           x1
+# -1.316        1.052
+# > lme4::glmer(cbind(r, n_r) ~ x1 + (1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+# Generalized linear mixed model fit by maximum likelihood (Laplace
+#                                                           Approximation) [glmerMod]
+# Family: binomial  ( probit )
+# Formula: cbind(r, n_r) ~ x1 + (1 | id)
+# Data: summed_binom_dat
+# AIC       BIC    logLik  deviance  df.resid
+# 6807.289  6823.423 -3400.645  6801.289      1597
+# Random effects:
+#   Groups Name        Std.Dev.
+# id     (Intercept) 1.046
+# Number of obs: 1600, groups:  id, 400
+# Fixed Effects:
+#   (Intercept)           x1
+# -1.345        1.064
+
+
+
+attach(summed_binom_dat)
+
+ybind <- cbind(r,n_r)
+period_numeric <- x1
+
+
+## glmer with correlation between random intercept and random slope
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+
+# > lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 0)
+# Generalized linear mixed model fit by maximum likelihood (Adaptive
+#                                                           Gauss-Hermite Quadrature, nAGQ = 0) [glmerMod]
+# Family: binomial  ( probit )
+# Formula: cbind(r, n_r) ~ x1 + (x1 | id)
+# Data: summed_binom_dat
+# AIC       BIC    logLik  deviance  df.resid
+# 6733.749  6760.638 -3361.874  6723.749      1595
+# Random effects:
+#   Groups Name        Std.Dev. Corr
+# id     (Intercept) 0.8729
+# x1          1.1363   0.52
+# Number of obs: 1600, groups:  id, 400
+# Fixed Effects:
+#   (Intercept)           x1
+# -1.2430       0.7919
+# > lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="probit"), nAGQ = 1)
+# Generalized linear mixed model fit by maximum likelihood (Laplace
+#                                                           Approximation) [glmerMod]
+# Family: binomial  ( probit )
+# Formula: cbind(r, n_r) ~ x1 + (x1 | id)
+# Data: summed_binom_dat
+# AIC       BIC    logLik  deviance  df.resid
+# 6733.432  6760.321 -3361.716  6723.432      1595
+# Random effects:
+#   Groups Name        Std.Dev. Corr
+# id     (Intercept) 0.8762
+# x1          1.1429   0.50
+# Number of obs: 1600, groups:  id, 400
+# Fixed Effects:
+#   (Intercept)           x1
+# -1.2722       0.7838
+# optimizer (Nelder_Mead) convergence code: 0 (OK) ; 0 optimizer warnings; 2 lme4 warnings
+# Warning messages:
+#   1: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+#                     Model failed to converge with max|grad| = 0.104257 (tol = 0.002, component 1)
+#                   2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+#                                     Model is nearly unidentifiable: very large eigenvalue
+#                                   - Rescale variables?
+
+## takes X.XX hours to run.
+(cond.bivariate.subgauss.corr <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+
+                   #pmu = c(Intercept=-1.2, b_p=1, alpha=1.7),
+                   #pmix=c(alpha=1.7, var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+
+                   ##pmu = c(Intercept= -1.362697, b_p=0.9523764, alpha=1.747751),
+                   ## pmu = c(Intercept= -1.96, b_p=0.90, alpha=1.747751),
+                   #pmu = c(Intercept= -2, b_p=1, alpha=1.747751),
+                   #pmix=c( alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+
+                   pmu = c(Intercept= -1.25, b_p=0.8, alpha=1.7),
+                   pmix=c( alpha=1.7, var1=1, var2=2, corr12= 0.2),
+
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2,
+                   tol.pcubature = 0.5
+    )
+)
+## output from cluster:
+# Assemble the answers
+#        Intercept       b_p    alpha      var1     var2    corr12    value
+# nlminb -2.158751 0.8809434 1.650299 0.9248393 1.963978 0.5388927 3322.762
+#        fevals gevals niter convcode kkt1 kkt2    xtime
+# nlminb      6     30     5        0   NA   NA 6406.974
+
+## calculate bm_1, bm_0:
+##0.8809434 * 1/(1+  (0.895177 + 1.30239*0.33^2 + 2*0.5566*sqrt(0.895177*1.30239)*0.33)^(1.74994/2)     )^(1/1.74994)
+##-2.158751 * 1/(1+  (0.895177 + 1.30239*0.00^2 + 2*0.5566*sqrt(0.895177*1.30239)*0.00)^(1.74994/2)     )^(1/1.74994)
+
+## takes about XhrXXmin to run:
+(marg.bivariate.subgauss.corr <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(
+                     (Intercept + period_numeric*b_p)* 1^alpha *
+                       (1^alpha + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(alpha/2) )^(1/alpha) +
+                       rand1 + period_numeric*rand2
+                     , c(alpha, 0, 1, 0)),
+                   pmu = c(Intercept= -1.362697, b_p=0.9523764, alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+                   pmix=c( alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+                   p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2,
+                   tol.pcubature = 0.5
+    )
+)
+# Assemble the answers
+#       Intercept      b_p    alpha     var1     var2    corr12    value fevals
+# nlminb  -1.43121 1.060972 1.702873 0.902418 1.315937 0.6002273 3322.374      7
+#        gevals niter convcode kkt1 kkt2    xtime
+# nlminb     31     4        0   NA   NA 8026.552
+
+
+
+## bump it up to 0.09, and see if those estimates get more similar
+(cond.bivariate.subgauss.corr2 <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+
+                   #pmu = c(Intercept=-1.2, b_p=1, alpha=1.7),
+                   #pmix=c(alpha=1.7, var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+
+                   ##pmu = c(Intercept= -1.362697, b_p=0.9523764, alpha=1.747751),
+                   ## pmu = c(Intercept= -1.96, b_p=0.90, alpha=1.747751),
+                   #pmu = c(Intercept= -2, b_p=1, alpha=1.747751),
+                   #pmix=c( alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+
+                   pmu = c(Intercept= -1.25, b_p=0.8, alpha=1.7),
+                   pmix=c( alpha=1.7, var1=1, var2=2, corr12= 0.2),
+
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2,
+                   tol.pcubature = 0.09
+    )
+)
+# from: https://svn.r-project.org/R/trunk/src/library/stats/R/nlminb.R
+# ##' used here and in nls(... algorithm = "port")
+# port_msg <- function(iv1) {
+#   switch(as.character(iv1),
+#          "3" = "X-convergence (3)",
+#          "4" = "relative convergence (4)",
+#          "5" = "both X-convergence and relative convergence (5)",
+#          "6" = "absolute function convergence (6)",
+#
+#          "7" = "singular convergence (7)",
+#          "8" = "false convergence (8)",
+#          "9" = "function evaluation limit reached without convergence (9)",
+#          "10" = "iteration limit reached without convergence (10)",
+#          "14" = "storage only has been allocated (14)",
+#
+#          "15" = "LIV too small (15)",
+#          "16" = "LV too small (16)",
+#
+#          "63" = "fn cannot be computed at initial par (63)",
+#          "65" = "gr cannot be computed at initial par (65)",
+#
+#          "300" = "initial par violates constraints",
+#          ## otherwise:
+#          sprintf("See PORT documentation.  Code (%d)", iv1))
+# }
+
+# > ## bump it up to 0.09, and see if those estimates get more similar
+#   > (cond.bivariate.subgauss.corr2 <-
+#        +     gnlrim::gnlrem(y=ybind,
+#                             +                    mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+#                             +
+#                               +                    #pmu = c(Intercept=-1.2, b_p=1, alpha=1.7),
+#                               +                    #pmix=c(alpha=1.7, var1=1, var2=1.3, corr12= 0.30),
+#                               +
+#                               +                    p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+#                             +                    p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+#                             +
+#                               +                    ##pmu = c(Intercept= -1.362697, b_p=0.9523764, alpha=1.747751),
+#                               +                    ## pmu = c(Intercept= -1.96, b_p=0.90, alpha=1.747751),
+#                               +                    #pmu = c(Intercept= -2, b_p=1, alpha=1.747751),
+#                               +                    #pmix=c( alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+#                               +
+#                               +                    pmu = c(Intercept= -1.25, b_p=0.8, alpha=1.7),
+#                             +                    pmix=c( alpha=1.7, var1=1, var2=2, corr12= 0.2),
+#                             +
+#                               +                    distribution="binomial",
+#                             +                    nest=id,
+#                             +                    random=c("rand1", "rand2"),
+#                             +                    mixture="bivariate-subgauss-corr",
+#                             +                    ooo=TRUE,
+#                             +                    compute_hessian = FALSE,
+#                             +                    compute_kkt = FALSE,
+#                             +                    trace=1,
+#                             +                    method='nlminb',
+#                             +                    int2dmethod="cuba",
+#                             +                    abs.tol.nlminb = 1e-2,
+#                             +                    xf.tol.nlminb =  1e-2,
+#                             +                    x.tol.nlminb =   1e-2,
+#                             +                    rel.tol.nlminb = 1e-2,
+#                             +                    tol.pcubature = 0.09
+#                             +     )
+#      + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.25   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.8   <? 2     In Bounds
+# par[ 3 ]:  1.4   <? 1.7   <? 1.9     In Bounds
+# par[ 4 ]:  0.05   <? 1   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 2   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.2   <? 0.9     In Bounds
+# [1] "2023-10-12 11:01:33.9576 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 11:07:38.074882 ... ending   pcubature -- tol=0.09 -- ret.val is: 3380.09547"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 1   log bounds ratio= 0.90309
+# Method:  nlminb
+# [1] "2023-10-12 11:07:38.27781 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 11:13:40.641228 ... ending   pcubature -- tol=0.09 -- ret.val is: 3380.09547"
+# [1] "2023-10-12 11:13:40.644231 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 11:19:43.632999 ... ending   pcubature -- tol=0.09 -- ret.val is: 3380.09547"
+# [1] "2023-10-12 11:19:43.63325 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 11:25:47.565759 ... ending   pcubature -- tol=0.09 -- ret.val is: 3380.09547"
+# [1] "2023-10-12 11:25:47.566009 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 11:31:52.223027 ... ending   pcubature -- tol=0.09 -- ret.val is: 3380.09547"
+# [1] "2023-10-12 11:31:52.223289 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 11:37:55.900376 ... ending   pcubature -- tol=0.09 -- ret.val is: 3380.09547"
+# [1] "2023-10-12 11:37:55.900623 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 11:43:57.886441 ... ending   pcubature -- tol=0.09 -- ret.val is: 3380.09547"
+# [1] "2023-10-12 11:43:57.886686 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 11:49:59.078049 ... ending   pcubature -- tol=0.09 -- ret.val is: 3380.09547"
+# 0:     3380.0955: -1.25000 0.800000  1.70000  1.00000  2.00000 0.200000
+# [1] "2023-10-12 11:49:59.079304 ... starting pcubature for bivariate-subgauss-corr"
+# ... tmux a
+# [1] "2023-10-12 13:09:35.396122 ... ending   pcubature -- tol=0.09 -- ret.val is: 3345.58245"
+# 2:     3345.5819: -1.89872 0.827283  1.46303 0.983175  1.98395 0.365259
+# [1] "2023-10-12 13:09:35.396398 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 13:15:35.256984 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.5385"
+# [1] "2023-10-12 13:15:35.257232 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 13:21:37.709798 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.53929"
+# [1] "2023-10-12 13:21:37.710057 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 13:27:41.652616 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.53873"
+# [1] "2023-10-12 13:27:41.652874 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 13:33:43.577633 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.53849"
+# [1] "2023-10-12 13:33:43.577884 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 13:39:45.498105 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.5384"
+# [1] "2023-10-12 13:39:45.498353 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 13:45:46.812461 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.5384"
+# [1] "2023-10-12 13:45:46.812711 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 13:51:50.070992 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.53876"
+# 3:     3325.5385: -1.97043 0.833003  1.69486  1.01350  1.98660 0.416791
+# [1] "2023-10-12 13:51:50.071273 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 14:03:38.704901 ... ending   pcubature -- tol=0.09 -- ret.val is: 3322.69548"
+# [1] "2023-10-12 14:03:38.705194 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 14:15:32.524218 ... ending   pcubature -- tol=0.09 -- ret.val is: 3322.69542"
+# [1] "2023-10-12 14:15:32.524498 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 14:27:21.592928 ... ending   pcubature -- tol=0.09 -- ret.val is: 3322.69554"
+# [1] "2023-10-12 14:27:21.593195 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 14:39:05.759382 ... ending   pcubature -- tol=0.09 -- ret.val is: 3322.69547"
+# [1] "2023-10-12 14:39:05.760271 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 14:50:47.393165 ... ending   pcubature -- tol=0.09 -- ret.val is: 3322.69545"
+# [1] "2023-10-12 14:50:47.393426 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 15:02:29.346147 ... ending   pcubature -- tol=0.09 -- ret.val is: 3322.69561"
+# [1] "2023-10-12 15:02:29.346423 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 15:14:10.86985 ... ending   pcubature -- tol=0.09 -- ret.val is: 3322.69556"
+# 4:     3322.6955: -2.15789 0.881333  1.65132 0.924771  1.96401 0.538217
+# [1] "2023-10-12 15:14:10.87018 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 15:26:22.65362 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.6702"
+# 5:     3322.6955: -2.15789 0.881333  1.65132 0.924771  1.96401 0.538217
+# [1] "2023-10-12 15:26:22.6539 ... starting pcubature for bivariate-subgauss-corr"
+#
+# 6
+#
+# $gevals
+# gradient
+# 30
+#
+# $nitns
+# [1] 5
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 17554.4
+#
+# Assemble the answers
+#        Intercept       b_p    alpha      var1     var2    corr12    value
+# nlminb -2.157888 0.8813327 1.651316 0.9247709 1.964015 0.5382171 3322.695
+#        fevals gevals niter convcode kkt1 kkt2   xtime
+# nlminb      6     30     5        0   NA   NA 17554.4
+
+
+(marg.bivariate.subgauss.corr2 <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(
+                     (Intercept + period_numeric*b_p)* 1^alpha *
+                       (1^alpha + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(alpha/2) )^(1/alpha) +
+                       rand1 + period_numeric*rand2
+                     , c(alpha, 0, 1, 0)),
+                   pmu = c(Intercept= -1.362697, b_p=0.9523764, alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+                   pmix=c( alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
+                   p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2,
+                   tol.pcubature = 0.09
+    )
+)
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.362697   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.9523764   <? 2     In Bounds
+# par[ 3 ]:  1.4   <? 1.747751   <? 1.9     In Bounds
+# par[ 4 ]:  0.05   <? 0.8093904   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1.305351   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.6295481   <? 0.9     In Bounds
+# [1] "2023-10-12 15:53:30.073841 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 16:05:56.662252 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.25502"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.4434506   log bounds ratio= 0.90309
+# Method:  nlminb
+# [1] "2023-10-12 16:05:56.867095 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 16:18:16.493619 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.25502"
+# [1] "2023-10-12 16:18:16.493908 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 16:30:35.991966 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.25502"
+# [1] "2023-10-12 16:30:35.992242 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 16:42:59.589222 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.25502"
+# [1] "2023-10-12 16:42:59.589494 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 16:55:26.28673 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.25502"
+# [1] "2023-10-12 16:55:26.286984 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 17:07:52.269346 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.25502"
+# [1] "2023-10-12 17:07:52.26961 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 17:20:16.609094 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.25502"
+# [1] "2023-10-12 17:20:16.609363 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 17:32:37.773081 ... ending   pcubature -- tol=0.09 -- ret.val is: 3325.25502"
+# 0:     3325.2550: -1.36270 0.952376  1.74775 0.809390  1.30535 0.629548
+# [1] "2023-10-12 17:32:37.773413 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 18:08:13.109205 ... ending   pcubature -- tol=0.09 -- ret.val is: 3348.8081"
+# [1] "2023-10-12 18:08:13.109534 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 18:19:46.774563 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.2099"
+# [1] "2023-10-12 18:19:46.774848 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 18:31:19.675095 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.21023"
+# [1] "2023-10-12 18:31:19.675378 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 18:43:03.715859 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.21042"
+# [1] "2023-10-12 18:43:03.716113 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 18:54:39.697107 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.20908"
+# [1] "2023-10-12 18:54:39.697372 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 19:06:18.686967 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.21055"
+# [1] "2023-10-12 19:06:18.68722 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 19:17:56.163846 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.20997"
+# [1] "2023-10-12 19:17:56.164119 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 19:29:35.211196 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.2099"
+# 1:     3323.2099: -1.41771 0.993033  1.66750 0.838070  1.30785 0.618594
+# [1] "2023-10-12 19:29:35.211493 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-12 19:42:17.622586 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.68002"
+# [1] "2023-10-12 19:42:17.622871 ... starting pcubature for bivariate-subgauss-corr"
+#...
+#
+# Assemble the answers
+#.       Intercept      b_p    alpha      var1     var2    corr12    value fevals
+# nlminb -1.430828 1.061661 1.703044 0.9024585 1.315576 0.6001273 3322.334      7
+#        gevals niter convcode kkt1 kkt2    xtime
+# nlminb     31     4        0   NA   NA 32457.11
+
+
+
+## in anticipation of the values not changing much; and not getting similar, let's fit marg parm but lock down
+## everything but regression coeff to the conditional parm estimates
+## CONDITIONAL PARMS;
+# Assemble the answers
+#        Intercept       b_p    alpha      var1     var2    corr12    value
+# nlminb -2.157888 0.8813327 1.651316 0.9247709 1.964015 0.5382171 3322.695
+#        fevals gevals niter convcode kkt1 kkt2   xtime
+# nlminb      6     30     5        0   NA   NA 17554.4
+
+(marg.bivariate.subgauss.corr3 <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(
+                     (Intercept + period_numeric*b_p)* 1^alpha *
+                       (1^alpha + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(alpha/2) )^(1/alpha) +
+                       rand1 + period_numeric*rand2
+                     , c(alpha, 0, 1, 0)),
+                   pmu = c(Intercept= -1.362697, b_p=0.9523764, alpha=1.651316, var1=0.9247709, var2=1.964015, corr12=  0.5382171 ),
+                   pmix=c( alpha=1.651316, var1=0.9247709, var2=1.964015, corr12=  0.5382171 ),
+                   p_uppb = c(  0,   2, 1.651316, 0.9247709, 1.964015, 0.5382171),
+                   p_lowb = c( -4,  -2, 1.651316, 0.9247709, 1.964015, 0.5382171),
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   abs.tol.nlminb = 1e-2,
+                   xf.tol.nlminb =  1e-2,
+                   x.tol.nlminb =   1e-2,
+                   rel.tol.nlminb = 1e-2,
+                   tol.pcubature = 0.09
+    )
+)
+## OUTPUT:
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.362697   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.9523764   <? 2     In Bounds
+# par[ 3 ]:  1.651316   <? 1.651316   <? 1.651316     In Bounds
+# par[ 4 ]:  0.9247709   <? 0.9247709   <? 0.9247709     In Bounds
+# par[ 5 ]:  1.964015   <? 1.964015   <? 1.964015     In Bounds
+# par[ 6 ]:  0.5382171   <? 0.5382171   <? 0.5382171     In Bounds
+# [1] "2023-10-13 08:50:50.822025 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 08:53:41.068826 ... ending   pcubature -- tol=0.09 -- ret.val is: 3324.32706"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.5621873   log bounds ratio= 0
+# Method:  nlminb
+# [1] "2023-10-13 08:53:41.241516 ... starting pcubature for bivariate-subgauss-corr"
+# tmux detach
+# [1] "2023-10-13 08:56:31.515458 ... ending   pcubature -- tol=0.09 -- ret.val is: 3324.32706"
+# [1] "2023-10-13 08:56:31.515756 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 08:59:22.924763 ... ending   pcubature -- tol=0.09 -- ret.val is: 3324.32706"
+# [1] "2023-10-13 08:59:22.925021 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 09:02:13.641985 ... ending   pcubature -- tol=0.09 -- ret.val is: 3324.32706"
+# 0:     3324.3271: -1.36270 0.952376  1.65132 0.924771  1.96402 0.538217
+# [1] "2023-10-13 09:02:13.642262 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 09:14:05.09705 ... ending   pcubature -- tol=0.09 -- ret.val is: 3336.0283"
+# [1] "2023-10-13 09:14:05.097396 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 09:26:07.755146 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.54191"
+# [1] "2023-10-13 09:26:07.755455 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 09:26:07.755455 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 09:38:13.955537 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.54148"
+# [1] "2023-10-13 09:38:13.955806 ... starting pcubature for bivariate-subgauss-corr"
+#...
+# [1] "2023-10-13 10:32:02.731089 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 10:44:02.769644 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.33293"
+# [1] "2023-10-13 10:44:02.769944 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 10:55:49.962201 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.33291"
+# [1] "2023-10-13 10:55:49.962468 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 11:07:30.905245 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.33293"
+# 3:     3323.3329: -1.42377  1.07660  1.65132 0.924771  1.96402 0.538217
+# [1] "2023-10-13 11:07:30.905557 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 11:19:08.587182 ... ending   pcubature -- tol=0.09 -- ret.val is: 3323.33293"
+# Post processing for method  nlminb
+# Successful convergence!
+#   Save results from method  nlminb
+# $par
+# Intercept        b_p      alpha       var1       var2     corr12
+# -1.4237709  1.0766040  1.6513160  0.9247709  1.9640150  0.5382171
+#
+# $message
+# [1] "relative convergence (4)"
+#
+# $convcode
+# [1] 0
+#
+# $value
+# [1] 3323.333
+#
+# $fevals
+# function
+# 6
+#
+# $gevals
+# gradient
+# 8
+#
+# $nitns
+# [1] 3
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 9374.05
+#
+# Assemble the answers
+#        Intercept      b_p    alpha      var1     var2    corr12    value fevals
+# nlminb -1.423771 1.076604 1.651316 0.9247709 1.964015 0.5382171 3323.333      6
+#        gevals niter convcode kkt1 kkt2   xtime
+# nlminb      8     3        0   NA   NA 9374.05
+
+
+## Compare this to the version of marg you did not fix variance components:
+# Assemble the answers
+#.       Intercept      b_p    alpha      var1     var2    corr12    value fevals
+# nlminb -1.430828 1.061661 1.703044 0.9024585 1.315576 0.6001273 3322.334      7
+#        gevals niter convcode kkt1 kkt2    xtime
+# nlminb     31     4        0   NA   NA 32457.11
+
+
+
+
+glm.fit <-
+  glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="probit"))
+summary(glm.fit)
+# > summary(glm.fit)
+#
+# Call:
+#   glm(formula = cbind(r, n_r) ~ x1, family = binomial(link = "probit"),
+#       data = summed_binom_dat)
+#
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept) -0.98501    0.01809  -54.44   <2e-16 ***
+#   x1           0.78785    0.06263   12.58   <2e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#
+# (Dispersion parameter for binomial family taken to be 1)
+#
+# Null deviance: 16273  on 1599  degrees of freedom
+# Residual deviance: 16115  on 1598  degrees of freedom
+# AIC: 19697
+#
+# Number of Fisher Scoring iterations: 4
+glm.fit <-
+   glm(cbind(r, n_r) ~ x1, summed_binom_dat, family=binomial(link="cauchit"))
+summary(glm.fit)
+# > summary(glm.fit)
+#
+# Call:
+#   glm(formula = cbind(r, n_r) ~ x1, family = binomial(link = "cauchit"),
+#       data = summed_binom_dat)
+#
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept) -1.70205    0.04598  -37.02   <2e-16 ***
+#   x1           1.77963    0.14663   12.14   <2e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#
+# (Dispersion parameter for binomial family taken to be 1)
+#
+# Null deviance: 16273  on 1599  degrees of freedom
+# Residual deviance: 16118  on 1598  degrees of freedom
+# AIC: 19701
+#
+# Number of Fisher Scoring iterations: 6
+## then *Locally* run this part after inputting the values
+## some things are commented out but it should make the graph
+## at the end
+library(libstable4u)
+library(gnlrim)
+phi_x_deluxe <- function(x, var1=0.9247709, var2=1.964015, corr12=0.5382171, gamma_d = 1, gamma_h=1, a=1.651316 ){
+
+  (gamma_d)  / (gamma_h^a + (var1 + var2*x^2 + 2*corr12*sqrt(var1*var2)*x)^(a/2) )^(1/a)
+
+}
+
+datavalueset <- c(0.1, 0.12, 0.2, 0.22, 0.3, 0.32, 0.4, 0.42)
+xvalueset <- c(0, datavalueset, 1, 10)
+xdomain <- seq(-2,4,0.05)
+
+plot(NA, NA,col="grey", ylim=c(0,1),xlim=range(xdomain)) ## allows space for labeling; extrapolation
+#plot(NA, NA,col="grey", ylim=c(0,1),xlim=range(datavalueset)) ## zoom-in on data support
+
+abline(h=0.50, lty=3, col="lightblue")
+abline(v=min(datavalueset), lty=2, col="lightgray")
+abline(v=max(datavalueset), lty=2, col="lightgray")
+
+lines(xdomain, stable_cdf2(-2.157888+0.8813327*xdomain, c( 1.651316,0,1,0)), ylim=c(0,1), lty=3)
+text(3.6,0.68, "(b0c+b1c*x)       ", col="black")
+
+lines(xdomain, stable_cdf2(-1.423771+1.076604*xdomain, c( 1.651316,0,1,0)), ylim=c(0,1),col="orange",lty=3)
+text(3.6,0.95, "(b0m+b1m*x)       ", col="orange")
+
+lines(xdomain, phi_x_deluxe(xdomain), ylim=c(0,1), lty=2, col='cyan')
+text(3.6,0.19, "            phi(x)", col="cyan")
+
+lines(xdomain, stable_cdf2((-2.157888+0.8813327*xdomain)*phi_x_deluxe(xdomain),c(1.651316,0,1,0)), col="red",lty=3)
+text(3.6,0.52, "(b0c+b1c*x)*phi(x)", col="red")
+
+
+lines(xdomain, pnorm(-0.98501+0.78785*xdomain), ylim=c(0,1), col="darkgreen",lty=3)
+text(3.6,0.78, "probit-glm(b'0m+b'1m*x)       ", col="darkgreen")
+
+lines(xdomain, pcauchy(-1.70205 +1.77963*xdomain), ylim=c(0,1), col="darkblue",lty=3)
+text(3.6,0.78, "cauchit-glm(b''0m+b''1m*x)       ", col="darkblue")
+
+## phi ranges over the dataset:
+phi_x_deluxe(min(datavalueset))
+phi_x_deluxe(max(datavalueset))
+abline(h=phi_x_deluxe(min(datavalueset)), lty=2, col="lightpink")
+abline(h=phi_x_deluxe(max(datavalueset)), lty=2, col="lightpink")
+
+
+
+## for giggles, release all the parameters again and bump up to 1e-3
+## on conditional
+## bump it up to 0.01, and see if those estimates get more similar
+## update starting parms too
+(cond.bivariate.subgauss.corr4 <-
+    gnlrim::gnlrem(y=ybind,
+                   mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+
+                   #pmu = c(Intercept=-1.2, b_p=1, alpha=1.7),
+                   #pmix=c(alpha=1.7, var1=1, var2=1.3, corr12= 0.30),
+
+                   p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+                   p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+
+                   pmu = c(Intercept= -1.25, b_p=0.8, alpha=1.651316 ),
+                   pmix=c( alpha=1.651316, var1=0.9247709, var2=1.964015, corr12=0.5382171),
+
+                   distribution="binomial",
+                   nest=id,
+                   random=c("rand1", "rand2"),
+                   mixture="bivariate-subgauss-corr",
+                   ooo=TRUE,
+                   compute_hessian = FALSE,
+                   compute_kkt = FALSE,
+                   trace=1,
+                   method='nlminb',
+                   int2dmethod="cuba",
+                   abs.tol.nlminb = 1e-3,
+                   xf.tol.nlminb =  1e-3,
+                   x.tol.nlminb =   1e-3,
+                   rel.tol.nlminb = 1e-3,
+                   tol.pcubature = 0.01
+    )
+)
+## IT takes 50 minutes to fit one iteration.  OOF.
+# > ## for giggles, release all the parameters again and bump up to 1e-3
+#   > ## on conditional
+#   > ## bump it up to 0.09, and see if those estimates get more similar
+#   > ## update starting parms too
+#   > (cond.bivariate.subgauss.corr4 <-
+#        +     gnlrim::gnlrem(y=ybind,
+#                             +                    mu = ~ stable_cdf2(Intercept + period_numeric*b_p + rand1 + period_numeric*rand2, c(alpha, 0, 1, 0)),
+#                             +
+#                               +                    #pmu = c(Intercept=-1.2, b_p=1, alpha=1.7),
+#                               +                    #pmix=c(alpha=1.7, var1=1, var2=1.3, corr12= 0.30),
+#                               +
+#                               +                    p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+#                             +                    p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+#                             +
+#                               +                    pmu = c(Intercept= -1.25, b_p=0.8, alpha=1.651316 ),
+#                             +                    pmix=c( alpha=1.651316, var1=0.9247709, var2=1.964015, corr12=0.5382171),
+#                             +
+#                               +                    distribution="binomial",
+#                             +                    nest=id,
+#                             +                    random=c("rand1", "rand2"),
+#                             +                    mixture="bivariate-subgauss-corr",
+#                             +                    ooo=TRUE,
+#                             +                    compute_hessian = FALSE,
+#                             +                    compute_kkt = FALSE,
+#                             +                    trace=1,
+#                             +                    method='nlminb',
+#                             +                    int2dmethod="cuba",
+#                             +                    abs.tol.nlminb = 1e-3,
+#                             +                    xf.tol.nlminb =  1e-3,
+#                             +                    x.tol.nlminb =   1e-3,
+#                             +                    rel.tol.nlminb = 1e-3,
+#                             +                    tol.pcubature = 0.01
+#                             +     )
+#      + )
+# fn is  fn1
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.25   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.8   <? 2     In Bounds
+# par[ 3 ]:  1.4   <? 1.651316   <? 1.9     In Bounds
+# par[ 4 ]:  0.05   <? 0.9247709   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1.964015   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.5382171   <? 0.9     In Bounds
+# [1] "2023-10-13 12:35:46.441503 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 13:22:19.876256 ... ending   pcubature -- tol=0.01 -- ret.val is: 3376.64316"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.5621873   log bounds ratio= 0.90309
+# Method:  nlminb
+# [1] "2023-10-13 13:22:20.052194 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 14:08:45.48798 ... ending   pcubature -- tol=0.01 -- ret.val is: 3376.64316"
+# [1] "2023-10-13 14:08:45.488301 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 14:55:13.799413 ... ending   pcubature -- tol=0.01 -- ret.val is: 3376.64316"
+# [1] "2023-10-13 14:55:13.799722 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 15:41:31.588609 ... ending   pcubature -- tol=0.01 -- ret.val is: 3376.64316"
+# [1] "2023-10-13 15:41:31.588917 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 16:27:51.678897 ... ending   pcubature -- tol=0.01 -- ret.val is: 3376.64316"
+# [1] "2023-10-13 16:27:51.679213 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 17:14:24.175062 ... ending   pcubature -- tol=0.01 -- ret.val is: 3376.64316"
+# [1] "2023-10-13 17:14:24.175381 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 18:00:56.143782 ... ending   pcubature -- tol=0.01 -- ret.val is: 3376.64316"
+# [1] "2023-10-13 18:00:56.14409 ... starting pcubature for bivariate-subgauss-corr"
+# 0:     3376.6432: -1.25000 0.800000  1.65132 0.924771  1.96402 0.538217
+# [1] "2023-10-13 18:47:29.06308 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 19:17:11.689212 ... ending   pcubature -- tol=0.01 -- ret.val is: 3345.11728"
+# [1] "2023-10-13 19:17:11.689552 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 19:46:24.784181 ... ending   pcubature -- tol=0.01 -- ret.val is: 3345.11929"
+# [1] "2023-10-13 19:46:24.784462 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 20:15:38.062562 ... ending   pcubature -- tol=0.01 -- ret.val is: 3345.11765"
+# [1] "2023-10-13 20:15:38.062858 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 20:45:00.91885 ... ending   pcubature -- tol=0.01 -- ret.val is: 3345.11044"
+# [1] "2023-10-13 20:45:00.919171 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 21:14:33.805201 ... ending   pcubature -- tol=0.01 -- ret.val is: 3345.11566"
+# [1] "2023-10-13 21:14:33.805463 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 21:44:07.12095 ... ending   pcubature -- tol=0.01 -- ret.val is: 3345.11702"
+# [1] "2023-10-13 21:44:07.121237 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 22:14:34.509294 ... ending   pcubature -- tol=0.01 -- ret.val is: 3345.1167"
+# 1:     3345.1173: -1.68135 0.803186  1.88915 0.994837  1.97091 0.587225
+# [1] "2023-10-13 22:14:34.509645 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 22:33:41.552321 ... ending   pcubature -- tol=0.01 -- ret.val is: 3342.48521"
+# [1] "2023-10-13 22:33:41.55266 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 22:52:28.416999 ... ending   pcubature -- tol=0.01 -- ret.val is: 3342.48546"
+# [1] "2023-10-13 22:52:28.417265 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 23:11:28.525604 ... ending   pcubature -- tol=0.01 -- ret.val is: 3342.48523"
+# [1] "2023-10-13 23:11:28.525882 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 23:30:21.228871 ... ending   pcubature -- tol=0.01 -- ret.val is: 3342.48484"
+# [1] "2023-10-13 23:30:21.229138 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-13 23:49:23.076658 ... ending   pcubature -- tol=0.01 -- ret.val is: 3342.485"
+# [1] "2023-10-13 23:49:23.076946 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 00:08:18.179397 ... ending   pcubature -- tol=0.01 -- ret.val is: 3342.48512"
+# [1] "2023-10-14 00:08:18.179674 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 00:27:12.500879 ... ending   pcubature -- tol=0.01 -- ret.val is: 3342.48504"
+# 2:     3342.4852: -1.91132 0.830221  1.45865 0.895546  1.95450 0.556830
+# [1] "2023-10-14 00:27:12.501178 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 01:15:59.144451 ... ending   pcubature -- tol=0.01 -- ret.val is: 3323.4873"
+# [1] "2023-10-14 01:15:59.144765 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 02:05:13.511785 ... ending   pcubature -- tol=0.01 -- ret.val is: 3323.48794"
+# [1] "2023-10-14 02:05:13.512121 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 02:53:45.909647 ... ending   pcubature -- tol=0.01 -- ret.val is: 3323.48739"
+# [1] "2023-10-14 02:53:45.909938 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 03:41:51.54065 ... ending   pcubature -- tol=0.01 -- ret.val is: 3323.48728"
+# [1] "2023-10-14 03:41:51.540932 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 04:30:06.030125 ... ending   pcubature -- tol=0.01 -- ret.val is: 3323.48723"
+# [1] "2023-10-14 04:30:06.030397 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 05:18:24.951154 ... ending   pcubature -- tol=0.01 -- ret.val is: 3323.48718"
+# [1] "2023-10-14 05:18:24.951698 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 06:06:43.272702 ... ending   pcubature -- tol=0.01 -- ret.val is: 3323.48736"
+# 3:     3323.4873: -1.98471 0.831230  1.69449 0.931130  1.95796 0.571387
+# [1] "2023-10-14 06:06:43.273028 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 06:28:48.771699 ... ending   pcubature -- tol=0.01 -- ret.val is: 3324.48133"
+# [1] "2023-10-14 06:28:48.772081 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 06:52:37.050644 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.57683"
+# [1] "2023-10-14 06:52:37.051097 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 07:16:20.699798 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.5769"
+# [1] "2023-10-14 07:16:20.700099 ... starting pcubature for bivariate-subgauss-corr"
+#...
+# 4:     3322.5768: -2.06934 0.842110  1.65488 0.896652  1.94415 0.585982
+# [1] "2023-10-14 09:14:52.527584 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 09:36:01.041392 ... ending   pcubature -- tol=0.01 -- ret.val is: 3326.21701"
+# [1] "2023-10-14 09:36:01.041739 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 09:59:07.120691 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.79077"
+# [1] "2023-10-14 09:59:07.121047 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 10:22:42.298219 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.60152"
+# [1] "2023-10-14 10:22:42.298625 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 10:46:15.975973 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.57235"
+# [1] "2023-10-14 10:46:15.976291 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 11:09:44.018101 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.57236"
+# [1] "2023-10-14 11:09:44.018433 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 11:33:01.804719 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.57236"
+# [1] "2023-10-14 11:33:01.805553 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 11:56:18.792188 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.57236"
+# [1] "2023-10-14 11:56:18.792477 ... starting pcubature for bivariate-subgauss-corr"
+# ...
+# [1] "2023-10-14 12:19:27.491012 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 12:42:33.345945 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.57245"
+# [1] "2023-10-14 12:42:33.346275 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 13:05:40.477059 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.57235"
+# 5:     3322.5723: -2.07773 0.843190  1.65110 0.893275  1.94277 0.588650
+# [1] "2023-10-14 13:05:40.477407 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 13:28:46.453612 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.50248"
+# [1] "2023-10-14 13:28:46.453982 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 13:52:05.625791 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.41872"
+# [1] "2023-10-14 13:52:05.626102 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 14:15:45.443081 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.4188"
+# [1] "2023-10-14 14:15:45.443378 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 14:39:24.135348 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.41876"
+# [1] "2023-10-14 14:39:24.135722 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 15:03:08.953766 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.40688"
+# [1] "2023-10-14 15:03:08.954087 ... starting pcubature for bivariate-subgauss-corr"
+# [1] "2023-10-14 15:26:50.486979 ... ending   pcubature -- tol=0.01 -- ret.val is: 3322.41876"
+# [1] "2023-10-14 15:26:50.487246 ... starting pcubature for bivariate-subgauss-corr"
+# ...
+# > (cond.bivariate.subgauss.corr4)
+#        Intercept       b_p    alpha      var1     var2    corr12    value
+# nlminb  -2.08216 0.8438009 1.663716 0.8954292 1.940954 0.5910141 3322.419
+#        fevals gevals niter convcode kkt1 kkt2    xtime
+# nlminb     15     43     7        1   NA   NA 109963.2
+## next time request 12-16 cpus
+
+# lesser tolerance cond results:
+# nlminb            -2.157888 0.8813327 1.651316 0.9247709 1.964015 0.5382171 3322.695
+
+
+
+
+########################################$$$$#########
+## 2023-10-11B                                     ##
+## revisiting 2022-02-17D                          ##
+## END two random parameters     MARGINAL COEFF    ##
+#####################################################
+
+
+########################################$$$$#########
 ## 2023-10-11A                                     ##
 ## START two random parameters: run on cluster    ###
 ## bivariate cauchy marg/cond                      ##
@@ -5994,12 +6962,12 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
                    compute_kkt = FALSE,
                    trace=1,
                    method='nlminb',
-                  int2dmethod="cuba",
+                   int2dmethod="cuba",
                    abs.tol.nlminb = 0,
                    xf.tol.nlminb =  1e-1,
                    x.tol.nlminb =   1e-2,
                    rel.tol.nlminb = 1e-2,
-                  tol.pcubature = 0.1
+                   tol.pcubature = 0.1
     )
 )
 # > (rand.int.rand.slopes.nonzero.corr.CUBA <-
@@ -6224,10 +7192,10 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
 # nlminb        NA  NA    NA   NA   NA     NA 8.988466e+307     NA     NA    NA     9999   NA   NA 31125.53
 
 ## calculate bm_1, bm_0:
- 0.893471* 1/(1+  (0.895177 + 1.30239*0.33^2 + 2*0.5566*sqrt(0.895177*1.30239)*0.33)^(1.74994/2)     )^(1/1.74994)
+0.893471* 1/(1+  (0.895177 + 1.30239*0.33^2 + 2*0.5566*sqrt(0.895177*1.30239)*0.33)^(1.74994/2)     )^(1/1.74994)
 -1.96450 * 1/(1+  (0.895177 + 1.30239*0.00^2 + 2*0.5566*sqrt(0.895177*1.30239)*0.00)^(1.74994/2)     )^(1/1.74994)
 
- ## takes about XhrXXmin to run:
+## takes about XhrXXmin to run:
 (rand.int.rand.slopes.nonzero.corr.CUBA.MARGINAL <-
     gnlrim::gnlrem(y=ybind,
                    mu = ~ stable_cdf2(
@@ -6235,8 +7203,8 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
                        (1^alpha + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(alpha/2) )^(1/alpha) +
                        rand1 + period_numeric*rand2
                      , c(alpha, 0, 1, 0)),
-#                   pmu = c(Intercept= -1.268806, b_p=0.7400231, alpha=1.677604, var1=0.8507984, var2=1.301004, corr12= 0.5395131),
-#                   pmix=c(alpha=1.677604, var1=0.8507984, var2=1.301004 , corr12= 0.5395131),
+                   #                   pmu = c(Intercept= -1.268806, b_p=0.7400231, alpha=1.677604, var1=0.8507984, var2=1.301004, corr12= 0.5395131),
+                   #                   pmix=c(alpha=1.677604, var1=0.8507984, var2=1.301004 , corr12= 0.5395131),
                    pmu = c(Intercept= -1.362697, b_p=0.9523764, alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
                    pmix=c( alpha=1.747751, var1=0.8093904, var2=1.305351, corr12= 0.6295481),
                    p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
@@ -6257,133 +7225,133 @@ lme4::glmer(cbind(r, n_r) ~ x1 + (x1 | id), summed_binom_dat, binomial(link="pro
                    rel.tol.nlminb = 1e-1,
     )
 )
- # >  ## takes about XhrXXmin to run:
- #   > (rand.int.rand.slopes.nonzero.corr.CUBA.MARGINAL <-
- #        +     gnlrim::gnlrem(y=ybind,
- #                             +                    mu = ~ stable_cdf2(
- #                               +                      (Intercept + period_numeric*b_p)* 1^alpha *
- #                                 +                        (1^alpha + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(alpha/2) )^(1/alpha) +
- #                                 +                        rand1 + period_numeric*rand2
- #                               +                      , c(alpha, 0, 1, 0)),
- #                             +                    pmu = c(Intercept= -1.35819, b_p=0.5456027, alpha=1.74994, var1=0.895177, var2=1.30239, corr12= 0.556624),
- #                             +                    pmix=c(alpha=1.74994, var1=0.895177, var2=1.30239, corr12= 0.556624),
- #                             +                    p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
- #                             +                    p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
- #                             +                    distribution="binomial",
- #                             +                    nest=id,
- #                             +                    random=c("rand1", "rand2"),
- #                             +                    mixture="bivariate-subgauss-corr",
- #                             +                    ooo=TRUE,
- #                             +                    compute_hessian = FALSE,
- #                             +                    compute_kkt = FALSE,
- #                             +                    trace=1,
- #                             +                    method='nlminb',
- #                             +                    int2dmethod="cuba",
- #                             +                    abs.tol.nlminb = 1e-1,
- #                             +                    xf.tol.nlminb =  1e-1,
- #                             +                    x.tol.nlminb =   1e-1,
- #                             +                    rel.tol.nlminb = 1e-1,
- #                             +     )
- #      + )
- # [1] "2022-02-18 22:21:05 ... starting pcubature"
- # [1] "2022-02-18 22:28:36 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
- # [1] 6
- # Intercept        b_p      alpha       var1       var2     corr12
- # -1.3581900  0.5456027  1.7499400  0.8951770  1.3023900  0.5566240
- # [1] 3389.83
- # fn is  fn
- # Looking for method =  nlminb
- # Function has  6  arguments
- # par[ 1 ]:  -4   <? -1.35819   <? 0     In Bounds
- # par[ 2 ]:  -2   <? 0.5456027   <? 2     In Bounds
- # par[ 3 ]:  1.4   <? 1.74994   <? 1.9     In Bounds
- # par[ 4 ]:  0.05   <? 0.895177   <? 4     In Bounds
- # par[ 5 ]:  0.05   <? 1.30239   <? 4     In Bounds
- # par[ 6 ]:  -0.9   <? 0.556624   <? 0.9     In Bounds
- # [1] "2022-02-18 22:28:36 ... starting pcubature"
- # [1] "2022-02-18 22:36:18 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
- # Analytic gradient not made available.
- # Analytic Hessian not made available.
- # Scale check -- log parameter ratio= 0.5061466   log bounds ratio= 0.90309
- # Method:  nlminb
- # [1] "2022-02-18 22:36:18 ... starting pcubature"
- # [1] "2022-02-18 22:43:41 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
- # [1] "2022-02-18 22:43:41 ... starting pcubature"
- # [1] "2022-02-18 22:51:08 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
- # [1] "2022-02-18 22:51:08 ... starting pcubature"
- # [1] "2022-02-18 22:58:29 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
- # [1] "2022-02-18 22:58:29 ... starting pcubature"
- # [1] "2022-02-18 23:05:54 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
- # [1] "2022-02-18 23:05:54 ... starting pcubature"
- # [1] "2022-02-18 23:13:43 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
- # [1] "2022-02-18 23:13:43 ... starting pcubature"
- # [1] "2022-02-18 23:20:44 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
- # [1] "2022-02-18 23:20:44 ... starting pcubature"
- # [1] "2022-02-18 23:27:47 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
- # 0:     3389.8304: -1.35819 0.545603  1.74994 0.895177  1.30239 0.556624
- # [1] "2022-02-18 23:27:47 ... starting pcubature"
- # [1] "2022-02-18 23:30:52 ... ending   pcubature -- tol=0.01 -- ret.val is: 3463.72179"
- # [1] "2022-02-18 23:30:52 ... starting pcubature"
- # [1] "2022-02-18 23:39:11 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81883"
- # [1] "2022-02-18 23:39:11 ... starting pcubature"
- # [1] "2022-02-18 23:47:23 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81746"
- # [1] "2022-02-18 23:47:23 ... starting pcubature"
- # [1] "2022-02-18 23:55:57 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81996"
- # [1] "2022-02-18 23:55:57 ... starting pcubature"
- # [1] "2022-02-19 00:03:32 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.83836"
- # [1] "2022-02-19 00:03:32 ... starting pcubature"
- # [1] "2022-02-19 00:10:49 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81799"
- # [1] "2022-02-19 00:10:49 ... starting pcubature"
- # [1] "2022-02-19 00:17:59 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81871"
- # [1] "2022-02-19 00:17:59 ... starting pcubature"
- # [1] "2022-02-19 00:25:05 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81831"
- # 1:     3383.8188: -1.26881 0.740023  1.67760 0.850798  1.30100 0.539513
- # [1] "2022-02-19 00:25:05 ... starting pcubature"
- # [1] "2022-02-19 00:30:42 ... ending   pcubature -- tol=0.01 -- ret.val is: 3414.27633"
- # 2:     3383.8188: -1.26881 0.740023  1.67760 0.850798  1.30100 0.539513
- # [1] "2022-02-19 00:30:42 ... starting pcubature"
- # [1] "2022-02-19 00:37:46 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81883"
- # Post processing for method  nlminb
- # Save results from method  nlminb
- # $par
- # Intercept        b_p      alpha       var1       var2     corr12
- # -1.2688059  0.7400231  1.6776039  0.8507984  1.3010037  0.5395131
- #
- # $message
- # [1] "false convergence (8)"
- #
- # $convcode
- # [1] 1
- #
- # $value
- # [1] 3383.819
- #
- # $fevals
- # function
- # 4
- #
- # $gevals
- # gradient
- # 12
- #
- # $nitns
- # [1] 2
- #
- # $kkt1
- # [1] NA
- #
- # $kkt2
- # [1] NA
- #
- # $xtimes
- # user.self
- # 12701.6
- #
- # Assemble the answers
- # Intercept       b_p    alpha      var1     var2    corr12    value fevals
- # nlminb -1.268806 0.7400231 1.677604 0.8507984 1.301004 0.5395131 3383.819      4
- # gevals niter convcode kkt1 kkt2   xtime
- # nlminb     12     2        1   NA   NA 12701.6
+# >  ## takes about XhrXXmin to run:
+#   > (rand.int.rand.slopes.nonzero.corr.CUBA.MARGINAL <-
+#        +     gnlrim::gnlrem(y=ybind,
+#                             +                    mu = ~ stable_cdf2(
+#                               +                      (Intercept + period_numeric*b_p)* 1^alpha *
+#                                 +                        (1^alpha + (var1 + var2*period_numeric^2 + 2*corr12*sqrt(var1*var2)*period_numeric)^(alpha/2) )^(1/alpha) +
+#                                 +                        rand1 + period_numeric*rand2
+#                               +                      , c(alpha, 0, 1, 0)),
+#                             +                    pmu = c(Intercept= -1.35819, b_p=0.5456027, alpha=1.74994, var1=0.895177, var2=1.30239, corr12= 0.556624),
+#                             +                    pmix=c(alpha=1.74994, var1=0.895177, var2=1.30239, corr12= 0.556624),
+#                             +                    p_uppb = c(  0,   2, 1.90, 4.00, 4.00, 0.90),
+#                             +                    p_lowb = c( -4,  -2, 1.40, 0.05, 0.05,-0.90),
+#                             +                    distribution="binomial",
+#                             +                    nest=id,
+#                             +                    random=c("rand1", "rand2"),
+#                             +                    mixture="bivariate-subgauss-corr",
+#                             +                    ooo=TRUE,
+#                             +                    compute_hessian = FALSE,
+#                             +                    compute_kkt = FALSE,
+#                             +                    trace=1,
+#                             +                    method='nlminb',
+#                             +                    int2dmethod="cuba",
+#                             +                    abs.tol.nlminb = 1e-1,
+#                             +                    xf.tol.nlminb =  1e-1,
+#                             +                    x.tol.nlminb =   1e-1,
+#                             +                    rel.tol.nlminb = 1e-1,
+#                             +     )
+#      + )
+# [1] "2022-02-18 22:21:05 ... starting pcubature"
+# [1] "2022-02-18 22:28:36 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+# [1] 6
+# Intercept        b_p      alpha       var1       var2     corr12
+# -1.3581900  0.5456027  1.7499400  0.8951770  1.3023900  0.5566240
+# [1] 3389.83
+# fn is  fn
+# Looking for method =  nlminb
+# Function has  6  arguments
+# par[ 1 ]:  -4   <? -1.35819   <? 0     In Bounds
+# par[ 2 ]:  -2   <? 0.5456027   <? 2     In Bounds
+# par[ 3 ]:  1.4   <? 1.74994   <? 1.9     In Bounds
+# par[ 4 ]:  0.05   <? 0.895177   <? 4     In Bounds
+# par[ 5 ]:  0.05   <? 1.30239   <? 4     In Bounds
+# par[ 6 ]:  -0.9   <? 0.556624   <? 0.9     In Bounds
+# [1] "2022-02-18 22:28:36 ... starting pcubature"
+# [1] "2022-02-18 22:36:18 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+# Analytic gradient not made available.
+# Analytic Hessian not made available.
+# Scale check -- log parameter ratio= 0.5061466   log bounds ratio= 0.90309
+# Method:  nlminb
+# [1] "2022-02-18 22:36:18 ... starting pcubature"
+# [1] "2022-02-18 22:43:41 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+# [1] "2022-02-18 22:43:41 ... starting pcubature"
+# [1] "2022-02-18 22:51:08 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+# [1] "2022-02-18 22:51:08 ... starting pcubature"
+# [1] "2022-02-18 22:58:29 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+# [1] "2022-02-18 22:58:29 ... starting pcubature"
+# [1] "2022-02-18 23:05:54 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+# [1] "2022-02-18 23:05:54 ... starting pcubature"
+# [1] "2022-02-18 23:13:43 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+# [1] "2022-02-18 23:13:43 ... starting pcubature"
+# [1] "2022-02-18 23:20:44 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+# [1] "2022-02-18 23:20:44 ... starting pcubature"
+# [1] "2022-02-18 23:27:47 ... ending   pcubature -- tol=0.01 -- ret.val is: 3389.83037"
+# 0:     3389.8304: -1.35819 0.545603  1.74994 0.895177  1.30239 0.556624
+# [1] "2022-02-18 23:27:47 ... starting pcubature"
+# [1] "2022-02-18 23:30:52 ... ending   pcubature -- tol=0.01 -- ret.val is: 3463.72179"
+# [1] "2022-02-18 23:30:52 ... starting pcubature"
+# [1] "2022-02-18 23:39:11 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81883"
+# [1] "2022-02-18 23:39:11 ... starting pcubature"
+# [1] "2022-02-18 23:47:23 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81746"
+# [1] "2022-02-18 23:47:23 ... starting pcubature"
+# [1] "2022-02-18 23:55:57 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81996"
+# [1] "2022-02-18 23:55:57 ... starting pcubature"
+# [1] "2022-02-19 00:03:32 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.83836"
+# [1] "2022-02-19 00:03:32 ... starting pcubature"
+# [1] "2022-02-19 00:10:49 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81799"
+# [1] "2022-02-19 00:10:49 ... starting pcubature"
+# [1] "2022-02-19 00:17:59 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81871"
+# [1] "2022-02-19 00:17:59 ... starting pcubature"
+# [1] "2022-02-19 00:25:05 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81831"
+# 1:     3383.8188: -1.26881 0.740023  1.67760 0.850798  1.30100 0.539513
+# [1] "2022-02-19 00:25:05 ... starting pcubature"
+# [1] "2022-02-19 00:30:42 ... ending   pcubature -- tol=0.01 -- ret.val is: 3414.27633"
+# 2:     3383.8188: -1.26881 0.740023  1.67760 0.850798  1.30100 0.539513
+# [1] "2022-02-19 00:30:42 ... starting pcubature"
+# [1] "2022-02-19 00:37:46 ... ending   pcubature -- tol=0.01 -- ret.val is: 3383.81883"
+# Post processing for method  nlminb
+# Save results from method  nlminb
+# $par
+# Intercept        b_p      alpha       var1       var2     corr12
+# -1.2688059  0.7400231  1.6776039  0.8507984  1.3010037  0.5395131
+#
+# $message
+# [1] "false convergence (8)"
+#
+# $convcode
+# [1] 1
+#
+# $value
+# [1] 3383.819
+#
+# $fevals
+# function
+# 4
+#
+# $gevals
+# gradient
+# 12
+#
+# $nitns
+# [1] 2
+#
+# $kkt1
+# [1] NA
+#
+# $kkt2
+# [1] NA
+#
+# $xtimes
+# user.self
+# 12701.6
+#
+# Assemble the answers
+# Intercept       b_p    alpha      var1     var2    corr12    value fevals
+# nlminb -1.268806 0.7400231 1.677604 0.8507984 1.301004 0.5395131 3383.819      4
+# gevals niter convcode kkt1 kkt2   xtime
+# nlminb     12     2        1   NA   NA 12701.6
 
 
 
